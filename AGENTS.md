@@ -95,42 +95,32 @@ If tests are proposed, they must validate behavior rather than internal implemen
 
 Tests
 
-Every test case may contain only one assertion.
-In every test, the assertion must be the last statement.
-Test cases must be as short as possible.
+Tests should be short, focused, and readable.
 Every test must assert at least once.
-Each test file must have a one-to-one mapping with the feature file it tests.
-Every assertion must include a failure message that is a negatively toned claim about the error.
-Tests must use irregular inputs, such as non-ASCII strings.
-Tests may not share object attributes.
-Tests may not use `setUp()` or `tearDown()` idioms.
-Tests may not use static literals or other shared constants.
-Tests must be named as full English sentences, stating what the object under test does.
-Tests may not test functionality irrelevant to their stated purpose.
+Each test should verify one behavioral scenario of the object under test.
+Test files should map clearly to the feature, class, or behavior they cover.
+Test names must be full English sentences that describe the observed behavior.
+Tests should avoid hidden shared state between cases.
+Prefer explicit setup in the test body; shared fixtures are acceptable when they improve clarity and do not hide important context.
+Prefer fake objects and stubs over mocks when practical, especially in domain-level tests.
+Tests should validate behavior rather than internal implementation details.
+Tests should not spend effort on trivial getters and setters unless that behavior is part of a real contract.
 Tests must close resources they use, such as file handlers, sockets, and database connections.
-Objects must not provide functionality used only by tests.
-Tests may not assert on side effects such as logging output.
-Tests may not check the behavior of setters, getters, or constructors.
-Tests must not clean up after themselves; instead, they must prepare a clean state at the start.
-Tests should not use mocks, favoring fake objects and stubs.
-The best tests consist of a single statement.
-Each test must verify only one specific behavioral pattern of the object it tests.
-Tests must use random values as inputs.
+Tests should prepare a clean state before execution instead of relying on cleanup after failure.
+Use irregular inputs, non-ASCII strings, and randomized values when they improve coverage and remain deterministic enough to diagnose failures.
 Tests should store temporary files in temporary directories, not in the codebase directory.
-Tests are not allowed to print any log messages.
-The testing framework must be configured to disable logging from the objects under test.
-Tests must not wait indefinitely for any event; they must always stop waiting on a timeout.
-Tests must verify object behavior in multi-threaded and concurrent environments.
-Tests must retry potentially flaky code blocks.
-Tests must assume the absence of an Internet connection.
-Tests may not assert on error messages or codes.
-Tests must not rely on default configurations of the objects they test and must provide custom arguments.
-Tests must not mock the file system, sockets, or memory managers.
-Tests must use ephemeral TCP ports generated using appropriate library functions.
-Tests should inline small fixtures instead of loading them from files.
-Tests should create large fixtures at runtime rather than storing them in files.
-Tests may create supplementary fixture objects to avoid code duplication.
-Test method names must spell `cannot` and `dont` without apostrophes.
+Tests should not print log messages.
+The testing framework should disable or minimize logging from the objects under test.
+Tests must not wait indefinitely for any event and must always use bounded timeouts.
+Tests should assume the absence of an Internet connection unless a test explicitly targets network integration.
+Tests must not rely on default configurations of the objects they test when important behavior depends on configuration.
+Use ephemeral TCP ports generated with appropriate library functions when network ports are required.
+Inline small fixtures when that improves readability.
+Create large fixtures at runtime instead of storing them in files when practical.
+Supplementary fixture objects are acceptable when they reduce duplication without obscuring intent.
+Verify concurrent or multi-threaded behavior when the code under test is expected to be safe under concurrency.
+Avoid flaky tests; if retries are used for unstable external conditions, the reason must be explicit and bounded.
+Avoid asserting on error message text when a stronger contract such as exception type, structured payload, or error code is available.
 
 DevOps / Infrastructure
 
