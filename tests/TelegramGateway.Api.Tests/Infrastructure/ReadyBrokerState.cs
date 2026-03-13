@@ -16,7 +16,6 @@ internal sealed class ReadyBrokerState : IBrokerState
     /// Throws because this fake never exposes a real broker connection.
     /// </summary>
     /// <param name="token">The cancellation token.</param>
-    /// <returns>This method does not return a connection.</returns>
     /// <exception cref="NotSupportedException">Thrown whenever a test asks this fake for an IConnection.</exception>
     public ValueTask<IConnection> Connection(CancellationToken token)
     {
