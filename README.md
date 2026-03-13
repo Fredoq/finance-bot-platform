@@ -1,6 +1,6 @@
 # finance-bot-platform
 
-Monorepo for the Telegram personal finance platform: bot gateway, finance core, background workers, shared contracts, and platform documentation.
+Monorepo for the Telegram personal finance platform: telegram gateway, finance core, background workers, shared contracts, and platform documentation.
 
 ## Purpose
 
@@ -14,3 +14,4 @@ This repository is the application monorepo for a secure, scalable Telegram pers
 - [Service boundaries](docs/architecture/services.md)
 - [Repository strategy](docs/architecture/repository-strategy.md)
 - [ADR-0001: Monorepo and service boundaries](docs/adr/0001-monorepo-and-service-boundaries.md)
+- [ADR-0002: Telegram-gateway Telegram boundary and entry contracts](docs/adr/0002-telegram-gateway-telegram-boundary-and-entry-contracts.md)

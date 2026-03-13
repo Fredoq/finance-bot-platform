@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "../../finance-bot-platform.slnx",
+    "projects": [
+      "libs/contracts/Finance.Application.Contracts/Finance.Application.Contracts.csproj",
+      "services/telegram-gateway/src/TelegramGateway.Api/TelegramGateway.Api.csproj",
+      "services/telegram-gateway/src/TelegramGateway.Application/TelegramGateway.Application.csproj",
+      "services/telegram-gateway/src/TelegramGateway.Domain/TelegramGateway.Domain.csproj",
+      "services/telegram-gateway/src/TelegramGateway.Infrastructure/TelegramGateway.Infrastructure.csproj",
+      "tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj",
+      "tests/TelegramGateway.Application.Tests/TelegramGateway.Application.Tests.csproj",
+      "tests/Finance.Application.Contracts.Tests/Finance.Application.Contracts.Tests.csproj"
+    ]
+  }
+}

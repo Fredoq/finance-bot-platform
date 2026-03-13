@@ -17,7 +17,7 @@ Two decisions are foundational:
 
 The platform will start with three application services:
 
-- `bot-gateway`
+- `telegram-gateway`
 - `finance-core`
 - `job-worker`
 
@@ -29,7 +29,7 @@ Infrastructure delivery will live in a separate repository.
 
 ### Why three services
 
-- `bot-gateway` isolates external ingress, validation, and request hardening.
+- `telegram-gateway` isolates external ingress, validation, and request hardening.
 - `finance-core` owns business logic and persistence.
 - `job-worker` isolates asynchronous and scheduled work from edge request handling.
 

@@ -8,7 +8,7 @@
 
 Project Context
 
-This repository contains the application monorepo for a Telegram-based personal finance platform. It hosts `bot-gateway`, `finance-core`, `job-worker`, shared contracts, shared libraries, tests, and architecture documentation.
+This repository contains the application monorepo for a Telegram-based personal finance platform. It hosts `telegram-gateway`, `finance-core`, `job-worker`, shared contracts, shared libraries, tests, and architecture documentation.
 
 Language and Tone
 
@@ -31,6 +31,9 @@ New code must stay aligned with the architectural decisions and documents in `do
 Style Guide C#
 
 Use `file-scoped namespaces`, `required`, and `collection expressions`.
+Prefer `sealed record` for immutable value objects and immutable contract models.
+Use `class` for objects with identity, lifecycle, or behavior-heavy invariants.
+Use `record struct` only when the default value is valid and the allocation benefit is justified by measurements or a hot path.
 
 Code Design
 
@@ -64,8 +67,6 @@ Class or record names should be based on what they are, not what they do.
 Examples of bad names: `Manager`, `Controller`, `Helper`, `Handler`, `Writer`, `Reader`, `Converter`, `Validator`, `Router`, `Dispatcher`, `Observer`, `Listener`, `Sorter`, `Encoder`, `Decoder`.
 Exceptions include names such as `User` and `Computer`.
 
-Constructor bodies may not contain any code except assignment statements.
-Constructors must only create the object without processing the input data in their body.
 Data processing must occur on demand by calling object methods.
 
 Encapsulate as few fields as possible in classes or records.

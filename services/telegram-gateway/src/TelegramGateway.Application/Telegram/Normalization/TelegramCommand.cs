@@ -1,0 +1,69 @@
+using TelegramGateway.Application.Telegram.Contracts;
+
+namespace TelegramGateway.Application.Telegram.Normalization;
+
+/// <summary>
+/// Represents a normalized command token and payload extracted from a Telegram message.
+/// Example:
+/// <code>
+/// var item = new TelegramCommand(message);
+/// </code>
+/// </summary>
+internal sealed record TelegramCommand
+{
+    /// <summary>
+    /// Initializes the normalized command model from a Telegram message.
+    /// Example:
+    /// <code>
+    /// var item = new TelegramCommand(message);
+    /// </code>
+    /// </summary>
+    /// <param name="message">The source Telegram message.</param>
+    public TelegramCommand(TelegramMessage message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        var text = message.Text?.Trim() ?? string.Empty;
+        if (message.Entities is { Length: > 0 })
+        {
+            foreach (var item in message.Entities)
+            {
+                if (item.Type != "bot_command" || item.Offset != 0 || item.Length <= 0 || item.Offset + item.Length > text.Length)
+                {
+                    continue;
+                }
+                var head = text[item.Offset..(item.Offset + item.Length)];
+                var mark = head.IndexOf('@');
+                Name = mark >= 0 ? head[..mark] : head;
+                Payload = text[item.Length..].Trim();
+                return;
+            }
+        }
+        if (!text.StartsWith('/'))
+        {
+            Name = string.Empty;
+            Payload = string.Empty;
+            return;
+        }
+        var edge = text.IndexOf(' ');
+        var token = edge >= 0 ? text[..edge] : text;
+        var spot = token.IndexOf('@');
+        Name = spot >= 0 ? token[..spot] : token;
+        Payload = edge < 0 ? string.Empty : text[(edge + 1)..].Trim();
+    }
+    /// <summary>
+    /// Gets the normalized command token.
+    /// Example:
+    /// <code>
+    /// string text = item.Name;
+    /// </code>
+    /// </summary>
+    public string Name { get; }
+    /// <summary>
+    /// Gets the normalized command payload.
+    /// Example:
+    /// <code>
+    /// string text = item.Payload;
+    /// </code>
+    /// </summary>
+    public string Payload { get; }
+}

@@ -4,33 +4,34 @@
 
 The system should have a small number of services with explicit ownership. The goal is to isolate responsibilities that differ in failure mode, scaling behavior, and security posture, without introducing premature fragmentation.
 
-## `bot-gateway`
+## `telegram-gateway`
 
 ### Responsibility
 
-`bot-gateway` is the external edge component for Telegram traffic.
+`telegram-gateway` is the Telegram-facing ingress service of the platform.
 
 ### Owns
 
 - Telegram webhook endpoint
 - request authentication and validation
-- deduplication of incoming updates
-- initial routing metadata
-- rate limiting and abuse protection at the bot boundary
+- Telegram anti-corruption mapping
+- publication of application contracts into RabbitMQ
+- initial routing and correlation metadata
 
 ### Does Not Own
 
 - finance business rules
 - transaction persistence
 - reporting logic
+- webhook bootstrap or `setWebhook` orchestration
 - scheduled jobs
 
 ### Key Requirements
 
 - fast webhook acknowledgment
-- safe handling of duplicate updates
 - minimal synchronous logic
 - observable request pipeline
+- no Telegram-specific contract leakage beyond the service boundary
 
 ## `finance-core`
 
@@ -103,20 +104,19 @@ These are required platform dependencies but are not treated as domain services 
 - request throttling
 - short-term caching where justified
 
-### `message broker`
+### `RabbitMQ`
 
 - asynchronous handoff between gateway, core, and workers
 - retry and decoupling boundary
-
-The exact broker can be chosen later, but the architecture assumes a durable async transport exists.
+- durable transport for application contracts
 
 ## Deployment Topology
 
 The intended topology is:
 
-1. external ingress reaches `bot-gateway`
-2. `bot-gateway` hands work to the async boundary
-3. `finance-core` processes business operations
+1. Telegram reaches `telegram-gateway`
+2. `telegram-gateway` hands work to RabbitMQ
+3. `finance-core` processes application commands
 4. `job-worker` executes delayed and scheduled work
 5. all services publish logs, metrics, and traces into a shared observability stack
 

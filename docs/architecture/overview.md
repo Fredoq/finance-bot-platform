@@ -27,17 +27,18 @@ The architecture must support this MVP without painting the system into a corner
 
 - The application codebase lives in a single monorepo.
 - The system is split into a small number of services with clear ownership.
-- Telegram webhook handling is separated from core business processing.
+- `telegram-gateway` is the Telegram-facing webhook boundary inside the platform.
+- Telegram-specific request models are normalized inside `telegram-gateway` and do not cross the async boundary.
 - Business processing is asynchronous where it improves resilience and delivery guarantees.
 - PostgreSQL is the source of truth for business data.
-- Redis and a broker are used for transient state, rate limiting, and asynchronous communication.
+- RabbitMQ is the durable async transport between the edge and business services.
 - Reliability patterns such as idempotency and outbox/inbox are part of the baseline design.
 
 ## Service Model
 
 The target application layer consists of three services:
 
-1. `bot-gateway`
+1. `telegram-gateway`
 2. `finance-core`
 3. `job-worker`
 
@@ -45,26 +46,24 @@ Supporting platform components:
 
 - `PostgreSQL`
 - `Redis`
-- `message broker`
+- `RabbitMQ`
 - `reverse proxy / ingress`
 - `observability stack`
 - `secret and configuration management`
 
 ## High-Level Request Flow
 
-1. Telegram sends an update to `bot-gateway` via webhook.
-2. `bot-gateway` authenticates and validates the request.
-3. `bot-gateway` deduplicates the incoming update using Telegram update metadata.
-4. `bot-gateway` publishes a command or event for downstream processing.
-5. `finance-core` performs business logic and persists state changes.
-6. Outgoing messages are emitted through an outbox-driven delivery flow.
-7. `job-worker` processes background work such as retries, reminders, and scheduled reporting.
+1. Telegram delivers an update to `telegram-gateway` via webhook.
+2. `telegram-gateway` authenticates the request and normalizes supported intents.
+3. `telegram-gateway` publishes an application command such as `WorkspaceRequestedCommand`.
+4. `finance-core` performs business logic and persists state changes.
+5. Outgoing messages are emitted through an outbox-driven delivery flow.
+6. `job-worker` processes retries, delayed work, reminders, and scheduled reporting.
 
 ## Reliability Baseline
 
 The platform is expected to include these properties from the start:
 
-- idempotent update handling
 - retry-safe command processing
 - durable persistence for business records
 - asynchronous boundaries between edge traffic and business logic
@@ -89,7 +88,7 @@ Target structure inside this monorepo:
 
 ```text
 services/
-  bot-gateway/
+  telegram-gateway/
   finance-core/
   job-worker/
 libs/
