@@ -168,10 +168,15 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     /// <returns>The configuration collection.</returns>
     private Dictionary<string, string?> Note(string name)
     {
+        var item = new Uri(uri);
         return new Dictionary<string, string?>
         {
             ["Telegram:Webhook:SecretToken"] = "test-secret",
-            ["RabbitMq:Uri"] = uri,
+            ["RabbitMq:Host"] = item.Host,
+            ["RabbitMq:Port"] = item.Port.ToString(),
+            ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),
+            ["RabbitMq:Username"] = "guest",
+            ["RabbitMq:Password"] = "guest",
             ["RabbitMq:Exchange"] = "finance.command",
             ["RabbitMq:Client"] = name
         };

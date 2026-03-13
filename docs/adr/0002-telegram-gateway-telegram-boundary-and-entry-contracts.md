@@ -1,4 +1,4 @@
-# ADR-0002: Telegram-Gateway Telegram Boundary And Entry Contracts
+# ADR-0002: Telegram gateway boundary and entry contracts
 
 ## Status
 

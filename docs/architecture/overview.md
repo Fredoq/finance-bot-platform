@@ -32,6 +32,7 @@ The architecture must support this MVP without painting the system into a corner
 - Business processing is asynchronous where it improves resilience and delivery guarantees.
 - PostgreSQL is the source of truth for business data.
 - RabbitMQ is the durable async transport between the edge and business services.
+- Redis remains available for short-lived conversational state, throttling data, and cache entries where low-latency ephemeral storage is justified.
 - Reliability patterns such as idempotency and outbox/inbox are part of the baseline design.
 
 ## Service Model

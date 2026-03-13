@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TelegramGateway.Application.Messaging;
 using TelegramGateway.Infrastructure.Configuration;
@@ -11,7 +10,7 @@ namespace TelegramGateway.Infrastructure;
 /// Registers the infrastructure services required by the gateway runtime.
 /// Example:
 /// <code>
-/// builder.Services.AddTelegramGatewayInfrastructure(builder.Configuration);
+/// builder.Services.AddTelegramGatewayInfrastructure();
 /// </code>
 /// </summary>
 public static class InfrastructureSetup
@@ -20,13 +19,12 @@ public static class InfrastructureSetup
     /// Adds the RabbitMQ transport, startup warm-up, and broker health checks.
     /// Example:
     /// <code>
-    /// builder.Services.AddTelegramGatewayInfrastructure(builder.Configuration);
+    /// builder.Services.AddTelegramGatewayInfrastructure();
     /// </code>
     /// </summary>
     /// <param name="items">The service collection.</param>
-    /// <param name="note">The configuration root.</param>
     /// <returns>The same service collection.</returns>
-    public static IServiceCollection AddTelegramGatewayInfrastructure(this IServiceCollection items, IConfiguration note)
+    public static IServiceCollection AddTelegramGatewayInfrastructure(this IServiceCollection items)
     {
         items.AddOptionsWithValidateOnStart<RabbitMqOptions>().BindConfiguration(RabbitMqOptions.Section).ValidateDataAnnotations();
         items.AddSingleton<IBrokerState, RabbitMqLink>();

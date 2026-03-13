@@ -126,7 +126,11 @@ public sealed class WebhookApiTests
         return new Dictionary<string, string?>
         {
             ["Telegram:Webhook:SecretToken"] = "test-secret",
-            ["RabbitMq:Uri"] = "amqp://guest:guest@localhost:5672/",
+            ["RabbitMq:Host"] = "localhost",
+            ["RabbitMq:Port"] = "5672",
+            ["RabbitMq:VirtualHost"] = "/",
+            ["RabbitMq:Username"] = "guest",
+            ["RabbitMq:Password"] = "guest",
             ["RabbitMq:Exchange"] = "finance.command",
             ["RabbitMq:Client"] = "telegram-gateway-tests"
         };

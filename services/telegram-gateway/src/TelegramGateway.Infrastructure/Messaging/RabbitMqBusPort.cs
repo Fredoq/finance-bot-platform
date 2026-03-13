@@ -17,8 +17,12 @@ namespace TelegramGateway.Infrastructure.Messaging;
 /// await port.Publish(message, token);
 /// </code>
 /// </summary>
-internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptions> option, ILogger<RabbitMqBusPort> log) : IBusPort
+internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptions> option, ILogger<RabbitMqBusPort> log) : IBusPort, IAsyncDisposable
 {
+    private readonly SemaphoreSlim gate = new(1, 1);
+    private IChannel? lane;
+    private IConnection? link;
+    private int disposed;
     /// <summary>
     /// Publishes the application message envelope to RabbitMQ.
     /// Example:
@@ -32,11 +36,24 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
     public async ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class
     {
         ArgumentNullException.ThrowIfNull(message);
+        if (Volatile.Read(ref disposed) == 1)
+        {
+            throw new ObjectDisposedException(nameof(RabbitMqBusPort));
+        }
+        await gate.WaitAsync(token);
         try
         {
-            await state.Ensure(token);
+            if (Volatile.Read(ref disposed) == 1)
+            {
+                throw new ObjectDisposedException(nameof(RabbitMqBusPort));
+            }
             var item = await state.Connection(token);
-            await using var lane = await item.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken: token);
+            if (lane is null || !lane.IsOpen || !ReferenceEquals(link, item))
+            {
+                await Close();
+                lane = await item.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken: token);
+                link = item;
+            }
             var note = JsonSerializer.SerializeToUtf8Bytes(message);
             var data = Properties(message);
             await lane.BasicPublishAsync(option.Value.Exchange, message.Contract, true, data, note, token);
@@ -44,13 +61,48 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
         }
         catch (PublishException error)
         {
+            await Close();
             log.LogError(error, "Message publish failed");
             throw new BusException("Message publish failed", error);
         }
+        catch (OperationCanceledException error) when (Cancel(error))
+        {
+            throw;
+        }
         catch (Exception error)
         {
+            await Close();
             log.LogError(error, "Broker transport failed");
             throw new BusException("Broker transport failed", error);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+    /// <summary>
+    /// Disposes the cached broker channel.
+    /// Example:
+    /// <code>
+    /// await port.DisposeAsync();
+    /// </code>
+    /// </summary>
+    /// <returns>A task that completes when the channel is disposed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref disposed, 1) == 1)
+        {
+            return;
+        }
+        await gate.WaitAsync();
+        try
+        {
+            await Close();
+        }
+        finally
+        {
+            gate.Release();
+            gate.Dispose();
         }
     }
     /// <summary>
@@ -100,5 +152,49 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             item["traceparent"] = text;
         }
         return item;
+    }
+    /// <summary>
+    /// Closes and disposes the cached broker channel.
+    /// Example:
+    /// <code>
+    /// await port.Close();
+    /// </code>
+    /// </summary>
+    /// <returns>A task that completes when the channel state is cleared.</returns>
+    private async ValueTask Close()
+    {
+        var item = lane;
+        lane = null;
+        link = null;
+        if (item is null)
+        {
+            return;
+        }
+        try
+        {
+            if (item.IsOpen)
+            {
+                await item.CloseAsync();
+            }
+            await item.DisposeAsync();
+        }
+        catch (Exception error)
+        {
+            log.LogWarning(error, "Broker channel cleanup failed");
+        }
+    }
+    /// <summary>
+    /// Logs broker transport cancellation and keeps the original exception flow.
+    /// Example:
+    /// <code>
+    /// _ = port.Cancel(error);
+    /// </code>
+    /// </summary>
+    /// <param name="error">The cancellation exception.</param>
+    /// <returns><see langword="false"/> so the exception is rethrown by the runtime.</returns>
+    private bool Cancel(OperationCanceledException error)
+    {
+        log.LogInformation(error, "Broker transport cancelled");
+        return false;
     }
 }

@@ -20,12 +20,12 @@ public sealed class ContractSourceTests
     public Task Rejects_telegram()
     {
         var root = Root();
-        var note = Path.Combine(root, "libs", "contracts", "Finance.Application.Contracts");
-        var list = Directory.GetFiles(note, "*.cs", SearchOption.AllDirectories);
+        var contractsPath = Path.Combine(root, "libs", "contracts", "Finance.Application.Contracts");
+        var list = Directory.GetFiles(contractsPath, "*.cs", SearchOption.AllDirectories);
         foreach (var item in list)
         {
             var text = File.ReadAllText(item);
-            Assert.DoesNotContain("Telegram", text, StringComparison.Ordinal);
+            Assert.False(text.Contains("Telegram", StringComparison.Ordinal), $"File contains a Telegram reference: {item}");
         }
         return Task.CompletedTask;
     }

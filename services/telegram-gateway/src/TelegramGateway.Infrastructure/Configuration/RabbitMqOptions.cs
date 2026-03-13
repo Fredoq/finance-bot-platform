@@ -6,7 +6,7 @@ namespace TelegramGateway.Infrastructure.Configuration;
 /// Represents the RabbitMQ settings required by the gateway transport.
 /// Example:
 /// <code>
-/// var options = new RabbitMqOptions { Uri = "amqp://guest:guest@localhost:5672/", Exchange = "finance.command", Client = "telegram-gateway" };
+/// var options = new RabbitMqOptions { Host = "localhost", Port = 5672, VirtualHost = "/", Username = "guest", Password = "guest", Exchange = "finance.command", Client = "telegram-gateway" };
 /// </code>
 /// </summary>
 public sealed class RabbitMqOptions : IValidatableObject
@@ -20,14 +20,49 @@ public sealed class RabbitMqOptions : IValidatableObject
     /// </summary>
     public const string Section = "RabbitMq";
     /// <summary>
-    /// Gets or sets the broker URI.
+    /// Gets or sets the broker host name.
     /// Example:
     /// <code>
-    /// string text = options.Uri;
+    /// string text = options.Host;
     /// </code>
     /// </summary>
     [Required]
-    public string Uri { get; init; } = string.Empty;
+    public string Host { get; init; } = "localhost";
+    /// <summary>
+    /// Gets or sets the broker port.
+    /// Example:
+    /// <code>
+    /// int item = options.Port;
+    /// </code>
+    /// </summary>
+    public int Port { get; init; } = 5672;
+    /// <summary>
+    /// Gets or sets the broker virtual host.
+    /// Example:
+    /// <code>
+    /// string text = options.VirtualHost;
+    /// </code>
+    /// </summary>
+    [Required]
+    public string VirtualHost { get; init; } = "/";
+    /// <summary>
+    /// Gets or sets the broker user name.
+    /// Example:
+    /// <code>
+    /// string text = options.Username;
+    /// </code>
+    /// </summary>
+    [Required]
+    public string Username { get; init; } = string.Empty;
+    /// <summary>
+    /// Gets or sets the broker password.
+    /// Example:
+    /// <code>
+    /// string text = options.Password;
+    /// </code>
+    /// </summary>
+    [Required]
+    public string Password { get; init; } = string.Empty;
     /// <summary>
     /// Gets or sets the exchange name.
     /// Example:
@@ -57,10 +92,27 @@ public sealed class RabbitMqOptions : IValidatableObject
     /// <returns>The validation result collection.</returns>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!System.Uri.TryCreate(Uri, UriKind.Absolute, out var uri) || (uri.Scheme != "amqp" && uri.Scheme != "amqps"))
+        var list = new List<ValidationResult>();
+        if (string.IsNullOrWhiteSpace(Host))
         {
-            return [new ValidationResult("RabbitMq Uri must be an absolute amqp or amqps value", [nameof(Uri)])];
+            list.Add(new ValidationResult("RabbitMq host is required", [nameof(Host)]));
         }
-        return [];
+        if (Port is < 1 or > 65535)
+        {
+            list.Add(new ValidationResult("RabbitMq port must be between 1 and 65535", [nameof(Port)]));
+        }
+        if (string.IsNullOrWhiteSpace(VirtualHost))
+        {
+            list.Add(new ValidationResult("RabbitMq virtual host is required", [nameof(VirtualHost)]));
+        }
+        if (string.IsNullOrWhiteSpace(Username))
+        {
+            list.Add(new ValidationResult("RabbitMq username is required", [nameof(Username)]));
+        }
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            list.Add(new ValidationResult("RabbitMq password is required", [nameof(Password)]));
+        }
+        return list;
     }
 }

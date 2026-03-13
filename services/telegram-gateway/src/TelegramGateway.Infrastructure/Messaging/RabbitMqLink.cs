@@ -17,13 +17,18 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly ConnectionFactory factory = new()
     {
-        Uri = new Uri(option.Value.Uri),
+        HostName = option.Value.Host,
+        Port = option.Value.Port,
+        VirtualHost = option.Value.VirtualHost,
+        UserName = option.Value.Username,
+        Password = option.Value.Password,
         AutomaticRecoveryEnabled = true,
         TopologyRecoveryEnabled = true,
         ClientProvidedName = option.Value.Client,
         RequestedHeartbeat = TimeSpan.FromSeconds(30)
     };
     private IConnection? link;
+    private int disposed;
     /// <summary>
     /// Gets the active broker connection.
     /// Example:
@@ -35,6 +40,10 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     /// <returns>The active broker connection.</returns>
     public async ValueTask<IConnection> Connection(CancellationToken token)
     {
+        if (Volatile.Read(ref disposed) == 1)
+        {
+            throw new ObjectDisposedException(nameof(RabbitMqLink));
+        }
         if (link is { IsOpen: true })
         {
             return link;
@@ -42,9 +51,18 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
         await gate.WaitAsync(token);
         try
         {
+            if (Volatile.Read(ref disposed) == 1)
+            {
+                throw new ObjectDisposedException(nameof(RabbitMqLink));
+            }
             if (link is { IsOpen: true })
             {
                 return link;
+            }
+            if (link is not null)
+            {
+                await Close(link);
+                link = null;
             }
             link = await factory.CreateConnectionAsync(token);
             log.LogInformation("RabbitMQ connection is open");
@@ -80,15 +98,47 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     /// <returns>A task that completes when the connection is disposed.</returns>
     public async ValueTask DisposeAsync()
     {
-        if (link is null)
+        if (Interlocked.Exchange(ref disposed, 1) == 1)
         {
             return;
         }
-        if (link.IsOpen)
+        await gate.WaitAsync();
+        try
         {
-            await link.CloseAsync();
+            if (link is not null)
+            {
+                await Close(link);
+                link = null;
+            }
         }
-        await link.DisposeAsync();
-        gate.Dispose();
+        finally
+        {
+            gate.Release();
+            gate.Dispose();
+        }
+    }
+    /// <summary>
+    /// Closes and disposes a stale broker connection.
+    /// Example:
+    /// <code>
+    /// await link.Close(item);
+    /// </code>
+    /// </summary>
+    /// <param name="item">The connection to close.</param>
+    /// <returns>A task that completes when the connection is released.</returns>
+    private async ValueTask Close(IConnection item)
+    {
+        try
+        {
+            if (item.IsOpen)
+            {
+                await item.CloseAsync();
+            }
+            await item.DisposeAsync();
+        }
+        catch (Exception error)
+        {
+            log.LogWarning(error, "RabbitMQ connection cleanup failed");
+        }
     }
 }

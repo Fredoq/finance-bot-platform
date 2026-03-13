@@ -14,4 +14,4 @@ This repository is the application monorepo for a secure, scalable Telegram pers
 - [Service boundaries](docs/architecture/services.md)
 - [Repository strategy](docs/architecture/repository-strategy.md)
 - [ADR-0001: Monorepo and service boundaries](docs/adr/0001-monorepo-and-service-boundaries.md)
-- [ADR-0002: Telegram-gateway Telegram boundary and entry contracts](docs/adr/0002-telegram-gateway-telegram-boundary-and-entry-contracts.md)
+- [ADR-0002: Telegram gateway boundary and entry contracts](docs/adr/0002-telegram-gateway-telegram-boundary-and-entry-contracts.md)

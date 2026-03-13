@@ -16,7 +16,7 @@ builder.Logging.AddJsonConsole();
 builder.Services.AddProblemDetails();
 builder.Services.AddOptionsWithValidateOnStart<TelegramWebhookOptions>().BindConfiguration(TelegramWebhookOptions.Section).ValidateDataAnnotations();
 builder.Services.AddTelegramGatewayApplication();
-builder.Services.AddTelegramGatewayInfrastructure(builder.Configuration);
+builder.Services.AddTelegramGatewayInfrastructure();
 var open = builder.Services.AddOpenTelemetry();
 open.ConfigureResource(item => item.AddService("telegram-gateway"));
 open.WithTracing(item => item.AddAspNetCoreInstrumentation());
