@@ -1,4 +1,4 @@
-name: Publish telegram-gateway
+name: Publish finance-core
 
 on:
   push:
@@ -16,16 +16,16 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-telegram-gateway-${{ github.ref }}
+  group: publish-finance-core-${{ github.ref }}
   cancel-in-progress: false
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   SOLUTION_PATH: finance-bot-platform.slnx
-  PROJECT_PATH: services/telegram-gateway/src/TelegramGateway.Api/TelegramGateway.Api.csproj
-  TEST_PROJECT_PATH: tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj
-  CONTAINER_NAME: finance-bot-platform-telegram-gateway
+  PROJECT_PATH: services/finance-core/src/FinanceCore.Api/FinanceCore.Api.csproj
+  TEST_PROJECT_PATH: tests/FinanceCore.Api.Tests/FinanceCore.Api.Tests.csproj
+  CONTAINER_NAME: finance-bot-platform-finance-core
 
 jobs:
   scope:
@@ -46,10 +46,10 @@ jobs:
         run: |
           previous="$(git describe --tags --abbrev=0 "${GITHUB_SHA}^" 2>/dev/null || true)"
           if [ -n "$previous" ]; then
-            changed="$(git diff --name-only "$previous" "$GITHUB_SHA" -- services/telegram-gateway libs/contracts/Finance.Application.Contracts)"
+            changed="$(git diff --name-only "$previous" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts)"
           else
             empty="$(git hash-object -t tree /dev/null)"
-            changed="$(git diff --name-only "$empty" "$GITHUB_SHA" -- services/telegram-gateway libs/contracts/Finance.Application.Contracts)"
+            changed="$(git diff --name-only "$empty" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts)"
           fi
           if [ -n "$changed" ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
@@ -72,7 +72,7 @@ jobs:
           fetch-tags: true
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3ced7 # v5
         with:
           global-json-file: global.json
 
