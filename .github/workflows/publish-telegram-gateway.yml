@@ -5,6 +5,11 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: Container version without v prefix
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -32,6 +37,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
@@ -65,8 +71,11 @@ jobs:
         id: version
         shell: bash
         run: |
-          value="${GITHUB_REF_NAME#v}"
-          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -getProperty:Version | tr -d '\r')"
+          value="${{ github.event.inputs.version }}"
+          if [ -z "$value" ]; then
+            value="${GITHUB_REF_NAME#v}"
+          fi
+          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -target:MinVer -p:MinVerVersionOverride="$value" -getProperty:Version | tr -d '\r')"
           if [ "$project_version" != "$value" ]; then
             echo "Tag version ($value) does not match project version ($project_version)" >&2
             exit 1
@@ -82,5 +91,6 @@ jobs:
           --os linux
           --arch x64
           /t:PublishContainer
+          -p:MinVerVersionOverride=${{ steps.version.outputs.value }}
           -p:ContainerRegistry=ghcr.io
           -p:ContainerRepository=${{ steps.owner.outputs.value }}/${{ env.CONTAINER_NAME }}
