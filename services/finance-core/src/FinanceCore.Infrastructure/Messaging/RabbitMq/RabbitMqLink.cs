@@ -73,7 +73,7 @@ internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
         await lane.ExchangeDeclareAsync(Retry(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
         await lane.ExchangeDeclareAsync(Resume(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
         await lane.ExchangeDeclareAsync(Dead(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
-        _ = await lane.QueueDeclareAsync(option.Queue, true, false, false, arguments: null, noWait: false, cancellationToken: token);
+        _ = await lane.QueueDeclareAsync(option.Queue, true, false, false, new Dictionary<string, object?> { ["x-dead-letter-exchange"] = Retry(), ["x-dead-letter-routing-key"] = option.Queue }, false, token);
         _ = await lane.QueueDeclareAsync(option.RetryQueue, true, false, false, new Dictionary<string, object?> { ["x-message-ttl"] = option.RetryDelaySeconds * 1000, ["x-dead-letter-exchange"] = Resume(), ["x-dead-letter-routing-key"] = option.Queue }, false, token);
         _ = await lane.QueueDeclareAsync(option.DeadQueue, true, false, false, arguments: null, noWait: false, cancellationToken: token);
         await lane.QueueBindAsync(option.Queue, option.Exchange, "workspace.requested", null, false, token);
@@ -89,7 +89,15 @@ internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
         }
         if (!await gate.WaitAsync(TimeSpan.FromSeconds(30)))
         {
-            link = null;
+            IConnection? item = link;
+            if (item is not null)
+            {
+                await Close(item);
+                if (ReferenceEquals(link, item))
+                {
+                    link = null;
+                }
+            }
             log.LogWarning("RabbitMQ connection disposal timed out");
             return;
         }

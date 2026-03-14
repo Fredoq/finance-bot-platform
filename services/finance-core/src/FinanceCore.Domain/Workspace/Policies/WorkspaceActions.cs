@@ -1,5 +1,3 @@
-using FinanceCore.Domain.Workspace.Models;
-
 namespace FinanceCore.Domain.Workspace.Policies;
 
 /// <summary>
@@ -16,13 +14,8 @@ public sealed class WorkspaceActions : IWorkspaceActions
         "transaction.recent.show"
     ];
     /// <summary>
-    /// Gets the supported action codes for the current state.
+    /// Gets the supported action codes for the workspace baseline.
     /// </summary>
-    /// <param name="state">The current workspace state.</param>
     /// <returns>The supported action codes.</returns>
-    public IReadOnlyList<string> Codes(WorkspaceState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        return list;
-    }
+    public IReadOnlyList<string> Codes() => list;
 }

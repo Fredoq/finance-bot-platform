@@ -107,6 +107,18 @@ public sealed class RabbitMqOptions : IValidatableObject
         {
             list.Add(new ValidationResult("RabbitMq dead queue is required", [nameof(DeadQueue)]));
         }
+        if (!string.IsNullOrWhiteSpace(Queue) && !string.IsNullOrWhiteSpace(RetryQueue) && string.Equals(Queue, RetryQueue, StringComparison.Ordinal))
+        {
+            list.Add(new ValidationResult("RabbitMq queue and retry queue must be distinct", [nameof(Queue), nameof(RetryQueue)]));
+        }
+        if (!string.IsNullOrWhiteSpace(Queue) && !string.IsNullOrWhiteSpace(DeadQueue) && string.Equals(Queue, DeadQueue, StringComparison.Ordinal))
+        {
+            list.Add(new ValidationResult("RabbitMq queue and dead queue must be distinct", [nameof(Queue), nameof(DeadQueue)]));
+        }
+        if (!string.IsNullOrWhiteSpace(RetryQueue) && !string.IsNullOrWhiteSpace(DeadQueue) && string.Equals(RetryQueue, DeadQueue, StringComparison.Ordinal))
+        {
+            list.Add(new ValidationResult("RabbitMq retry queue and dead queue must be distinct", [nameof(RetryQueue), nameof(DeadQueue)]));
+        }
         if (string.IsNullOrWhiteSpace(Client))
         {
             list.Add(new ValidationResult("RabbitMq client is required", [nameof(Client)]));

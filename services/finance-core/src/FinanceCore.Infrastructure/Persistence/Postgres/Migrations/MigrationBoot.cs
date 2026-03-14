@@ -11,6 +11,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 internal sealed class MigrationBoot : IHostedService
 {
     private const int count = 5;
+    private const long key = 5_832_147_011;
     private static readonly TimeSpan pause = TimeSpan.FromSeconds(1);
     private readonly IOptions<PostgresOptions> option;
     private readonly ILoggerFactory factory;
@@ -51,12 +52,45 @@ internal sealed class MigrationBoot : IHostedService
         await link.OpenAsync(token);
         await using NpgsqlCommand note = new("create schema if not exists finance", link);
         _ = await note.ExecuteNonQueryAsync(token);
+        await Lock(link, token);
         UpgradeEngine item = DeployChanges.To.PostgresqlDatabase(text).JournalToPostgresqlTable("finance", "schema_journal").WithScriptsEmbeddedInAssembly(typeof(MigrationBoot).Assembly, Name).LogTo(new DbUpLog(factory.CreateLogger<DbUpLog>())).Build();
-        DatabaseUpgradeResult data = item.PerformUpgrade();
-        if (!data.Successful)
+        try
         {
-            throw new InvalidOperationException("Postgres migration failed", data.Error);
+            DatabaseUpgradeResult data = item.PerformUpgrade();
+            if (!data.Successful)
+            {
+                throw new InvalidOperationException("Postgres migration failed", data.Error);
+            }
+        }
+        finally
+        {
+            await Unlock(link, token);
         }
     }
     private static bool Name(string text) => text.Contains(".Persistence.Postgres.Migrations.Scripts.", StringComparison.Ordinal) && text.EndsWith(".sql", StringComparison.Ordinal);
+    private static async ValueTask Lock(NpgsqlConnection link, CancellationToken token)
+    {
+        using var note = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var item = CancellationTokenSource.CreateLinkedTokenSource(token, note.Token);
+        while (true)
+        {
+            await using NpgsqlCommand gate = new("select pg_try_advisory_lock(@key)", link);
+            gate.Parameters.AddWithValue("key", key);
+            if ((bool)(await gate.ExecuteScalarAsync(item.Token) ?? false))
+            {
+                return;
+            }
+            if (note.IsCancellationRequested)
+            {
+                throw new TimeoutException("Postgres migration lock timed out");
+            }
+            await Task.Delay(250, item.Token);
+        }
+    }
+    private static async ValueTask Unlock(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("select pg_advisory_unlock(@key)", link);
+        note.Parameters.AddWithValue("key", key);
+        _ = await note.ExecuteScalarAsync(token);
+    }
 }

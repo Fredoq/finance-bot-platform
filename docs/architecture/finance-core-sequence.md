@@ -19,6 +19,7 @@ sequenceDiagram
     C->>R: Ack delivery
     O->>P: Read unpublished outbox row
     O->>R: Publish workspace.view.requested
+    R-->>O: Confirm publish
     O->>P: Mark outbox row published
 ```
 

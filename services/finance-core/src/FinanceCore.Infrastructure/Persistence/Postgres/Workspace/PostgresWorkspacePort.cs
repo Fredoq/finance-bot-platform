@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
@@ -27,7 +26,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
     public async ValueTask Save(MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(message);
-        string inbound = Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(message, json));
+        string inbound = JsonSerializer.Serialize(message, json);
         await using NpgsqlConnection link = await data.OpenConnectionAsync(token);
         await using NpgsqlTransaction lane = await link.BeginTransactionAsync(token);
         bool fresh = await Inbox(link, lane, message, inbound, token);
@@ -38,11 +37,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         }
         (Guid userId, bool isNewUser) = await User(link, lane, message, token);
         WorkspaceItem state = await Workspace(link, lane, userId, message, token);
-        var note = new WorkspaceState(state.State, state.Data, state.Revision);
-        var view = new WorkspaceView(message.Payload.Identity, message.Payload.Profile, note, actions.Codes(note), isNewUser, state.IsNew, message.Payload.OccurredUtc);
+        var note = new WorkspaceState(state.Snapshot.State, state.Snapshot.Data, state.Snapshot.Revision);
+        var view = new WorkspaceView(message.Payload.Identity, message.Payload.Profile, note, actions.Codes(), isNewUser, state.Snapshot.IsNew, message.Payload.OccurredUtc);
         var item = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, view.State.Code, view.Actions, view.IsNewUser, view.IsNewWorkspace, view.OccurredUtc);
-        string outbound = Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), Contract, view.OccurredUtc, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), Source, item), json));
-        await Outbox(link, lane, outbound, message, view, token);
+        var messageId = Guid.CreateVersion7();
+        var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(messageId, Contract, view.OccurredUtc, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), Source, item);
+        string outbound = JsonSerializer.Serialize(envelope, json);
+        await Outbox(link, lane, messageId, outbound, message, view, token);
         await Processed(link, lane, message, token);
         await lane.CommitAsync(token);
     }
@@ -99,7 +100,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
         if (await row.ReadAsync(token))
         {
-            return new WorkspaceItem(row.GetGuid(0), row.GetString(1), row.GetString(2), row.GetInt64(3), true);
+            return new WorkspaceItem(row.GetGuid(0), new WorkspaceSnapshot(row.GetString(1), row.GetString(2), row.GetInt64(3), true));
         }
         await row.DisposeAsync();
         await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where conversation_key = @conversation_key returning id, state_code, state_data, revision", link, lane);
@@ -111,14 +112,14 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
         if (await data.ReadAsync(token))
         {
-            return new WorkspaceItem(data.GetGuid(0), data.GetString(1), data.GetString(2), data.GetInt64(3), false);
+            return new WorkspaceItem(data.GetGuid(0), new WorkspaceSnapshot(data.GetString(1), data.GetString(2), data.GetInt64(3), false));
         }
         throw new InvalidOperationException("Workspace upsert failed");
     }
-    private static async ValueTask Outbox(NpgsqlConnection link, NpgsqlTransaction lane, string payload, MessageEnvelope<WorkspaceRequestedCommand> message, WorkspaceView view, CancellationToken token)
+    private static async ValueTask Outbox(NpgsqlConnection link, NpgsqlTransaction lane, Guid messageId, string payload, MessageEnvelope<WorkspaceRequestedCommand> message, WorkspaceView view, CancellationToken token)
     {
         await using NpgsqlCommand note = new("insert into finance.outbox_message(message_id, contract, routing_key, source, correlation_id, causation_id, idempotency_key, payload, occurred_utc, created_utc, published_utc, attempt, error) values (@message_id, @contract, @routing_key, @source, @correlation_id, @causation_id, @idempotency_key, @payload, @occurred_utc, @created_utc, @published_utc, @attempt, @error) on conflict do nothing", link, lane);
-        note.Parameters.AddWithValue("message_id", Guid.CreateVersion7());
+        note.Parameters.AddWithValue("message_id", messageId);
         note.Parameters.AddWithValue("contract", Contract);
         note.Parameters.AddWithValue("routing_key", RoutingKey);
         note.Parameters.AddWithValue("source", Source);
@@ -131,7 +132,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         note.Parameters.AddWithValue("published_utc", DBNull.Value);
         note.Parameters.AddWithValue("attempt", 0);
         note.Parameters.AddWithValue("error", string.Empty);
-        _ = await note.ExecuteNonQueryAsync(token);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Outbox insert failed");
+        }
     }
     private static async ValueTask Processed(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
     {
@@ -139,6 +143,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         note.Parameters.AddWithValue("processed_utc", DateTimeOffset.UtcNow);
         note.Parameters.AddWithValue("contract", message.Contract);
         note.Parameters.AddWithValue("idempotency_key", message.Context.IdempotencyKey);
-        _ = await note.ExecuteNonQueryAsync(token);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Inbox processed update failed");
+        }
     }
 }

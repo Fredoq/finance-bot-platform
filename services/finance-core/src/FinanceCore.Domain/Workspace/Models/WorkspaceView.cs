@@ -24,14 +24,15 @@ public sealed record WorkspaceView
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(actions);
-        string[] list = actions.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.Ordinal).ToArray();
+        string[] list = actions.Where(item => !string.IsNullOrWhiteSpace(item)).Select(item => item.Trim()).Distinct(StringComparer.Ordinal).ToArray();
         Identity = identity;
         Profile = profile;
         State = state;
-        Actions = list.Length > 0 ? list : throw new ArgumentException("Workspace actions are required", nameof(actions));
+        Actions = list.Length > 0 ? Array.AsReadOnly(list) : throw new ArgumentException("Workspace actions are required", nameof(actions));
         IsNewUser = isNewUser;
         IsNewWorkspace = isNewWorkspace;
-        OccurredUtc = occurredUtc != default ? occurredUtc : throw new ArgumentOutOfRangeException(nameof(occurredUtc));
+        ArgumentOutOfRangeException.ThrowIfEqual(occurredUtc, default);
+        OccurredUtc = occurredUtc.Offset == TimeSpan.Zero ? occurredUtc : throw new ArgumentException("Workspace occurrence time must be UTC", nameof(occurredUtc));
     }
     /// <summary>
     /// Gets the workspace identity.

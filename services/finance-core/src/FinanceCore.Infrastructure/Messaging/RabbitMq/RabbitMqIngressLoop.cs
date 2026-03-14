@@ -1,3 +1,4 @@
+using System.Text;
 using FinanceCore.Application.Runtime.Faults;
 using FinanceCore.Application.Runtime.Flow;
 using FinanceCore.Infrastructure.Configuration.RabbitMq;
@@ -63,7 +64,7 @@ internal sealed class RabbitMqIngressLoop : BackgroundService
     private async ValueTask Handle(IChannel lane, BasicGetResult data, CancellationToken token)
     {
         string contract = !string.IsNullOrWhiteSpace(data.BasicProperties.Type) ? data.BasicProperties.Type : Header(data.BasicProperties.Headers, "contract");
-        int attempt = Number(data.BasicProperties.Headers);
+        int attempt = Number(data.BasicProperties.Headers, option.Queue);
         try
         {
             await flow.Run(contract, data.Body, token);
@@ -72,7 +73,6 @@ internal sealed class RabbitMqIngressLoop : BackgroundService
         catch (InvalidMessageException error)
         {
             await Dead(lane, data, attempt, error.Message, token);
-            await lane.BasicAckAsync(data.DeliveryTag, false, token);
             log.LogWarning(error, "Command moved to dead queue");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -84,39 +84,30 @@ internal sealed class RabbitMqIngressLoop : BackgroundService
             if (attempt >= option.MaxAttempts)
             {
                 await Dead(lane, data, attempt, error.Message, token);
-                await lane.BasicAckAsync(data.DeliveryTag, false, token);
                 log.LogError(error, "Command exhausted retry budget");
                 return;
             }
-            await Retry(lane, data, attempt + 1, error.Message, token);
-            await lane.BasicAckAsync(data.DeliveryTag, false, token);
+            await Retry(lane, data, token);
             log.LogWarning(error, "Command moved to retry queue");
         }
     }
-    private async ValueTask Retry(IChannel lane, BasicGetResult data, int attempt, string error, CancellationToken token)
-    {
-        BasicProperties item = Properties(data, attempt, error);
-        await lane.BasicPublishAsync($"{option.Exchange}.retry", option.Queue, true, item, data.Body, token);
-    }
+    private static ValueTask Retry(IChannel lane, BasicGetResult data, CancellationToken token) => lane.BasicRejectAsync(data.DeliveryTag, false, token);
     private async ValueTask Dead(IChannel lane, BasicGetResult data, int attempt, string error, CancellationToken token)
     {
         BasicProperties item = Properties(data, attempt, error);
         await lane.BasicPublishAsync($"{option.Exchange}.dead", option.Queue, true, item, data.Body, token);
+        await lane.BasicAckAsync(data.DeliveryTag, false, token);
     }
-    private static BasicProperties Properties(BasicGetResult data, int attempt, string error)
+    private static BasicProperties Properties(BasicGetResult data, int attempt, string error) => new()
     {
-        var item = new BasicProperties
-        {
-            ContentType = string.IsNullOrWhiteSpace(data.BasicProperties.ContentType) ? "application/json" : data.BasicProperties.ContentType,
-            DeliveryMode = DeliveryModes.Persistent,
-            MessageId = data.BasicProperties.MessageId,
-            CorrelationId = data.BasicProperties.CorrelationId,
-            Timestamp = data.BasicProperties.Timestamp,
-            Type = data.BasicProperties.Type,
-            Headers = Headers(data.BasicProperties.Headers, attempt, error)
-        };
-        return item;
-    }
+        ContentType = string.IsNullOrWhiteSpace(data.BasicProperties.ContentType) ? "application/json" : data.BasicProperties.ContentType,
+        DeliveryMode = DeliveryModes.Persistent,
+        MessageId = data.BasicProperties.MessageId,
+        CorrelationId = data.BasicProperties.CorrelationId,
+        Timestamp = data.BasicProperties.Timestamp,
+        Type = data.BasicProperties.Type,
+        Headers = Headers(data.BasicProperties.Headers, attempt, error)
+    };
     private static Dictionary<string, object?> Headers(IDictionary<string, object?>? source, int attempt, string error)
     {
         var item = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -144,20 +135,54 @@ internal sealed class RabbitMqIngressLoop : BackgroundService
             _ => value.ToString() ?? string.Empty
         };
     }
-    private static int Number(IDictionary<string, object?>? source)
+    private static int Number(IDictionary<string, object?>? source, string queue)
     {
         if (source is null || !source.TryGetValue(Attempt, out object? value) || value is null)
         {
-            return 1;
+            int data = Death(source, queue);
+            return data > 0 ? data + 1 : 1;
         }
+        int death = Death(source, queue);
         return value switch
         {
             int item => item,
             long item => (int)item,
             byte item => item,
-            byte[] item when item.Length > 0 => item[0],
+            byte[] item when int.TryParse(Encoding.UTF8.GetString(item), out int note) => note,
             string item when int.TryParse(item, out int data) => data,
-            _ => 1
+            _ => death > 0 ? death + 1 : 1
         };
     }
+    private static int Death(IDictionary<string, object?>? source, string queue)
+    {
+        if (source is null || !source.TryGetValue("x-death", out object? value) || value is null)
+        {
+            return 0;
+        }
+        if (value is IList<object> list)
+        {
+            foreach (object? item in list)
+            {
+                if (item is IDictionary<string, object?> note && string.Equals(Header(note, "queue"), queue, StringComparison.Ordinal))
+                {
+                    return Count(note, "count");
+                }
+                if (item is IDictionary<string, object> data && string.Equals(Header(Copy(data), "queue"), queue, StringComparison.Ordinal))
+                {
+                    return Count(Copy(data), "count");
+                }
+            }
+        }
+        return 0;
+    }
+    private static int Count(IDictionary<string, object?> source, string key) => source.TryGetValue(key, out object? value) && value is not null ? value switch
+    {
+        int item => item,
+        long item => (int)item,
+        byte item => item,
+        byte[] item when int.TryParse(Encoding.UTF8.GetString(item), out int note) => note,
+        string item when int.TryParse(item, out int data) => data,
+        _ => 0
+    } : 0;
+    private static Dictionary<string, object?> Copy(IDictionary<string, object> source) => source.ToDictionary(pair => pair.Key, pair => (object?)pair.Value);
 }

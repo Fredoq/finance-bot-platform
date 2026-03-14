@@ -55,8 +55,8 @@ internal sealed class RabbitMqOutboxLoop : BackgroundService
         {
             try
             {
-                await lane.BasicPublishAsync(option.Exchange, note.RoutingKey, true, Properties(note), note.Payload, token);
-                await port.Mark(note.MessageId, token);
+                await lane.BasicPublishAsync(option.Exchange, note.Head.RoutingKey, true, Properties(note), note.Body.Payload, token);
+                await port.Mark(note.Head.MessageId, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -64,7 +64,7 @@ internal sealed class RabbitMqOutboxLoop : BackgroundService
             }
             catch (PublishException error)
             {
-                await port.Fail(note.MessageId, error.Message, token);
+                await port.Fail(note.Head.MessageId, error.Message, token);
                 log.LogWarning(error, "Outbox publish failed");
             }
         }
@@ -73,16 +73,16 @@ internal sealed class RabbitMqOutboxLoop : BackgroundService
     {
         ContentType = "application/json",
         DeliveryMode = DeliveryModes.Persistent,
-        MessageId = item.MessageId.ToString(),
-        CorrelationId = item.CorrelationId,
-        Timestamp = new AmqpTimestamp(item.OccurredUtc.ToUnixTimeSeconds()),
-        Type = item.Contract,
+        MessageId = item.Head.MessageId.ToString(),
+        CorrelationId = item.Mark.CorrelationId,
+        Timestamp = new AmqpTimestamp(item.Head.OccurredUtc.ToUnixTimeSeconds()),
+        Type = item.Head.Contract,
         Headers = new Dictionary<string, object?>
         {
-            ["contract"] = item.Contract,
-            ["message-id"] = item.MessageId.ToString(),
-            ["correlation-id"] = item.CorrelationId,
-            ["causation-id"] = item.CausationId
+            ["contract"] = item.Head.Contract,
+            ["message-id"] = item.Head.MessageId.ToString(),
+            ["correlation-id"] = item.Mark.CorrelationId,
+            ["causation-id"] = item.Mark.CausationId
         }
     };
 }

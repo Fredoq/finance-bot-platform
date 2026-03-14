@@ -12,8 +12,8 @@ internal sealed class PostgresHealthCheck : IHealthCheck
         try
         {
             await using NpgsqlConnection link = await data.OpenConnectionAsync(cancellationToken);
-            await using NpgsqlCommand note = new("select 1", link);
-            _ = await note.ExecuteScalarAsync(cancellationToken);
+            await using NpgsqlCommand ping = new("select 1", link);
+            _ = await ping.ExecuteScalarAsync(cancellationToken);
             return HealthCheckResult.Healthy();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

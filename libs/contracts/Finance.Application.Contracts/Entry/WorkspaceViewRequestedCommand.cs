@@ -20,41 +20,45 @@ public sealed record WorkspaceViewRequestedCommand
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(actions);
-        string[] list = actions.Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.Ordinal).ToArray();
+        string[] list = actions.Where(item => !string.IsNullOrWhiteSpace(item)).Select(item => item.Trim()).Distinct(StringComparer.Ordinal).ToArray();
         Identity = identity;
         Profile = profile;
-        State = !string.IsNullOrWhiteSpace(state) ? state : throw new ArgumentException("Workspace state is required", nameof(state));
-        Actions = list.Length > 0 ? list : throw new ArgumentException("Workspace actions are required", nameof(actions));
+        State = !string.IsNullOrWhiteSpace(state) ? state.Trim() : throw new ArgumentException("Workspace state is required", nameof(state));
+        Actions = list.Length > 0 ? Array.AsReadOnly(list) : throw new ArgumentException("Workspace actions are required", nameof(actions));
         IsNewUser = isNewUser;
         IsNewWorkspace = isNewWorkspace;
-        OccurredUtc = occurredUtc != default ? occurredUtc : throw new ArgumentOutOfRangeException(nameof(occurredUtc));
+        if (occurredUtc == default)
+        {
+            throw new ArgumentOutOfRangeException(nameof(occurredUtc));
+        }
+        OccurredUtc = occurredUtc.Offset == TimeSpan.Zero ? occurredUtc : throw new ArgumentException("Workspace occurrence time must be UTC", nameof(occurredUtc));
     }
     /// <summary>
     /// Gets the workspace identity details.
     /// </summary>
-    public WorkspaceIdentity Identity { get; init; }
+    public WorkspaceIdentity Identity { get; }
     /// <summary>
     /// Gets the profile details.
     /// </summary>
-    public WorkspaceProfile Profile { get; init; }
+    public WorkspaceProfile Profile { get; }
     /// <summary>
     /// Gets the current workspace state code.
     /// </summary>
-    public string State { get; init; }
+    public string State { get; }
     /// <summary>
     /// Gets the supported action codes.
     /// </summary>
-    public IReadOnlyList<string> Actions { get; init; }
+    public IReadOnlyList<string> Actions { get; }
     /// <summary>
     /// Gets a value indicating whether the user was created by the workflow.
     /// </summary>
-    public bool IsNewUser { get; init; }
+    public bool IsNewUser { get; }
     /// <summary>
     /// Gets a value indicating whether the workspace was created by the workflow.
     /// </summary>
-    public bool IsNewWorkspace { get; init; }
+    public bool IsNewWorkspace { get; }
     /// <summary>
     /// Gets the UTC time when the view request occurred.
     /// </summary>
-    public DateTimeOffset OccurredUtc { get; init; }
+    public DateTimeOffset OccurredUtc { get; }
 }

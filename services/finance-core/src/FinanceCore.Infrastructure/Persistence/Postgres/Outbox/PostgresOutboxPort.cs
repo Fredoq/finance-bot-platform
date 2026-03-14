@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Finance.Application.Contracts.Messaging;
 using FinanceCore.Application.Runtime.Ports;
@@ -16,7 +15,7 @@ internal sealed class PostgresOutboxPort : IOutboxPort
     {
         ArgumentNullException.ThrowIfNull(message);
         ArgumentException.ThrowIfNullOrWhiteSpace(routingKey);
-        string text = Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(message, json));
+        string text = JsonSerializer.Serialize(message, json);
         await using NpgsqlConnection link = await data.OpenConnectionAsync(token);
         await using NpgsqlCommand note = new("insert into finance.outbox_message(message_id, contract, routing_key, source, correlation_id, causation_id, idempotency_key, payload, occurred_utc, created_utc, published_utc, attempt, error) values (@message_id, @contract, @routing_key, @source, @correlation_id, @causation_id, @idempotency_key, @payload, @occurred_utc, @created_utc, @published_utc, @attempt, @error) on conflict do nothing", link);
         note.Parameters.AddWithValue("message_id", message.MessageId);
@@ -32,7 +31,10 @@ internal sealed class PostgresOutboxPort : IOutboxPort
         note.Parameters.AddWithValue("published_utc", DBNull.Value);
         note.Parameters.AddWithValue("attempt", 0);
         note.Parameters.AddWithValue("error", string.Empty);
-        _ = await note.ExecuteNonQueryAsync(token);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Outbox insert failed");
+        }
     }
     internal async ValueTask<IReadOnlyList<OutboxItem>> Items(int size, CancellationToken token)
     {
@@ -43,7 +45,7 @@ internal sealed class PostgresOutboxPort : IOutboxPort
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         while (await row.ReadAsync(token))
         {
-            list.Add(new OutboxItem(row.GetGuid(0), row.GetString(1), row.GetString(2), row.GetString(3), row.GetString(4), row.GetString(5), Encoding.UTF8.GetBytes(row.GetString(6)), await row.GetFieldValueAsync<DateTimeOffset>(7, token), row.GetInt32(8)));
+            list.Add(await Item(row, token));
         }
         return list;
     }
@@ -53,7 +55,10 @@ internal sealed class PostgresOutboxPort : IOutboxPort
         await using NpgsqlCommand note = new("update finance.outbox_message set published_utc = @published_utc where message_id = @message_id", link);
         note.Parameters.AddWithValue("published_utc", DateTimeOffset.UtcNow);
         note.Parameters.AddWithValue("message_id", messageId);
-        _ = await note.ExecuteNonQueryAsync(token);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Outbox mark failed");
+        }
     }
     internal async ValueTask Fail(Guid messageId, string error, CancellationToken token)
     {
@@ -62,6 +67,22 @@ internal sealed class PostgresOutboxPort : IOutboxPort
         await using NpgsqlCommand note = new("update finance.outbox_message set attempt = attempt + 1, error = @error where message_id = @message_id", link);
         note.Parameters.AddWithValue("message_id", messageId);
         note.Parameters.AddWithValue("error", error);
-        _ = await note.ExecuteNonQueryAsync(token);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Outbox fail update failed");
+        }
     }
+    private static async ValueTask<OutboxItem> Item(NpgsqlDataReader row, CancellationToken token) => new(
+        new OutboxHead(
+            row.GetGuid(0),
+            row.GetString(1),
+            row.GetString(2),
+            await row.GetFieldValueAsync<DateTimeOffset>(7, token)),
+        new OutboxMark(
+            row.GetString(3),
+            row.GetString(4),
+            row.GetString(5)),
+        new OutboxBody(
+            System.Text.Encoding.UTF8.GetBytes(row.GetString(6)),
+            row.GetInt32(8)));
 }

@@ -59,5 +59,7 @@ create table if not exists finance.outbox_message
 );
 
 create index if not exists idx_workspace_user on finance.workspace(user_id);
-create index if not exists idx_inbox_pending on finance.inbox_message(processed_utc);
-create index if not exists idx_outbox_pending on finance.outbox_message(published_utc, created_utc);
+drop index if exists finance.idx_inbox_pending;
+drop index if exists finance.idx_outbox_pending;
+create index if not exists idx_inbox_pending on finance.inbox_message(received_utc) where processed_utc is null;
+create index if not exists idx_outbox_pending on finance.outbox_message(created_utc) where published_utc is null;

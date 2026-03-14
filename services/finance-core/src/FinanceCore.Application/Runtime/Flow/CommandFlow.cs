@@ -12,7 +12,10 @@ internal sealed class CommandFlow : ICommandFlow
     }
     public ValueTask Run(string contract, ReadOnlyMemory<byte> body, CancellationToken token)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(contract);
+        if (string.IsNullOrWhiteSpace(contract))
+        {
+            throw new InvalidMessageException("Message contract is required");
+        }
         if (!map.TryGetValue(contract, out ICommandSlice? item))
         {
             throw new InvalidMessageException("Message contract is unsupported");
