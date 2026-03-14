@@ -6,9 +6,11 @@ using TelegramGateway.Application.Messaging;
 
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
-internal sealed class RecordingWorkspacePort(Exception? error = null) : IBusPort
+internal sealed class RecordingWorkspacePort : IBusPort
 {
+    private readonly Exception? error;
     private readonly ConcurrentQueue<MessageEnvelope<WorkspaceRequestedCommand>> list = new();
+    internal RecordingWorkspacePort(Exception? error = null) => this.error = error;
     /// <summary>
     /// Gets the captured publish collection.
     /// </summary>

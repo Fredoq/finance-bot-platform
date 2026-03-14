@@ -3,8 +3,10 @@ using TelegramGateway.Infrastructure.Messaging;
 
 namespace TelegramGateway.Infrastructure.Observability;
 
-internal sealed class BrokerHealthCheck(IBrokerState state) : IHealthCheck
+internal sealed class BrokerHealthCheck : IHealthCheck
 {
+    private readonly IBrokerState state;
+    public BrokerHealthCheck(IBrokerState state) => this.state = state ?? throw new ArgumentNullException(nameof(state));
     /// <summary>
     /// Checks whether the broker is ready to serve traffic.
     /// </summary>

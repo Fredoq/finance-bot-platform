@@ -5,23 +5,32 @@ using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<RabbitMqLink> log) : IBrokerState, IAsyncDisposable
+internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
 {
     private readonly SemaphoreSlim gate = new(1, 1);
-    private readonly ConnectionFactory factory = new()
-    {
-        HostName = option.Value.Host,
-        Port = option.Value.Port,
-        VirtualHost = option.Value.VirtualHost,
-        UserName = option.Value.Username,
-        Password = option.Value.Password,
-        AutomaticRecoveryEnabled = true,
-        TopologyRecoveryEnabled = true,
-        ClientProvidedName = option.Value.Client,
-        RequestedHeartbeat = TimeSpan.FromSeconds(30)
-    };
+    private readonly ConnectionFactory factory;
+    private readonly RabbitMqOptions option;
+    private readonly ILogger<RabbitMqLink> log;
     private IConnection? link;
     private int disposed;
+    public RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<RabbitMqLink> log)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        this.option = option.Value;
+        this.log = log ?? throw new ArgumentNullException(nameof(log));
+        factory = new ConnectionFactory
+        {
+            HostName = this.option.Host,
+            Port = this.option.Port,
+            VirtualHost = this.option.VirtualHost,
+            UserName = this.option.Username,
+            Password = this.option.Password,
+            AutomaticRecoveryEnabled = true,
+            TopologyRecoveryEnabled = true,
+            ClientProvidedName = this.option.Client,
+            RequestedHeartbeat = TimeSpan.FromSeconds(30)
+        };
+    }
     /// <summary>
     /// Opens or returns the active RabbitMQ connection.
     /// </summary>
@@ -75,7 +84,7 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     {
         IConnection item = await Connection(token);
         await using IChannel lane = await item.CreateChannelAsync(cancellationToken: token);
-        await lane.ExchangeDeclareAsync(option.Value.Exchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(option.Exchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
     }
     /// <summary>
     /// Disposes the broker connection resources.

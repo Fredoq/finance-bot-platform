@@ -3,11 +3,15 @@ namespace TelegramGateway.Domain.Entry.Workspace;
 /// <summary>
 /// Represents an opaque actor identifier for downstream contracts.
 /// </summary>
-/// <param name="Value">The opaque identifier value.</param>
-public sealed record ActorKey(string Value)
+public sealed record ActorKey
 {
+    /// <summary>
+    /// Initializes a new instance of the record.
+    /// </summary>
+    /// <param name="value">The opaque identifier value.</param>
+    public ActorKey(string value) => Value = string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Actor key is required", nameof(value)) : value;
     /// <summary>
     /// Gets the opaque identifier value.
     /// </summary>
-    public string Value { get; } = string.IsNullOrWhiteSpace(Value) ? throw new ArgumentException("Actor key is required", nameof(Value)) : Value;
+    public string Value { get; }
 }

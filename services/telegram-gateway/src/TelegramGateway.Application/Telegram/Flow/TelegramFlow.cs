@@ -3,9 +3,16 @@ using TelegramGateway.Application.Telegram.Contracts;
 
 namespace TelegramGateway.Application.Telegram.Flow;
 
-internal sealed class TelegramFlow(IEnumerable<ITelegramSlice> flow, ILogger<TelegramFlow> log) : ITelegramFlow
+internal sealed class TelegramFlow : ITelegramFlow
 {
-    private readonly ITelegramSlice[] list = [.. flow];
+    private readonly ITelegramSlice[] list;
+    private readonly ILogger<TelegramFlow> log;
+    public TelegramFlow(IEnumerable<ITelegramSlice> flow, ILogger<TelegramFlow> log)
+    {
+        ArgumentNullException.ThrowIfNull(flow);
+        this.log = log ?? throw new ArgumentNullException(nameof(log));
+        list = [.. flow];
+    }
     /// <summary>
     /// Processes one inbound Telegram update through the matching slice.
     /// </summary>
@@ -17,7 +24,6 @@ internal sealed class TelegramFlow(IEnumerable<ITelegramSlice> flow, ILogger<Tel
     {
         ArgumentNullException.ThrowIfNull(update);
         ArgumentException.ThrowIfNullOrWhiteSpace(trace);
-        ArgumentNullException.ThrowIfNull(log);
         ITelegramSlice[] item = [.. list.Where(item => item.Match(update)).Take(2)];
         if (item.Length == 0)
         {

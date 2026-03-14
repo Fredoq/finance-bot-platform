@@ -20,10 +20,10 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = host.CreateClient();
-        item.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
-        Assert.Equal(HttpStatusCode.Forbidden, note.StatusCode);
+        using HttpClient client = host.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(port.Items);
     }
     /// <summary>
@@ -35,11 +35,11 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = host.CreateClient();
-        item.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
-        using var note = new StringContent("{", Encoding.UTF8, "application/json");
-        HttpResponseMessage data = await item.PostAsync("/telegram/webhook", note);
-        Assert.Equal(HttpStatusCode.Forbidden, data.StatusCode);
+        using HttpClient client = host.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
+        using var payload = new StringContent("{", Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await client.PostAsync("/telegram/webhook", payload);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(port.Items);
     }
     /// <summary>
@@ -51,9 +51,9 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/help"));
-        Assert.Equal(HttpStatusCode.OK, note.StatusCode);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/help"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(port.Items);
     }
     /// <summary>
@@ -65,9 +65,9 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
-        Assert.Equal(HttpStatusCode.OK, note.StatusCode);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(port.Items);
     }
     /// <summary>
@@ -79,9 +79,9 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
-        Assert.Equal(HttpStatusCode.OK, note.StatusCode);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items.Single().Payload.Payload);
         Assert.Equal("edge-update-7", port.Items.Single().CausationId);
@@ -97,9 +97,9 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort(new BusException("Message publish failed"));
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, note.StatusCode);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
     /// <summary>
     /// Verifies that the readiness endpoint is healthy with the fake broker.
@@ -109,15 +109,15 @@ public sealed class WebhookApiTests
     public async Task Ready()
     {
         await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState());
-        using HttpClient item = host.CreateClient();
-        HttpResponseMessage note = await item.GetAsync("/health/ready");
-        Assert.Equal(HttpStatusCode.OK, note.StatusCode);
+        using HttpClient client = host.CreateClient();
+        HttpResponseMessage response = await client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
-    private static HttpClient Client(GatewayApiFactory item)
+    private static HttpClient Client(GatewayApiFactory host)
     {
-        HttpClient note = item.CreateClient();
-        note.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
-        return note;
+        HttpClient client = host.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
+        return client;
     }
     private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
     {

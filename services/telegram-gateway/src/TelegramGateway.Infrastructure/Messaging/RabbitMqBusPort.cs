@@ -10,12 +10,22 @@ using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptions> option, ILogger<RabbitMqBusPort> log) : IBusPort, IAsyncDisposable
+internal sealed class RabbitMqBusPort : IBusPort, IAsyncDisposable
 {
     private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly IBrokerState state;
+    private readonly RabbitMqOptions option;
+    private readonly ILogger<RabbitMqBusPort> log;
     private IChannel? lane;
     private IConnection? link;
     private int disposed;
+    public RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptions> option, ILogger<RabbitMqBusPort> log)
+    {
+        this.state = state ?? throw new ArgumentNullException(nameof(state));
+        ArgumentNullException.ThrowIfNull(option);
+        this.option = option.Value;
+        this.log = log ?? throw new ArgumentNullException(nameof(log));
+    }
     /// <summary>
     /// Publishes an application envelope to RabbitMQ.
     /// </summary>
@@ -39,7 +49,7 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             }
             byte[] note = JsonSerializer.SerializeToUtf8Bytes(message);
             BasicProperties data = Properties(message);
-            await lane.BasicPublishAsync(option.Value.Exchange, message.Contract, true, data, note, token);
+            await lane.BasicPublishAsync(option.Exchange, message.Contract, true, data, note, token);
             log.LogInformation("Application message was published");
         }
         catch (PublishException error)

@@ -3,10 +3,17 @@ using Microsoft.Extensions.Logging;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-internal sealed class RabbitMqBoot(IBrokerState state, ILogger<RabbitMqBoot> log) : IHostedService
+internal sealed class RabbitMqBoot : IHostedService
 {
     private const int count = 5;
     private static readonly TimeSpan pause = TimeSpan.FromSeconds(1);
+    private readonly IBrokerState state;
+    private readonly ILogger<RabbitMqBoot> log;
+    public RabbitMqBoot(IBrokerState state, ILogger<RabbitMqBoot> log)
+    {
+        this.state = state ?? throw new ArgumentNullException(nameof(state));
+        this.log = log ?? throw new ArgumentNullException(nameof(log));
+    }
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         TimeSpan span = pause;
@@ -23,12 +30,11 @@ internal sealed class RabbitMqBoot(IBrokerState state, ILogger<RabbitMqBoot> log
             }
             catch (Exception error) when (item < count)
             {
-                log.LogWarning(error, "RabbitMQ warm-up failed");
+                log.LogWarning(error, "RabbitMQ warm-up failed on attempt {Attempt} of {Count}", item, count);
                 await Task.Delay(span, cancellationToken);
                 span = TimeSpan.FromSeconds(Math.Min(span.TotalSeconds * 2, 15));
             }
         }
-        await state.Ensure(cancellationToken);
     }
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

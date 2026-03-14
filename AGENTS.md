@@ -26,7 +26,7 @@ Development (.NET 10 / C# 14)
 
 Use idiomatic C# 14 and .NET 10 features when they genuinely simplify the code.
 Provide code examples in `csharp` blocks with fully compilable methods, classes, or tests.
-Prefer `file-scoped namespaces`, `required`, `collection expressions`, `await foreach`, and `primary constructors` where appropriate.
+Prefer `file-scoped namespaces`, `required`, `collection expressions`, and `await foreach` where appropriate.
 New code must stay aligned with the architectural decisions and documents in `docs/architecture` and `docs/adr`.
 
 Style Guide C#
@@ -43,7 +43,7 @@ Each public docblock must be brief and explain only the purpose of the public AP
 Docblocks must be written in English only, using UTF-8 encoding.
 Docblocks must not contain code examples or `<code>` blocks.
 Do not remove concise `<param>` or `<returns>` documentation from public methods and constructors when it is applicable.
-Primary constructor parameters of public classes and records should also keep concise `<param>` documentation.
+Primary constructors are prohibited for classes and records.
 
 Method bodies may not contain blank lines.
 Method and function bodies may not contain comments.

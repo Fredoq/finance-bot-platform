@@ -4,10 +4,15 @@ using Microsoft.Extensions.Options;
 
 namespace TelegramGateway.Api;
 
-internal sealed class SecretGate(IOptions<TelegramWebhookOptions> option) : IMiddleware
+internal sealed class SecretGate : IMiddleware
 {
     private const string Header = "X-Telegram-Bot-Api-Secret-Token";
-    private readonly byte[] secret = Encoding.UTF8.GetBytes(string.IsNullOrWhiteSpace(option.Value.SecretToken) ? throw new InvalidOperationException("Telegram webhook secret token is required") : option.Value.SecretToken);
+    private readonly byte[] secret;
+    public SecretGate(IOptions<TelegramWebhookOptions> option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        secret = Encoding.UTF8.GetBytes(string.IsNullOrWhiteSpace(option.Value.SecretToken) ? throw new InvalidOperationException("Telegram webhook secret token is required") : option.Value.SecretToken);
+    }
     /// <summary>
     /// Validates the webhook secret header before request processing continues.
     /// </summary>
