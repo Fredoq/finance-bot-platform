@@ -62,7 +62,7 @@ internal sealed class StartSlice : ITelegramSlice
         var note = new WorkspaceRequestedCommand(new WorkspaceIdentity(actor.Value, room.Value), new WorkspaceProfile(user.Name, user.Locale), payload.Value, DateTimeOffset.FromUnixTimeSeconds(message.Date));
         string cause = $"edge-update-{update.UpdateId}";
         string stamp = $"workspace-requested-{update.UpdateId}";
-        var data = new MessageEnvelope<WorkspaceRequestedCommand>(Guid.CreateVersion7(), Contract, note.OccurredUtc, trace, cause, stamp, Source, note);
+        var data = new MessageEnvelope<WorkspaceRequestedCommand>(Guid.CreateVersion7(), Contract, note.OccurredUtc, new MessageContext(trace, cause, stamp), Source, note);
         await port.Publish(data, token);
     }
 }

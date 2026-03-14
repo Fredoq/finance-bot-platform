@@ -60,11 +60,16 @@ jobs:
         shell: bash
         run: echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve version
+      - name: Resolve version from tag
         id: version
         shell: bash
         run: |
-          value="$(dotnet msbuild ${{ env.PROJECT_PATH }} -getProperty:Version | tr -d '\r')"
+          value="${GITHUB_REF_NAME#v}"
+          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -getProperty:Version | tr -d '\r')"
+          if [ "$project_version" != "$value" ]; then
+            echo "Tag version ($value) does not match project version ($project_version)" >&2
+            exit 1
+          fi
           echo "value=$value" >> "$GITHUB_OUTPUT"
 
       - name: Publish container

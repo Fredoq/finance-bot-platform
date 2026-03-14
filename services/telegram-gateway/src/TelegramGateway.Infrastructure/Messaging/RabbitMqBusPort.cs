@@ -100,7 +100,7 @@ internal sealed class RabbitMqBusPort : IBusPort, IAsyncDisposable
         ContentType = "application/json",
         DeliveryMode = DeliveryModes.Persistent,
         MessageId = message.MessageId.ToString(),
-        CorrelationId = message.CorrelationId,
+        CorrelationId = message.Context.CorrelationId,
         Timestamp = new AmqpTimestamp(message.OccurredUtc.ToUnixTimeSeconds()),
         Type = message.Contract,
         Headers = Headers(message)
@@ -111,9 +111,9 @@ internal sealed class RabbitMqBusPort : IBusPort, IAsyncDisposable
         {
             ["contract"] = message.Contract,
             ["message-id"] = message.MessageId.ToString(),
-            ["correlation-id"] = message.CorrelationId,
-            ["causation-id"] = message.CausationId,
-            ["idempotency-key"] = message.IdempotencyKey
+            ["correlation-id"] = message.Context.CorrelationId,
+            ["causation-id"] = message.Context.CausationId,
+            ["idempotency-key"] = message.Context.IdempotencyKey
         };
         string? text = Activity.Current?.Id;
         if (!string.IsNullOrWhiteSpace(text))
