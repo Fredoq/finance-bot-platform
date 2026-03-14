@@ -4,39 +4,30 @@ using Microsoft.Extensions.Options;
 
 namespace TelegramGateway.Api;
 
-/// <summary>
-/// Validates the Telegram secret header before the webhook handler runs.
-/// Example:
-/// <code>
-/// group.AddEndpointFilter&lt;SecretGate&gt;();
-/// </code>
-/// </summary>
-internal sealed class SecretGate(IOptions<TelegramWebhookOptions> option) : IEndpointFilter
+internal sealed class SecretGate(IOptions<TelegramWebhookOptions> option) : IMiddleware
 {
     private const string Header = "X-Telegram-Bot-Api-Secret-Token";
     private readonly byte[] secret = Encoding.UTF8.GetBytes(string.IsNullOrWhiteSpace(option.Value.SecretToken) ? throw new InvalidOperationException("Telegram webhook secret token is required") : option.Value.SecretToken);
     /// <summary>
-    /// Validates the current request secret header.
-    /// Example:
-    /// <code>
-    /// object? item = await gate.InvokeAsync(context, next);
-    /// </code>
+    /// Validates the webhook secret header before request processing continues.
     /// </summary>
-    /// <param name="context">The invocation context.</param>
-    /// <param name="next">The next filter in the chain.</param>
-    /// <returns>The endpoint result.</returns>
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    /// <param name="context">The current HTTP context.</param>
+    /// <param name="next">The next middleware delegate.</param>
+    /// <returns>A task that completes when the middleware finishes.</returns>
+    public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
-        string head = context.HttpContext.Request.Headers[Header].ToString();
+        string head = context.Request.Headers[Header].ToString();
         if (string.IsNullOrWhiteSpace(head) || secret.Length == 0)
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid");
+            await TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid").ExecuteAsync(context);
+            return;
         }
         byte[] left = Encoding.UTF8.GetBytes(head);
         if (left.Length != secret.Length || !CryptographicOperations.FixedTimeEquals(left, secret))
         {
-            return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid");
+            await TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid").ExecuteAsync(context);
+            return;
         }
-        return await next(context);
+        await next(context);
     }
 }

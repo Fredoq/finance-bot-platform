@@ -4,92 +4,46 @@ namespace TelegramGateway.Infrastructure.Configuration;
 
 /// <summary>
 /// Represents the RabbitMQ settings required by the gateway transport.
-/// Example:
-/// <code>
-/// var options = new RabbitMqOptions { Host = "localhost", Port = 5672, VirtualHost = "/", Username = "guest", Password = "guest", Exchange = "finance.command", Client = "telegram-gateway" };
-/// </code>
 /// </summary>
 public sealed class RabbitMqOptions : IValidatableObject
 {
     /// <summary>
     /// Gets the configuration section name.
-    /// Example:
-    /// <code>
-    /// string text = RabbitMqOptions.Section;
-    /// </code>
     /// </summary>
     public const string Section = "RabbitMq";
     /// <summary>
     /// Gets or sets the broker host name.
-    /// Example:
-    /// <code>
-    /// string text = options.Host;
-    /// </code>
     /// </summary>
-    [Required]
     public string Host { get; init; } = "localhost";
     /// <summary>
     /// Gets or sets the broker port.
-    /// Example:
-    /// <code>
-    /// int item = options.Port;
-    /// </code>
     /// </summary>
     public int Port { get; init; } = 5672;
     /// <summary>
     /// Gets or sets the broker virtual host.
-    /// Example:
-    /// <code>
-    /// string text = options.VirtualHost;
-    /// </code>
     /// </summary>
-    [Required]
     public string VirtualHost { get; init; } = "/";
     /// <summary>
     /// Gets or sets the broker user name.
-    /// Example:
-    /// <code>
-    /// string text = options.Username;
-    /// </code>
     /// </summary>
-    [Required]
     public string Username { get; init; } = string.Empty;
     /// <summary>
     /// Gets or sets the broker password.
-    /// Example:
-    /// <code>
-    /// string text = options.Password;
-    /// </code>
     /// </summary>
-    [Required]
     public string Password { get; init; } = string.Empty;
     /// <summary>
     /// Gets or sets the exchange name.
-    /// Example:
-    /// <code>
-    /// string text = options.Exchange;
-    /// </code>
     /// </summary>
-    [Required]
     public string Exchange { get; init; } = "finance.command";
     /// <summary>
     /// Gets or sets the client name.
-    /// Example:
-    /// <code>
-    /// string text = options.Client;
-    /// </code>
     /// </summary>
-    [Required]
     public string Client { get; init; } = "telegram-gateway";
     /// <summary>
     /// Validates the option values.
-    /// Example:
-    /// <code>
-    /// IEnumerable&lt;ValidationResult&gt; items = options.Validate(new ValidationContext(options));
-    /// </code>
     /// </summary>
     /// <param name="validationContext">The validation context.</param>
-    /// <returns>The validation result collection.</returns>
+    /// <returns>The validation results.</returns>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         var list = new List<ValidationResult>();
@@ -112,6 +66,14 @@ public sealed class RabbitMqOptions : IValidatableObject
         if (string.IsNullOrWhiteSpace(Password))
         {
             list.Add(new ValidationResult("RabbitMq password is required", [nameof(Password)]));
+        }
+        if (string.IsNullOrWhiteSpace(Exchange))
+        {
+            list.Add(new ValidationResult("RabbitMq exchange is required", [nameof(Exchange)]));
+        }
+        if (string.IsNullOrWhiteSpace(Client))
+        {
+            list.Add(new ValidationResult("RabbitMq client is required", [nameof(Client)]));
         }
         return list;
     }

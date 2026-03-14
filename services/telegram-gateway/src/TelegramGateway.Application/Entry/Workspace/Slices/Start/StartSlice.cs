@@ -9,27 +9,15 @@ using TelegramGateway.Domain.Entry.Workspace;
 
 namespace TelegramGateway.Application.Entry.Workspace;
 
-/// <summary>
-/// Processes a private Telegram `/start` interaction into one workspace command publish.
-/// Example:
-/// <code>
-/// bool item = slice.Match(update);
-/// await slice.Run(update, "trace-1", token);
-/// </code>
-/// </summary>
 internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
 {
     private const string Contract = "workspace.requested";
     private const string Source = "telegram-gateway";
     /// <summary>
-    /// Indicates whether the slice supports the inbound update.
-    /// Example:
-    /// <code>
-    /// bool item = slice.Match(update);
-    /// </code>
+    /// Determines whether the update is a private `/start` command.
     /// </summary>
-    /// <param name="update">The inbound update.</param>
-    /// <returns><see langword="true"/> when the slice supports the update.</returns>
+    /// <param name="update">The inbound Telegram update.</param>
+    /// <returns><see langword="true"/> when the start slice matches; otherwise <see langword="false"/>.</returns>
     public bool Match(TelegramUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
@@ -41,14 +29,10 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
         return command.Name == "/start";
     }
     /// <summary>
-    /// Publishes the workspace command for a matched `/start` update.
-    /// Example:
-    /// <code>
-    /// await slice.Run(update, "trace-1", token);
-    /// </code>
+    /// Publishes a workspace request for the matched start command.
     /// </summary>
-    /// <param name="update">The inbound update.</param>
-    /// <param name="trace">The correlation value for the current request.</param>
+    /// <param name="update">The inbound Telegram update.</param>
+    /// <param name="trace">The trace identifier.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes when the publish finishes.</returns>
     public async ValueTask Run(TelegramUpdate update, string trace, CancellationToken token)
@@ -69,7 +53,7 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
         var actor = new ActorKey(text.Text("actor", "telegram:user", user.Id));
         var room = new ConversationKey(text.Text("conversation", "telegram:chat", chat.Id));
         var payload = new StartPayload(command.Payload);
-        var note = new WorkspaceRequestedCommand(actor.Value, room.Value, user.Name, user.Locale, payload.Value, DateTimeOffset.FromUnixTimeSeconds(message.Date));
+        var note = new WorkspaceRequestedCommand(new WorkspaceIdentity(actor.Value, room.Value), new WorkspaceProfile(user.Name, user.Locale), payload.Value, DateTimeOffset.FromUnixTimeSeconds(message.Date));
         var data = new MessageEnvelope<WorkspaceRequestedCommand>(Guid.CreateVersion7(), Contract, note.OccurredUtc, trace, $"edge-update-{update.UpdateId}", $"edge-update-{update.UpdateId}", Source, note);
         await bus.Publish(data, token);
     }

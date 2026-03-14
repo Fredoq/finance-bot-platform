@@ -8,22 +8,14 @@ namespace TelegramGateway.Application;
 
 /// <summary>
 /// Registers the application services required by the Telegram gateway runtime.
-/// Example:
-/// <code>
-/// builder.Services.AddTelegramGatewayApplication();
-/// </code>
 /// </summary>
 public static class ApplicationSetup
 {
     /// <summary>
     /// Adds the application slices and supporting policies.
-    /// Example:
-    /// <code>
-    /// builder.Services.AddTelegramGatewayApplication();
-    /// </code>
     /// </summary>
     /// <param name="items">The service collection.</param>
-    /// <returns>The same service collection.</returns>
+    /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddTelegramGatewayApplication(this IServiceCollection items)
     {
         items.AddSingleton<IOpaqueKey, OpaqueKey>();

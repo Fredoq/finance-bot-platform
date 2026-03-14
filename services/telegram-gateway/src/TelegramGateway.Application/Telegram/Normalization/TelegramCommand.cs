@@ -2,23 +2,12 @@ using TelegramGateway.Application.Telegram.Contracts;
 
 namespace TelegramGateway.Application.Telegram.Normalization;
 
-/// <summary>
-/// Represents a normalized command token and payload extracted from a Telegram message.
-/// Example:
-/// <code>
-/// var item = new TelegramCommand(message);
-/// </code>
-/// </summary>
 internal sealed record TelegramCommand
 {
     /// <summary>
-    /// Initializes the normalized command model from a Telegram message.
-    /// Example:
-    /// <code>
-    /// var item = new TelegramCommand(message);
-    /// </code>
+    /// Normalizes a Telegram message into command parts.
     /// </summary>
-    /// <param name="message">The source Telegram message.</param>
+    /// <param name="message">The Telegram message.</param>
     public TelegramCommand(TelegramMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -51,19 +40,11 @@ internal sealed record TelegramCommand
         Payload = edge < 0 ? string.Empty : text[(edge + 1)..].Trim();
     }
     /// <summary>
-    /// Gets the normalized command token.
-    /// Example:
-    /// <code>
-    /// string text = item.Name;
-    /// </code>
+    /// Gets the normalized command name.
     /// </summary>
     public string Name { get; }
     /// <summary>
     /// Gets the normalized command payload.
-    /// Example:
-    /// <code>
-    /// string text = item.Payload;
-    /// </code>
     /// </summary>
     public string Payload { get; }
 }

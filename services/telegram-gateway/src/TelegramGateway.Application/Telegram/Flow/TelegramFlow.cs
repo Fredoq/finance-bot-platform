@@ -3,27 +3,16 @@ using TelegramGateway.Application.Telegram.Contracts;
 
 namespace TelegramGateway.Application.Telegram.Flow;
 
-/// <summary>
-/// Selects one specialized Telegram slice for the inbound update and runs it.
-/// Example:
-/// <code>
-/// await flow.Run(update, "trace-1", token);
-/// </code>
-/// </summary>
 internal sealed class TelegramFlow(IEnumerable<ITelegramSlice> flow, ILogger<TelegramFlow> log) : ITelegramFlow
 {
     private readonly ITelegramSlice[] list = [.. flow];
     /// <summary>
-    /// Runs the single matching slice for the inbound update.
-    /// Example:
-    /// <code>
-    /// await flow.Run(update, "trace-1", token);
-    /// </code>
+    /// Processes one inbound Telegram update through the matching slice.
     /// </summary>
     /// <param name="update">The inbound update.</param>
-    /// <param name="trace">The correlation value for the current request.</param>
+    /// <param name="trace">The trace identifier.</param>
     /// <param name="token">The cancellation token.</param>
-    /// <returns>A task that completes when processing finishes.</returns>
+    /// <returns>A task that completes when the operation finishes.</returns>
     public async ValueTask Run(TelegramUpdate update, string trace, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(update);

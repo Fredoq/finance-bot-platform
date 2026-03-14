@@ -13,7 +13,5 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj" />
-    <Project Path="tests/TelegramGateway.Application.Tests/TelegramGateway.Application.Tests.csproj" />
-    <Project Path="tests/Finance.Application.Contracts.Tests/Finance.Application.Contracts.Tests.csproj" />
   </Folder>
 </Solution>

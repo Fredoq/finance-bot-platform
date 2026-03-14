@@ -15,20 +15,20 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
 builder.Services.AddProblemDetails();
+builder.Services.AddSingleton<SecretGate>();
 builder.Services.AddOptionsWithValidateOnStart<TelegramWebhookOptions>().BindConfiguration(TelegramWebhookOptions.Section).ValidateDataAnnotations();
 builder.Services.AddTelegramGatewayApplication();
 builder.Services.AddTelegramGatewayInfrastructure();
 OpenTelemetryBuilder open = builder.Services.AddOpenTelemetry();
 open.ConfigureResource(item => item.AddService("telegram-gateway"));
-open.WithTracing(item => item.AddAspNetCoreInstrumentation());
-open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation());
+open.WithTracing(item => item.AddAspNetCoreInstrumentation().AddOtlpExporter());
+open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation().AddOtlpExporter());
 WebApplication app = builder.Build();
 app.UseExceptionHandler();
+app.UseWhen(item => item.Request.Path.Equals("/telegram/webhook", StringComparison.Ordinal), note => note.UseMiddleware<SecretGate>());
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = item => item.Tags.Contains("ready") });
-RouteGroupBuilder group = app.MapGroup("/telegram");
-group.AddEndpointFilter<SecretGate>();
-group.MapPost("/webhook", async Task<IResult> (TelegramUpdate update, ITelegramFlow flow, HttpContext item, ILogger<Program> log, CancellationToken token) =>
+app.MapPost("/telegram/webhook", async Task<IResult> (TelegramUpdate update, ITelegramFlow flow, HttpContext item, ILogger<Program> log, CancellationToken token) =>
 {
     try
     {
@@ -46,10 +46,6 @@ await app.RunAsync();
 
 /// <summary>
 /// Exposes the entry assembly type required by the ASP.NET Core test host.
-/// Example:
-/// <code>
-/// using var host = new WebApplicationFactory&lt;Program&gt;();
-/// </code>
 /// </summary>
 public partial class Program
 {

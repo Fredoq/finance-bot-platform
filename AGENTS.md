@@ -38,10 +38,12 @@ Use `record struct` only when the default value is valid and the allocation bene
 
 Code Design
 
-Every class or record must have a supplementary docblock preceding it.
-A class or record docblock must explain the purpose of the class or record and provide usage examples.
-Every method and function must have a supplementary docblock preceding it.
+Only public classes, records, interfaces, properties, constructors, methods, and functions may have supplementary docblocks.
+Each public docblock must be brief and explain only the purpose of the public API surface.
 Docblocks must be written in English only, using UTF-8 encoding.
+Docblocks must not contain code examples or `<code>` blocks.
+Do not remove concise `<param>` or `<returns>` documentation from public methods and constructors when it is applicable.
+Primary constructor parameters of public classes and records should also keep concise `<param>` documentation.
 
 Method bodies may not contain blank lines.
 Method and function bodies may not contain comments.

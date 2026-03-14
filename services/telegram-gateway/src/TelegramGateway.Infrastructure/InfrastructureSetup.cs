@@ -8,22 +8,14 @@ namespace TelegramGateway.Infrastructure;
 
 /// <summary>
 /// Registers the infrastructure services required by the gateway runtime.
-/// Example:
-/// <code>
-/// builder.Services.AddTelegramGatewayInfrastructure();
-/// </code>
 /// </summary>
 public static class InfrastructureSetup
 {
     /// <summary>
     /// Adds the RabbitMQ transport, startup warm-up, and broker health checks.
-    /// Example:
-    /// <code>
-    /// builder.Services.AddTelegramGatewayInfrastructure();
-    /// </code>
     /// </summary>
     /// <param name="items">The service collection.</param>
-    /// <returns>The same service collection.</returns>
+    /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddTelegramGatewayInfrastructure(this IServiceCollection items)
     {
         items.AddOptionsWithValidateOnStart<RabbitMqOptions>().BindConfiguration(RabbitMqOptions.Section).ValidateDataAnnotations();

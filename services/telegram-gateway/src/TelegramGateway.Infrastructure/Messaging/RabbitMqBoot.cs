@@ -2,31 +2,16 @@ using Microsoft.Extensions.Hosting;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-/// <summary>
-/// Warms the broker connection and topology during service startup.
-/// Example:
-/// <code>
-/// await boot.StartAsync(cancellationToken);
-/// </code>
-/// </summary>
 internal sealed class RabbitMqBoot(IBrokerState state) : IHostedService
 {
     /// <summary>
-    /// Starts the warm-up flow.
-    /// Example:
-    /// <code>
-    /// await boot.StartAsync(cancellationToken);
-    /// </code>
+    /// Warms up the broker connection during host startup.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task that completes when the broker is ready.</returns>
+    /// <returns>A task that completes when the broker warm-up finishes.</returns>
     public Task StartAsync(CancellationToken cancellationToken) => state.Ensure(cancellationToken).AsTask();
     /// <summary>
-    /// Stops the warm-up flow.
-    /// Example:
-    /// <code>
-    /// await boot.StopAsync(cancellationToken);
-    /// </code>
+    /// Stops the hosted service.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A completed task.</returns>

@@ -3,27 +3,22 @@ using TelegramGateway.Infrastructure.Messaging;
 
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
-/// <summary>
-/// Provides a ready broker state for API tests that do not need a real RabbitMQ connection.
-/// Example:
-/// <code>
-/// var state = new ReadyBrokerState();
-/// </code>
-/// </summary>
 internal sealed class ReadyBrokerState : IBrokerState
 {
     /// <summary>
-    /// Throws because this fake never exposes a real broker connection.
+    /// Rejects direct connection access for the readiness fake.
     /// </summary>
     /// <param name="token">The cancellation token.</param>
-    /// <exception cref="NotSupportedException">Thrown whenever a test asks this fake for an IConnection.</exception>
+    /// <returns>The broker connection.</returns>
     public ValueTask<IConnection> Connection(CancellationToken token) => throw new NotSupportedException("Connection is not used by this fake");
     /// <summary>
-    /// Marks the broker state as ready.
-    /// Example:
-    /// <code>
-    /// await state.Ensure(token);
-    /// </code>
+    /// Returns a ready state for the fake broker.
+    /// </summary>
+    /// <param name="token">The cancellation token.</param>
+    /// <returns><see langword="true"/>.</returns>
+    public ValueTask<bool> Ready(CancellationToken token) => ValueTask.FromResult(true);
+    /// <summary>
+    /// Completes immediately for the fake broker.
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A completed task.</returns>

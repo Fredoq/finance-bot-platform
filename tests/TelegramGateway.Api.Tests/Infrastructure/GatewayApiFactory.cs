@@ -8,23 +8,8 @@ using TelegramGateway.Infrastructure.Messaging;
 
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
-/// <summary>
-/// Provides a configurable API host for gateway integration tests.
-/// Example:
-/// <code>
-/// await using var host = new GatewayApiFactory(note, port, state);
-/// </code>
-/// </summary>
 internal sealed class GatewayApiFactory(IDictionary<string, string?> note, IBusPort? port = null, IBrokerState? state = null) : WebApplicationFactory<Program>
 {
-    /// <summary>
-    /// Configures the test host.
-    /// Example:
-    /// <code>
-    /// host.ConfigureWebHost(builder);
-    /// </code>
-    /// </summary>
-    /// <param name="builder">The web host builder.</param>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");

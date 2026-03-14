@@ -3,31 +3,19 @@ using TelegramGateway.Infrastructure.Messaging;
 
 namespace TelegramGateway.Infrastructure.Observability;
 
-/// <summary>
-/// Checks that the RabbitMQ transport is reachable and ready.
-/// Example:
-/// <code>
-/// HealthCheckResult item = await check.CheckHealthAsync(context, cancellationToken);
-/// </code>
-/// </summary>
 internal sealed class BrokerHealthCheck(IBrokerState state) : IHealthCheck
 {
     /// <summary>
-    /// Checks the broker readiness state.
-    /// Example:
-    /// <code>
-    /// HealthCheckResult item = await check.CheckHealthAsync(context, cancellationToken);
-    /// </code>
+    /// Checks whether the broker is ready to serve traffic.
     /// </summary>
     /// <param name="context">The health check context.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The health result.</returns>
+    /// <returns>The broker health status.</returns>
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         try
         {
-            await state.Ensure(cancellationToken);
-            return HealthCheckResult.Healthy();
+            return await state.Ready(cancellationToken) ? HealthCheckResult.Healthy() : HealthCheckResult.Unhealthy("Broker is unavailable");
         }
         catch (Exception error)
         {

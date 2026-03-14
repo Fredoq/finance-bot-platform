@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using TelegramGateway.Api.Tests.Infrastructure;
 using TelegramGateway.Application.Messaging;
 
@@ -7,20 +8,13 @@ namespace TelegramGateway.Api.Tests;
 
 /// <summary>
 /// Covers webhook API behavior with fakes.
-/// Example:
-/// <code>
-/// var test = new WebhookApiTests();
-/// </code>
 /// </summary>
 public sealed class WebhookApiTests
 {
     /// <summary>
     /// Verifies that an invalid secret is rejected.
-    /// Example:
-    /// <code>
-    /// await test.Rejects_secret();
-    /// </code>
     /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
     [Fact(DisplayName = "Returns 403 when the webhook secret is invalid")]
     public async Task Rejects_secret()
     {
@@ -33,12 +27,25 @@ public sealed class WebhookApiTests
         Assert.Empty(port.Items);
     }
     /// <summary>
-    /// Verifies that unsupported updates are ignored.
-    /// Example:
-    /// <code>
-    /// await test.Ignores_update();
-    /// </code>
+    /// Verifies that an invalid secret is rejected before request body binding.
     /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
+    [Fact(DisplayName = "Returns 403 before binding the webhook body when the secret is invalid")]
+    public async Task Rejects_invalid_payload()
+    {
+        var port = new RecordingWorkspacePort();
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        using HttpClient item = host.CreateClient();
+        item.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
+        using var note = new StringContent("{", Encoding.UTF8, "application/json");
+        HttpResponseMessage data = await item.PostAsync("/telegram/webhook", note);
+        Assert.Equal(HttpStatusCode.Forbidden, data.StatusCode);
+        Assert.Empty(port.Items);
+    }
+    /// <summary>
+    /// Verifies that unsupported updates are ignored.
+    /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
     [Fact(DisplayName = "Returns 200 and does not publish when the update is unsupported")]
     public async Task Ignores_update()
     {
@@ -51,11 +58,8 @@ public sealed class WebhookApiTests
     }
     /// <summary>
     /// Verifies that a start command is published.
-    /// Example:
-    /// <code>
-    /// await test.Accepts_start();
-    /// </code>
     /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
     [Fact(DisplayName = "Returns 200 and publishes one workspace command for /start")]
     public async Task Accepts_start()
     {
@@ -69,11 +73,8 @@ public sealed class WebhookApiTests
     }
     /// <summary>
     /// Verifies that publish faults become service unavailable responses.
-    /// Example:
-    /// <code>
-    /// await test.Rejects_publish();
-    /// </code>
     /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
     [Fact(DisplayName = "Returns 503 when publish fails")]
     public async Task Rejects_publish()
     {
@@ -85,11 +86,8 @@ public sealed class WebhookApiTests
     }
     /// <summary>
     /// Verifies that the readiness endpoint is healthy with the fake broker.
-    /// Example:
-    /// <code>
-    /// await test.Ready();
-    /// </code>
     /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
     [Fact(DisplayName = "Returns 200 for the readiness endpoint when the broker state is ready")]
     public async Task Ready()
     {
@@ -98,29 +96,12 @@ public sealed class WebhookApiTests
         HttpResponseMessage note = await item.GetAsync("/health/ready");
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
     }
-    /// <summary>
-    /// Creates the configured API client.
-    /// Example:
-    /// <code>
-    /// using HttpClient item = Client(host);
-    /// </code>
-    /// </summary>
-    /// <param name="item">The web host factory.</param>
-    /// <returns>The configured client.</returns>
     private static HttpClient Client(GatewayApiFactory item)
     {
         HttpClient note = item.CreateClient();
         note.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
         return note;
     }
-    /// <summary>
-    /// Creates the host configuration overrides.
-    /// Example:
-    /// <code>
-    /// IDictionary&lt;string, string?&gt; items = Note();
-    /// </code>
-    /// </summary>
-    /// <returns>The configuration collection.</returns>
     private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
     {
         ["Telegram:Webhook:SecretToken"] = "test-secret",
@@ -132,15 +113,6 @@ public sealed class WebhookApiTests
         ["RabbitMq:Exchange"] = "finance.command",
         ["RabbitMq:Client"] = "telegram-gateway-tests"
     };
-    /// <summary>
-    /// Creates the webhook payload fixture.
-    /// Example:
-    /// <code>
-    /// object item = Body("/start");
-    /// </code>
-    /// </summary>
-    /// <param name="text">The message text.</param>
-    /// <returns>The webhook payload.</returns>
     private static object Body(string text) => new
     {
         update_id = 7,

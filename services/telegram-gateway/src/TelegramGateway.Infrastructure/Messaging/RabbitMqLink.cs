@@ -5,13 +5,6 @@ using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-/// <summary>
-/// Maintains the long-lived RabbitMQ connection and exchange topology for the gateway.
-/// Example:
-/// <code>
-/// await link.Ensure(token);
-/// </code>
-/// </summary>
 internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<RabbitMqLink> log) : IBrokerState, IAsyncDisposable
 {
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -30,20 +23,13 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     private IConnection? link;
     private int disposed;
     /// <summary>
-    /// Gets the active broker connection.
-    /// Example:
-    /// <code>
-    /// IConnection item = await state.Connection(token);
-    /// </code>
+    /// Opens or returns the active RabbitMQ connection.
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <returns>The active broker connection.</returns>
     public async ValueTask<IConnection> Connection(CancellationToken token)
     {
-        if (Volatile.Read(ref disposed) == 1)
-        {
-            throw new ObjectDisposedException(nameof(RabbitMqLink));
-        }
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) == 1, nameof(RabbitMqLink));
         if (link is { IsOpen: true })
         {
             return link;
@@ -51,10 +37,7 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
         await gate.WaitAsync(token);
         try
         {
-            if (Volatile.Read(ref disposed) == 1)
-            {
-                throw new ObjectDisposedException(nameof(RabbitMqLink));
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) == 1, nameof(RabbitMqLink));
             if (link is { IsOpen: true })
             {
                 return link;
@@ -74,14 +57,20 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
         }
     }
     /// <summary>
-    /// Ensures the broker connection and topology are ready.
-    /// Example:
-    /// <code>
-    /// await state.Ensure(token);
-    /// </code>
+    /// Checks whether the broker connection is ready.
     /// </summary>
     /// <param name="token">The cancellation token.</param>
-    /// <returns>A task that completes when the transport is ready.</returns>
+    /// <returns><see langword="true"/> when the broker is ready; otherwise <see langword="false"/>.</returns>
+    public async ValueTask<bool> Ready(CancellationToken token)
+    {
+        IConnection item = await Connection(token);
+        return item.IsOpen;
+    }
+    /// <summary>
+    /// Ensures that the broker exchange exists.
+    /// </summary>
+    /// <param name="token">The cancellation token.</param>
+    /// <returns>A task that completes when the broker is ready.</returns>
     public async ValueTask Ensure(CancellationToken token)
     {
         IConnection item = await Connection(token);
@@ -89,20 +78,21 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
         await lane.ExchangeDeclareAsync(option.Value.Exchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
     }
     /// <summary>
-    /// Disposes the active broker connection.
-    /// Example:
-    /// <code>
-    /// await link.DisposeAsync();
-    /// </code>
+    /// Disposes the broker connection resources.
     /// </summary>
-    /// <returns>A task that completes when the connection is disposed.</returns>
+    /// <returns>A task that completes when disposal finishes.</returns>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref disposed, 1) == 1)
         {
             return;
         }
-        await gate.WaitAsync();
+        if (!await gate.WaitAsync(TimeSpan.FromSeconds(30)))
+        {
+            link = null;
+            log.LogWarning("RabbitMQ connection disposal timed out");
+            return;
+        }
         try
         {
             if (link is not null)
@@ -117,15 +107,6 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
             gate.Dispose();
         }
     }
-    /// <summary>
-    /// Closes and disposes a stale broker connection.
-    /// Example:
-    /// <code>
-    /// await link.Close(item);
-    /// </code>
-    /// </summary>
-    /// <param name="item">The connection to close.</param>
-    /// <returns>A task that completes when the connection is released.</returns>
     private async ValueTask Close(IConnection item)
     {
         try

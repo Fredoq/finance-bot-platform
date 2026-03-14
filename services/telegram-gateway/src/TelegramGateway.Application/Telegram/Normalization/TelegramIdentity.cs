@@ -2,23 +2,12 @@ using TelegramGateway.Application.Telegram.Contracts;
 
 namespace TelegramGateway.Application.Telegram.Normalization;
 
-/// <summary>
-/// Represents the normalized Telegram user data required by the workspace slice.
-/// Example:
-/// <code>
-/// var item = new TelegramIdentity(user);
-/// </code>
-/// </summary>
 internal sealed record TelegramIdentity
 {
     /// <summary>
-    /// Initializes the normalized identity model from a Telegram user.
-    /// Example:
-    /// <code>
-    /// var item = new TelegramIdentity(user);
-    /// </code>
+    /// Normalizes a Telegram user into gateway identity fields.
     /// </summary>
-    /// <param name="user">The source Telegram user.</param>
+    /// <param name="user">The Telegram user.</param>
     public TelegramIdentity(TelegramUser user)
     {
         ArgumentNullException.ThrowIfNull(user);
@@ -42,27 +31,15 @@ internal sealed record TelegramIdentity
         Locale = user.LanguageCode?.Trim() ?? string.Empty;
     }
     /// <summary>
-    /// Gets the source user identifier.
-    /// Example:
-    /// <code>
-    /// long id = item.Id;
-    /// </code>
+    /// Gets the Telegram user identifier.
     /// </summary>
     public long Id { get; }
     /// <summary>
-    /// Gets the best-effort display name.
-    /// Example:
-    /// <code>
-    /// string text = item.Name;
-    /// </code>
+    /// Gets the normalized display name.
     /// </summary>
     public string Name { get; }
     /// <summary>
-    /// Gets the locale text.
-    /// Example:
-    /// <code>
-    /// string text = item.Locale;
-    /// </code>
+    /// Gets the normalized locale code.
     /// </summary>
     public string Locale { get; }
 }

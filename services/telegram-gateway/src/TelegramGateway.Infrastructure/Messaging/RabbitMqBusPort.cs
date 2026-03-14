@@ -10,13 +10,6 @@ using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 
-/// <summary>
-/// Publishes application messages to RabbitMQ.
-/// Example:
-/// <code>
-/// await port.Publish(message, token);
-/// </code>
-/// </summary>
 internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptions> option, ILogger<RabbitMqBusPort> log) : IBusPort, IAsyncDisposable
 {
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -24,29 +17,19 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
     private IConnection? link;
     private int disposed;
     /// <summary>
-    /// Publishes the application message envelope to RabbitMQ.
-    /// Example:
-    /// <code>
-    /// await port.Publish(message, token);
-    /// </code>
+    /// Publishes an application envelope to RabbitMQ.
     /// </summary>
-    /// <param name="message">The envelope to publish.</param>
+    /// <param name="message">The message envelope.</param>
     /// <param name="token">The cancellation token.</param>
-    /// <returns>A task that completes when the broker confirms the publish.</returns>
+    /// <returns>A task that completes when the publish finishes.</returns>
     public async ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (Volatile.Read(ref disposed) == 1)
-        {
-            throw new ObjectDisposedException(nameof(RabbitMqBusPort));
-        }
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) == 1, nameof(RabbitMqBusPort));
         await gate.WaitAsync(token);
         try
         {
-            if (Volatile.Read(ref disposed) == 1)
-            {
-                throw new ObjectDisposedException(nameof(RabbitMqBusPort));
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) == 1, nameof(RabbitMqBusPort));
             IConnection item = await state.Connection(token);
             if (lane is null || !lane.IsOpen || !ReferenceEquals(link, item))
             {
@@ -65,8 +48,9 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             log.LogError(error, "Message publish failed");
             throw new BusException("Message publish failed", error);
         }
-        catch (OperationCanceledException error) when (Cancel(error))
+        catch (OperationCanceledException error)
         {
+            Cancel(error);
             throw;
         }
         catch (Exception error)
@@ -81,13 +65,9 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
         }
     }
     /// <summary>
-    /// Disposes the cached broker channel.
-    /// Example:
-    /// <code>
-    /// await port.DisposeAsync();
-    /// </code>
+    /// Disposes the cached channel resources.
     /// </summary>
-    /// <returns>A task that completes when the channel is disposed.</returns>
+    /// <returns>A task that completes when disposal finishes.</returns>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref disposed, 1) == 1)
@@ -105,16 +85,7 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             gate.Dispose();
         }
     }
-    /// <summary>
-    /// Builds the AMQP message properties.
-    /// Example:
-    /// <code>
-    /// BasicProperties item = Properties(message);
-    /// </code>
-    /// </summary>
-    /// <param name="message">The envelope to publish.</param>
-    /// <returns>The AMQP properties.</returns>
-    private BasicProperties Properties<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class => new BasicProperties
+    private static BasicProperties Properties<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class => new BasicProperties
     {
         ContentType = "application/json",
         DeliveryMode = DeliveryModes.Persistent,
@@ -124,16 +95,7 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
         Type = message.Contract,
         Headers = Headers(message)
     };
-    /// <summary>
-    /// Builds the AMQP header dictionary.
-    /// Example:
-    /// <code>
-    /// IDictionary&lt;string, object?&gt; item = Headers(message);
-    /// </code>
-    /// </summary>
-    /// <param name="message">The envelope to publish.</param>
-    /// <returns>The header dictionary.</returns>
-    private static IDictionary<string, object?> Headers<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class
+    private static Dictionary<string, object?> Headers<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class
     {
         var item = new Dictionary<string, object?>
         {
@@ -150,14 +112,6 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
         }
         return item;
     }
-    /// <summary>
-    /// Closes and disposes the cached broker channel.
-    /// Example:
-    /// <code>
-    /// await port.Close();
-    /// </code>
-    /// </summary>
-    /// <returns>A task that completes when the channel state is cleared.</returns>
     private async ValueTask Close()
     {
         IChannel? item = lane;
@@ -180,18 +134,5 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             log.LogWarning(error, "Broker channel cleanup failed");
         }
     }
-    /// <summary>
-    /// Logs broker transport cancellation and keeps the original exception flow.
-    /// Example:
-    /// <code>
-    /// _ = port.Cancel(error);
-    /// </code>
-    /// </summary>
-    /// <param name="error">The cancellation exception.</param>
-    /// <returns><see langword="false"/> so the exception is rethrown by the runtime.</returns>
-    private bool Cancel(OperationCanceledException error)
-    {
-        log.LogInformation(error, "Broker transport cancelled");
-        return false;
-    }
+    private void Cancel(OperationCanceledException error) => log.LogInformation(error, "Broker transport cancelled");
 }
