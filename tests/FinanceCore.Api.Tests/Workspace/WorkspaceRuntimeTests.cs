@@ -104,7 +104,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         Assert.NotNull(view);
         Assert.Equal("expense-draft", view!.Payload.State);
         Assert.Equal("second", await Scalar("select last_payload from finance.workspace where conversation_key = 'room-5'"));
-        Assert.Equal(2L, long.Parse(await Scalar("select revision::text from finance.workspace where conversation_key = 'room-5'"), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(2L, await Number("select revision from finance.workspace where conversation_key = 'room-5'"));
     }
     /// <summary>
     /// Verifies that unknown contracts are moved to the dead queue.

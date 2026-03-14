@@ -64,7 +64,7 @@ internal sealed class MigrationBoot : IHostedService
         }
         finally
         {
-            await Unlock(link, token);
+            await Unlock(link, CancellationToken.None);
         }
     }
     private static bool Name(string text) => text.Contains(".Persistence.Postgres.Migrations.Scripts.", StringComparison.Ordinal) && text.EndsWith(".sql", StringComparison.Ordinal);
@@ -74,17 +74,21 @@ internal sealed class MigrationBoot : IHostedService
         using var item = CancellationTokenSource.CreateLinkedTokenSource(token, note.Token);
         while (true)
         {
-            await using NpgsqlCommand gate = new("select pg_try_advisory_lock(@key)", link);
-            gate.Parameters.AddWithValue("key", key);
-            if ((bool)(await gate.ExecuteScalarAsync(item.Token) ?? false))
+            try
             {
-                return;
+                await using NpgsqlCommand gate = new("select pg_try_advisory_lock(@key)", link);
+                gate.Parameters.AddWithValue("key", key);
+                object? data = await gate.ExecuteScalarAsync(item.Token);
+                if (data is bool state && state)
+                {
+                    return;
+                }
+                await Task.Delay(250, item.Token);
             }
-            if (note.IsCancellationRequested)
+            catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
                 throw new TimeoutException("Postgres migration lock timed out");
             }
-            await Task.Delay(250, item.Token);
         }
     }
     private static async ValueTask Unlock(NpgsqlConnection link, CancellationToken token)

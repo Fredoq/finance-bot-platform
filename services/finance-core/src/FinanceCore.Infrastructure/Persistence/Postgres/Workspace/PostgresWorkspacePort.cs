@@ -71,17 +71,23 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         add.Parameters.AddWithValue("locale", message.Payload.Profile.Locale);
         add.Parameters.AddWithValue("created_utc", message.Payload.OccurredUtc);
         add.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        object? data = await add.ExecuteScalarAsync(token);
-        if (data is Guid item)
+        await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
+        if (await row.ReadAsync(token))
         {
-            return (item, true);
+            return (row.GetGuid(0), true);
         }
+        await row.DisposeAsync();
         await using NpgsqlCommand note = new("update finance.user_account set name = @name, locale = @locale, updated_utc = @updated_utc where actor_key = @actor_key returning id", link, lane);
         note.Parameters.AddWithValue("actor_key", message.Payload.Identity.ActorKey);
         note.Parameters.AddWithValue("name", message.Payload.Profile.Name);
         note.Parameters.AddWithValue("locale", message.Payload.Profile.Locale);
         note.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        return ((Guid)(await note.ExecuteScalarAsync(token) ?? throw new InvalidOperationException("User upsert failed")), false);
+        await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
+        if (await data.ReadAsync(token))
+        {
+            return (data.GetGuid(0), false);
+        }
+        throw new InvalidOperationException("User upsert failed");
     }
     private static async ValueTask<WorkspaceItem> Workspace(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
     {
@@ -139,10 +145,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
     }
     private static async ValueTask Processed(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("update finance.inbox_message set processed_utc = @processed_utc where contract = @contract and idempotency_key = @idempotency_key", link, lane);
+        await using NpgsqlCommand note = new("update finance.inbox_message set processed_utc = @processed_utc where contract = @contract and message_id = @message_id", link, lane);
         note.Parameters.AddWithValue("processed_utc", DateTimeOffset.UtcNow);
         note.Parameters.AddWithValue("contract", message.Contract);
-        note.Parameters.AddWithValue("idempotency_key", message.Context.IdempotencyKey);
+        note.Parameters.AddWithValue("message_id", message.MessageId);
         if (await note.ExecuteNonQueryAsync(token) != 1)
         {
             throw new InvalidOperationException("Inbox processed update failed");

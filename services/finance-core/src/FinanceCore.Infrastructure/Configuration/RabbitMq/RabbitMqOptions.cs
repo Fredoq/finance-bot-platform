@@ -64,77 +64,64 @@ public sealed class RabbitMqOptions : IValidatableObject
     /// </summary>
     public int MaxAttempts { get; init; } = 5;
     /// <summary>
+    /// Gets or sets the outbox publish batch size.
+    /// </summary>
+    public int OutboxBatchSize { get; init; } = 32;
+    /// <summary>
     /// Validates the option values.
     /// </summary>
     /// <param name="validationContext">The validation context.</param>
     /// <returns>The validation results.</returns>
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        ArgumentNullException.ThrowIfNull(validationContext);
         var list = new List<ValidationResult>();
-        if (string.IsNullOrWhiteSpace(Host))
-        {
-            list.Add(new ValidationResult("RabbitMq host is required", [nameof(Host)]));
-        }
-        if (Port is < 1 or > 65535)
-        {
-            list.Add(new ValidationResult("RabbitMq port must be between 1 and 65535", [nameof(Port)]));
-        }
-        if (string.IsNullOrWhiteSpace(VirtualHost))
-        {
-            list.Add(new ValidationResult("RabbitMq virtual host is required", [nameof(VirtualHost)]));
-        }
-        if (string.IsNullOrWhiteSpace(Username))
-        {
-            list.Add(new ValidationResult("RabbitMq username is required", [nameof(Username)]));
-        }
-        if (string.IsNullOrWhiteSpace(Password))
-        {
-            list.Add(new ValidationResult("RabbitMq password is required", [nameof(Password)]));
-        }
-        if (string.IsNullOrWhiteSpace(Exchange))
-        {
-            list.Add(new ValidationResult("RabbitMq exchange is required", [nameof(Exchange)]));
-        }
-        if (string.IsNullOrWhiteSpace(Queue))
-        {
-            list.Add(new ValidationResult("RabbitMq queue is required", [nameof(Queue)]));
-        }
-        if (string.IsNullOrWhiteSpace(RetryQueue))
-        {
-            list.Add(new ValidationResult("RabbitMq retry queue is required", [nameof(RetryQueue)]));
-        }
-        if (string.IsNullOrWhiteSpace(DeadQueue))
-        {
-            list.Add(new ValidationResult("RabbitMq dead queue is required", [nameof(DeadQueue)]));
-        }
-        if (!string.IsNullOrWhiteSpace(Queue) && !string.IsNullOrWhiteSpace(RetryQueue) && string.Equals(Queue, RetryQueue, StringComparison.Ordinal))
-        {
-            list.Add(new ValidationResult("RabbitMq queue and retry queue must be distinct", [nameof(Queue), nameof(RetryQueue)]));
-        }
-        if (!string.IsNullOrWhiteSpace(Queue) && !string.IsNullOrWhiteSpace(DeadQueue) && string.Equals(Queue, DeadQueue, StringComparison.Ordinal))
-        {
-            list.Add(new ValidationResult("RabbitMq queue and dead queue must be distinct", [nameof(Queue), nameof(DeadQueue)]));
-        }
-        if (!string.IsNullOrWhiteSpace(RetryQueue) && !string.IsNullOrWhiteSpace(DeadQueue) && string.Equals(RetryQueue, DeadQueue, StringComparison.Ordinal))
-        {
-            list.Add(new ValidationResult("RabbitMq retry queue and dead queue must be distinct", [nameof(RetryQueue), nameof(DeadQueue)]));
-        }
-        if (string.IsNullOrWhiteSpace(Client))
-        {
-            list.Add(new ValidationResult("RabbitMq client is required", [nameof(Client)]));
-        }
-        if (Prefetch == 0)
-        {
-            list.Add(new ValidationResult("RabbitMq prefetch must be greater than zero", [nameof(Prefetch)]));
-        }
-        if (RetryDelaySeconds <= 0)
-        {
-            list.Add(new ValidationResult("RabbitMq retry delay must be greater than zero", [nameof(RetryDelaySeconds)]));
-        }
-        if (MaxAttempts <= 0)
-        {
-            list.Add(new ValidationResult("RabbitMq max attempts must be greater than zero", [nameof(MaxAttempts)]));
-        }
+        Require(list, Host, nameof(Host), "RabbitMq host is required");
+        Range(list, Port, 1, 65535, nameof(Port), "RabbitMq port must be between 1 and 65535");
+        Require(list, VirtualHost, nameof(VirtualHost), "RabbitMq virtual host is required");
+        Require(list, Username, nameof(Username), "RabbitMq username is required");
+        Require(list, Password, nameof(Password), "RabbitMq password is required");
+        Require(list, Exchange, nameof(Exchange), "RabbitMq exchange is required");
+        Require(list, Queue, nameof(Queue), "RabbitMq queue is required");
+        Require(list, RetryQueue, nameof(RetryQueue), "RabbitMq retry queue is required");
+        Require(list, DeadQueue, nameof(DeadQueue), "RabbitMq dead queue is required");
+        Distinct(list, Queue, RetryQueue, nameof(Queue), nameof(RetryQueue), "RabbitMq queue and retry queue must be distinct");
+        Distinct(list, Queue, DeadQueue, nameof(Queue), nameof(DeadQueue), "RabbitMq queue and dead queue must be distinct");
+        Distinct(list, RetryQueue, DeadQueue, nameof(RetryQueue), nameof(DeadQueue), "RabbitMq retry queue and dead queue must be distinct");
+        Require(list, Client, nameof(Client), "RabbitMq client is required");
+        Positive(list, Prefetch, nameof(Prefetch), "RabbitMq prefetch must be greater than zero");
+        Positive(list, RetryDelaySeconds, nameof(RetryDelaySeconds), "RabbitMq retry delay must be greater than zero");
+        Positive(list, MaxAttempts, nameof(MaxAttempts), "RabbitMq max attempts must be greater than zero");
+        Positive(list, OutboxBatchSize, nameof(OutboxBatchSize), "RabbitMq outbox batch size must be greater than zero");
         return list;
     }
+    private static void Require(ICollection<ValidationResult> list, string value, string name, string error)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            list.Add(Result(error, name));
+        }
+    }
+    private static void Range(ICollection<ValidationResult> list, int value, int low, int high, string name, string error)
+    {
+        if (value < low || value > high)
+        {
+            list.Add(Result(error, name));
+        }
+    }
+    private static void Positive(ICollection<ValidationResult> list, int value, string name, string error)
+    {
+        if (value <= 0)
+        {
+            list.Add(Result(error, name));
+        }
+    }
+    private static void Distinct(ICollection<ValidationResult> list, string left, string right, string leftName, string rightName, string error)
+    {
+        if (!string.IsNullOrWhiteSpace(left) && !string.IsNullOrWhiteSpace(right) && string.Equals(left, right, StringComparison.Ordinal))
+        {
+            list.Add(new ValidationResult(error, [leftName, rightName]));
+        }
+    }
+    private static ValidationResult Result(string error, string name) => new(error, [name]);
 }

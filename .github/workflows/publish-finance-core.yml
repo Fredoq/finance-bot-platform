@@ -107,7 +107,7 @@ jobs:
           if [ -z "$value" ]; then
             value="${GITHUB_REF_NAME#v}"
           fi
-          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -target:MinVer -p:MinVerVersionOverride="$value" -getProperty:Version | tr -d '\r')"
+          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -target:MinVer -getProperty:Version | tr -d '\r')"
           if [ "$project_version" != "$value" ]; then
             echo "Tag version ($value) does not match project version ($project_version)" >&2
             exit 1

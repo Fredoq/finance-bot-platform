@@ -43,7 +43,7 @@ internal sealed class RabbitMqOutboxLoop : BackgroundService
     }
     private async ValueTask Loop(CancellationToken token)
     {
-        IReadOnlyList<OutboxItem> list = await port.Items(32, token);
+        IReadOnlyList<OutboxItem> list = await port.Items(option.OutboxBatchSize, token);
         if (list.Count == 0)
         {
             await Task.Delay(250, token);

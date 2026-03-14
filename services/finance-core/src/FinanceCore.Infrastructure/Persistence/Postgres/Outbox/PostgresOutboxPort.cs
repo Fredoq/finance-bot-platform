@@ -31,10 +31,7 @@ internal sealed class PostgresOutboxPort : IOutboxPort
         note.Parameters.AddWithValue("published_utc", DBNull.Value);
         note.Parameters.AddWithValue("attempt", 0);
         note.Parameters.AddWithValue("error", string.Empty);
-        if (await note.ExecuteNonQueryAsync(token) != 1)
-        {
-            throw new InvalidOperationException("Outbox insert failed");
-        }
+        _ = await note.ExecuteNonQueryAsync(token);
     }
     internal async ValueTask<IReadOnlyList<OutboxItem>> Items(int size, CancellationToken token)
     {
