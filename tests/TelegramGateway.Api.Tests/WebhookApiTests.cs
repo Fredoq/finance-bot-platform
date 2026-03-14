@@ -26,9 +26,9 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using var item = host.CreateClient();
+        using HttpClient item = host.CreateClient();
         item.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
         Assert.Equal(HttpStatusCode.Forbidden, note.StatusCode);
         Assert.Empty(port.Items);
     }
@@ -44,8 +44,8 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using var item = Client(host);
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/help"));
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/help"));
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
         Assert.Empty(port.Items);
     }
@@ -61,8 +61,8 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort();
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using var item = Client(host);
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items.Single().Payload.Payload);
@@ -79,8 +79,8 @@ public sealed class WebhookApiTests
     {
         var port = new RecordingWorkspacePort(new BusException("Message publish failed"));
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
-        using var item = Client(host);
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
         Assert.Equal(HttpStatusCode.ServiceUnavailable, note.StatusCode);
     }
     /// <summary>
@@ -94,8 +94,8 @@ public sealed class WebhookApiTests
     public async Task Ready()
     {
         await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState());
-        using var item = host.CreateClient();
-        var note = await item.GetAsync("/health/ready");
+        using HttpClient item = host.CreateClient();
+        HttpResponseMessage note = await item.GetAsync("/health/ready");
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
     }
     /// <summary>
@@ -109,7 +109,7 @@ public sealed class WebhookApiTests
     /// <returns>The configured client.</returns>
     private static HttpClient Client(GatewayApiFactory item)
     {
-        var note = item.CreateClient();
+        HttpClient note = item.CreateClient();
         note.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
         return note;
     }
@@ -121,20 +121,17 @@ public sealed class WebhookApiTests
     /// </code>
     /// </summary>
     /// <returns>The configuration collection.</returns>
-    private static Dictionary<string, string?> Note()
+    private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
     {
-        return new Dictionary<string, string?>
-        {
-            ["Telegram:Webhook:SecretToken"] = "test-secret",
-            ["RabbitMq:Host"] = "localhost",
-            ["RabbitMq:Port"] = "5672",
-            ["RabbitMq:VirtualHost"] = "/",
-            ["RabbitMq:Username"] = "guest",
-            ["RabbitMq:Password"] = "guest",
-            ["RabbitMq:Exchange"] = "finance.command",
-            ["RabbitMq:Client"] = "telegram-gateway-tests"
-        };
-    }
+        ["Telegram:Webhook:SecretToken"] = "test-secret",
+        ["RabbitMq:Host"] = "localhost",
+        ["RabbitMq:Port"] = "5672",
+        ["RabbitMq:VirtualHost"] = "/",
+        ["RabbitMq:Username"] = "guest",
+        ["RabbitMq:Password"] = "guest",
+        ["RabbitMq:Exchange"] = "finance.command",
+        ["RabbitMq:Client"] = "telegram-gateway-tests"
+    };
     /// <summary>
     /// Creates the webhook payload fixture.
     /// Example:
@@ -144,17 +141,15 @@ public sealed class WebhookApiTests
     /// </summary>
     /// <param name="text">The message text.</param>
     /// <returns>The webhook payload.</returns>
-    private static object Body(string text)
+    private static object Body(string text) => new
     {
-        return new
+        update_id = 7,
+        message = new
         {
-            update_id = 7,
-            message = new
-            {
-                message_id = 8,
-                date = 1_736_000_000,
-                text,
-                entities = new[]
+            message_id = 8,
+            date = 1_736_000_000,
+            text,
+            entities = new[]
                 {
                     new
                     {
@@ -163,20 +158,19 @@ public sealed class WebhookApiTests
                         length = text.Contains(' ', StringComparison.Ordinal) ? text.IndexOf(' ', StringComparison.Ordinal) : text.Length
                     }
                 },
-                chat = new
-                {
-                    id = 100,
-                    type = "private"
-                },
-                from = new
-                {
-                    id = 42,
-                    first_name = "Alex",
-                    last_name = "Doe",
-                    username = "alex",
-                    language_code = "en"
-                }
+            chat = new
+            {
+                id = 100,
+                type = "private"
+            },
+            from = new
+            {
+                id = 42,
+                first_name = "Alex",
+                last_name = "Doe",
+                username = "alex",
+                language_code = "en"
             }
-        };
-    }
+        }
+    };
 }

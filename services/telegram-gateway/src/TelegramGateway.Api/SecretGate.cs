@@ -27,12 +27,12 @@ internal sealed class SecretGate(IOptions<TelegramWebhookOptions> option) : IEnd
     /// <returns>The endpoint result.</returns>
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        var head = context.HttpContext.Request.Headers[Header].ToString();
+        string head = context.HttpContext.Request.Headers[Header].ToString();
         if (string.IsNullOrWhiteSpace(head) || secret.Length == 0)
         {
             return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid");
         }
-        var left = Encoding.UTF8.GetBytes(head);
+        byte[] left = Encoding.UTF8.GetBytes(head);
         if (left.Length != secret.Length || !CryptographicOperations.FixedTimeEquals(left, secret))
         {
             return TypedResults.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: "Webhook secret is invalid");

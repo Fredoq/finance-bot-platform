@@ -41,12 +41,8 @@ internal sealed class RecordingWorkspacePort(Exception? error = null) : IBusPort
         {
             throw error;
         }
-        var data = JsonSerializer.SerializeToUtf8Bytes(message);
-        var item = JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data);
-        if (item is null)
-        {
-            throw new InvalidOperationException("Message capture failed");
-        }
+        byte[] data = JsonSerializer.SerializeToUtf8Bytes(message);
+        MessageEnvelope<WorkspaceRequestedCommand> item = JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data) ?? throw new InvalidOperationException("Message capture failed");
         list.Enqueue(item);
         return ValueTask.CompletedTask;
     }

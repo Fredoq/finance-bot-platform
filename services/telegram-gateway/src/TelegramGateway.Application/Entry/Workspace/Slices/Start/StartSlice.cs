@@ -61,9 +61,9 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
         {
             throw new InvalidOperationException("Telegram update did not match the start slice");
         }
-        var message = update.Message ?? throw new InvalidOperationException("Telegram update did not contain a message");
-        var chat = message.Chat ?? throw new InvalidOperationException("Telegram update did not contain a chat");
-        var sender = message.From ?? throw new InvalidOperationException("Telegram update did not contain a sender");
+        TelegramMessage message = update.Message ?? throw new InvalidOperationException("Telegram update did not contain a message");
+        TelegramChat chat = message.Chat ?? throw new InvalidOperationException("Telegram update did not contain a chat");
+        TelegramUser sender = message.From ?? throw new InvalidOperationException("Telegram update did not contain a sender");
         var command = new TelegramCommand(message);
         var user = new TelegramIdentity(sender);
         var actor = new ActorKey(text.Text("actor", "telegram:user", user.Id));

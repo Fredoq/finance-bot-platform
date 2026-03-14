@@ -27,7 +27,7 @@ public sealed class WorkspaceFlowTests
     public async Task Maps_start_message()
     {
         var port = new RecordingBusPort();
-        var item = Flow(port);
+        ITelegramFlow item = Flow(port);
         await item.Run(Update("/start", [Entity(0, 6)]), "trace-1", CancellationToken.None);
         Assert.Single(port.Items);
         Assert.Equal("workspace.requested", port.Items[0].Contract);
@@ -45,7 +45,7 @@ public sealed class WorkspaceFlowTests
     public async Task Maps_payload()
     {
         var port = new RecordingBusPort();
-        var item = Flow(port);
+        ITelegramFlow item = Flow(port);
         await item.Run(Update("/start promo-42", [Entity(0, 6)]), "trace-1", CancellationToken.None);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items[0].Payload.Payload);
@@ -61,7 +61,7 @@ public sealed class WorkspaceFlowTests
     public async Task Maps_bot_name()
     {
         var port = new RecordingBusPort();
-        var item = Flow(port);
+        ITelegramFlow item = Flow(port);
         await item.Run(Update("/start@financebot promo-42", [Entity(0, 17)]), "trace-1", CancellationToken.None);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items[0].Payload.Payload);
@@ -77,7 +77,7 @@ public sealed class WorkspaceFlowTests
     public async Task Ignores_update()
     {
         var port = new RecordingBusPort();
-        var item = Flow(port);
+        ITelegramFlow item = Flow(port);
         await item.Run(Update("/help", [Entity(0, 5)]), "trace-1", CancellationToken.None);
         Assert.Empty(port.Items);
     }
@@ -93,8 +93,8 @@ public sealed class WorkspaceFlowTests
     {
         var first = new RecordingBusPort();
         var second = new RecordingBusPort();
-        var left = Flow(first);
-        var right = Flow(second);
+        ITelegramFlow left = Flow(first);
+        ITelegramFlow right = Flow(second);
         await left.Run(Update("/start", [Entity(0, 6)]), "trace-1", CancellationToken.None);
         await right.Run(Update("/start", [Entity(0, 6)]), "trace-2", CancellationToken.None);
         Assert.Single(first.Items);
@@ -113,10 +113,7 @@ public sealed class WorkspaceFlowTests
     /// </summary>
     /// <param name="port">The outbound port.</param>
     /// <returns>The workspace flow.</returns>
-    private static ITelegramFlow Flow(IBusPort port)
-    {
-        return new TelegramFlow([new StartSlice(new OpaqueKey(), port)], NullLogger<TelegramFlow>.Instance);
-    }
+    private static ITelegramFlow Flow(IBusPort port) => new TelegramFlow([new StartSlice(new OpaqueKey(), port)], NullLogger<TelegramFlow>.Instance);
     /// <summary>
     /// Creates the Telegram update fixture.
     /// Example:
@@ -128,33 +125,30 @@ public sealed class WorkspaceFlowTests
     /// <param name="items">The entity collection.</param>
     /// <param name="type">The chat type.</param>
     /// <returns>The Telegram update fixture.</returns>
-    private static TelegramUpdate Update(string text, TelegramEntity[] items, string type = "private")
+    private static TelegramUpdate Update(string text, TelegramEntity[] items, string type = "private") => new TelegramUpdate
     {
-        return new TelegramUpdate
+        UpdateId = 7,
+        Message = new TelegramMessage
         {
-            UpdateId = 7,
-            Message = new TelegramMessage
+            MessageId = 8,
+            Date = 1_736_000_000,
+            Text = text,
+            Entities = items,
+            Chat = new TelegramChat
             {
-                MessageId = 8,
-                Date = 1_736_000_000,
-                Text = text,
-                Entities = items,
-                Chat = new TelegramChat
-                {
-                    Id = 100,
-                    Type = type
-                },
-                From = new TelegramUser
-                {
-                    Id = 42,
-                    FirstName = "Alex",
-                    LastName = "Doe",
-                    Username = "alex",
-                    LanguageCode = "en"
-                }
+                Id = 100,
+                Type = type
+            },
+            From = new TelegramUser
+            {
+                Id = 42,
+                FirstName = "Alex",
+                LastName = "Doe",
+                Username = "alex",
+                LanguageCode = "en"
             }
-        };
-    }
+        }
+    };
     /// <summary>
     /// Creates a Telegram entity fixture.
     /// Example:
@@ -165,13 +159,10 @@ public sealed class WorkspaceFlowTests
     /// <param name="offset">The entity offset.</param>
     /// <param name="length">The entity length.</param>
     /// <returns>The Telegram entity fixture.</returns>
-    private static TelegramEntity Entity(int offset, int length)
+    private static TelegramEntity Entity(int offset, int length) => new TelegramEntity
     {
-        return new TelegramEntity
-        {
-            Type = "bot_command",
-            Offset = offset,
-            Length = length
-        };
-    }
+        Type = "bot_command",
+        Offset = offset,
+        Length = length
+    };
 }

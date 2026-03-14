@@ -27,8 +27,8 @@ internal sealed class OpaqueKey : IOpaqueKey
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentException.ThrowIfNullOrWhiteSpace(scope);
-        var data = Encoding.UTF8.GetBytes($"{scope}:{id}");
-        var hash = SHA256.HashData(data);
+        byte[] data = Encoding.UTF8.GetBytes($"{scope}:{id}");
+        byte[] hash = SHA256.HashData(data);
         return $"{kind}-{Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 }

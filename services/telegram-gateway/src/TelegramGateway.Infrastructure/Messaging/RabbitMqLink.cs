@@ -84,8 +84,8 @@ internal sealed class RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<Rab
     /// <returns>A task that completes when the transport is ready.</returns>
     public async ValueTask Ensure(CancellationToken token)
     {
-        var item = await Connection(token);
-        await using var lane = await item.CreateChannelAsync(cancellationToken: token);
+        IConnection item = await Connection(token);
+        await using IChannel lane = await item.CreateChannelAsync(cancellationToken: token);
         await lane.ExchangeDeclareAsync(option.Value.Exchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
     }
     /// <summary>

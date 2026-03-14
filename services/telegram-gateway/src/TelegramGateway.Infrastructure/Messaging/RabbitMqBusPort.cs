@@ -47,15 +47,15 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             {
                 throw new ObjectDisposedException(nameof(RabbitMqBusPort));
             }
-            var item = await state.Connection(token);
+            IConnection item = await state.Connection(token);
             if (lane is null || !lane.IsOpen || !ReferenceEquals(link, item))
             {
                 await Close();
                 lane = await item.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken: token);
                 link = item;
             }
-            var note = JsonSerializer.SerializeToUtf8Bytes(message);
-            var data = Properties(message);
+            byte[] note = JsonSerializer.SerializeToUtf8Bytes(message);
+            BasicProperties data = Properties(message);
             await lane.BasicPublishAsync(option.Value.Exchange, message.Contract, true, data, note, token);
             log.LogInformation("Application message was published");
         }
@@ -114,19 +114,16 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
     /// </summary>
     /// <param name="message">The envelope to publish.</param>
     /// <returns>The AMQP properties.</returns>
-    private BasicProperties Properties<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class
+    private BasicProperties Properties<TMessage>(MessageEnvelope<TMessage> message) where TMessage : class => new BasicProperties
     {
-        return new BasicProperties
-        {
-            ContentType = "application/json",
-            DeliveryMode = DeliveryModes.Persistent,
-            MessageId = message.MessageId.ToString(),
-            CorrelationId = message.CorrelationId,
-            Timestamp = new AmqpTimestamp(message.OccurredUtc.ToUnixTimeSeconds()),
-            Type = message.Contract,
-            Headers = Headers(message)
-        };
-    }
+        ContentType = "application/json",
+        DeliveryMode = DeliveryModes.Persistent,
+        MessageId = message.MessageId.ToString(),
+        CorrelationId = message.CorrelationId,
+        Timestamp = new AmqpTimestamp(message.OccurredUtc.ToUnixTimeSeconds()),
+        Type = message.Contract,
+        Headers = Headers(message)
+    };
     /// <summary>
     /// Builds the AMQP header dictionary.
     /// Example:
@@ -146,7 +143,7 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
             ["causation-id"] = message.CausationId,
             ["idempotency-key"] = message.IdempotencyKey
         };
-        var text = Activity.Current?.Id;
+        string? text = Activity.Current?.Id;
         if (!string.IsNullOrWhiteSpace(text))
         {
             item["traceparent"] = text;
@@ -163,7 +160,7 @@ internal sealed class RabbitMqBusPort(IBrokerState state, IOptions<RabbitMqOptio
     /// <returns>A task that completes when the channel state is cleared.</returns>
     private async ValueTask Close()
     {
-        var item = lane;
+        IChannel? item = lane;
         lane = null;
         link = null;
         if (item is null)

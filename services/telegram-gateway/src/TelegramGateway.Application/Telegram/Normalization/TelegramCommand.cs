@@ -22,17 +22,17 @@ internal sealed record TelegramCommand
     public TelegramCommand(TelegramMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        var text = message.Text?.Trim() ?? string.Empty;
+        string text = message.Text?.Trim() ?? string.Empty;
         if (message.Entities is { Length: > 0 })
         {
-            foreach (var item in message.Entities)
+            foreach (TelegramEntity item in message.Entities)
             {
                 if (item.Type != "bot_command" || item.Offset != 0 || item.Length <= 0 || item.Offset + item.Length > text.Length)
                 {
                     continue;
                 }
-                var head = text[item.Offset..(item.Offset + item.Length)];
-                var mark = head.IndexOf('@');
+                string head = text[item.Offset..(item.Offset + item.Length)];
+                int mark = head.IndexOf('@');
                 Name = mark >= 0 ? head[..mark] : head;
                 Payload = text[item.Length..].Trim();
                 return;
@@ -44,9 +44,9 @@ internal sealed record TelegramCommand
             Payload = string.Empty;
             return;
         }
-        var edge = text.IndexOf(' ');
-        var token = edge >= 0 ? text[..edge] : text;
-        var spot = token.IndexOf('@');
+        int edge = text.IndexOf(' ');
+        string token = edge >= 0 ? text[..edge] : text;
+        int spot = token.IndexOf('@');
         Name = spot >= 0 ? token[..spot] : token;
         Payload = edge < 0 ? string.Empty : text[(edge + 1)..].Trim();
     }

@@ -21,7 +21,7 @@ internal interface ITelegramSlice
     /// </summary>
     /// <param name="update">The inbound update.</param>
     /// <returns><see langword="true"/> when the slice supports the update.</returns>
-    public bool Match(TelegramUpdate update);
+    bool Match(TelegramUpdate update);
     /// <summary>
     /// Processes the inbound update after a successful match.
     /// Example:
@@ -33,5 +33,5 @@ internal interface ITelegramSlice
     /// <param name="trace">The correlation value for the current request.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes when the slice finishes.</returns>
-    public ValueTask Run(TelegramUpdate update, string trace, CancellationToken token);
+    ValueTask Run(TelegramUpdate update, string trace, CancellationToken token);
 }

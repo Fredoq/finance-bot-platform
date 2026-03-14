@@ -21,7 +21,7 @@ internal interface IBrokerState
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <returns>The active broker connection.</returns>
-    public ValueTask<IConnection> Connection(CancellationToken token);
+    ValueTask<IConnection> Connection(CancellationToken token);
     /// <summary>
     /// Ensures the broker connection and topology are ready.
     /// Example:
@@ -31,5 +31,5 @@ internal interface IBrokerState
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes when the transport is ready.</returns>
-    public ValueTask Ensure(CancellationToken token);
+    ValueTask Ensure(CancellationToken token);
 }

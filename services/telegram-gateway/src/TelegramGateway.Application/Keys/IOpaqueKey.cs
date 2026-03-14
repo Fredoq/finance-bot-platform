@@ -20,5 +20,5 @@ internal interface IOpaqueKey
     /// <param name="scope">The source namespace.</param>
     /// <param name="id">The source identifier.</param>
     /// <returns>The opaque key text.</returns>
-    public string Text(string kind, string scope, long id);
+    string Text(string kind, string scope, long id);
 }

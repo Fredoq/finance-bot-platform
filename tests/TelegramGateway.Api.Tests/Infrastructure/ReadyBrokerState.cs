@@ -17,10 +17,7 @@ internal sealed class ReadyBrokerState : IBrokerState
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <exception cref="NotSupportedException">Thrown whenever a test asks this fake for an IConnection.</exception>
-    public ValueTask<IConnection> Connection(CancellationToken token)
-    {
-        throw new NotSupportedException("Connection is not used by this fake");
-    }
+    public ValueTask<IConnection> Connection(CancellationToken token) => throw new NotSupportedException("Connection is not used by this fake");
     /// <summary>
     /// Marks the broker state as ready.
     /// Example:
@@ -30,8 +27,5 @@ internal sealed class ReadyBrokerState : IBrokerState
     /// </summary>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A completed task.</returns>
-    public ValueTask Ensure(CancellationToken token)
-    {
-        return ValueTask.CompletedTask;
-    }
+    public ValueTask Ensure(CancellationToken token) => ValueTask.CompletedTask;
 }

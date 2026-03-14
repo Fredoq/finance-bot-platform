@@ -22,5 +22,5 @@ public interface ITelegramFlow
     /// <param name="trace">The correlation value for the current request.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes when processing finishes.</returns>
-    public ValueTask Run(TelegramUpdate update, string trace, CancellationToken token);
+    ValueTask Run(TelegramUpdate update, string trace, CancellationToken token);
 }

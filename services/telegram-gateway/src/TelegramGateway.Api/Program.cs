@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -10,28 +11,28 @@ using TelegramGateway.Application.Telegram.Contracts;
 using TelegramGateway.Application.Telegram.Flow;
 using TelegramGateway.Infrastructure;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
 builder.Services.AddProblemDetails();
 builder.Services.AddOptionsWithValidateOnStart<TelegramWebhookOptions>().BindConfiguration(TelegramWebhookOptions.Section).ValidateDataAnnotations();
 builder.Services.AddTelegramGatewayApplication();
 builder.Services.AddTelegramGatewayInfrastructure();
-var open = builder.Services.AddOpenTelemetry();
+OpenTelemetryBuilder open = builder.Services.AddOpenTelemetry();
 open.ConfigureResource(item => item.AddService("telegram-gateway"));
 open.WithTracing(item => item.AddAspNetCoreInstrumentation());
 open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation());
-var app = builder.Build();
+WebApplication app = builder.Build();
 app.UseExceptionHandler();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = item => item.Tags.Contains("ready") });
-var group = app.MapGroup("/telegram");
+RouteGroupBuilder group = app.MapGroup("/telegram");
 group.AddEndpointFilter<SecretGate>();
 group.MapPost("/webhook", async Task<IResult> (TelegramUpdate update, ITelegramFlow flow, HttpContext item, ILogger<Program> log, CancellationToken token) =>
 {
     try
     {
-        var trace = Activity.Current?.TraceId.ToString() ?? item.TraceIdentifier;
+        string trace = Activity.Current?.TraceId.ToString() ?? item.TraceIdentifier;
         await flow.Run(update, trace, token);
         return TypedResults.Ok();
     }

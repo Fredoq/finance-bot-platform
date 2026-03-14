@@ -37,12 +37,8 @@ internal sealed class RecordingBusPort : IBusPort
     public ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class
     {
         ArgumentNullException.ThrowIfNull(message);
-        var data = JsonSerializer.SerializeToUtf8Bytes(message);
-        var item = JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data);
-        if (item is null)
-        {
-            throw new InvalidOperationException("Message capture failed");
-        }
+        byte[] data = JsonSerializer.SerializeToUtf8Bytes(message);
+        MessageEnvelope<WorkspaceRequestedCommand> item = JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data) ?? throw new InvalidOperationException("Message capture failed");
         list.Enqueue(item);
         return ValueTask.CompletedTask;
     }

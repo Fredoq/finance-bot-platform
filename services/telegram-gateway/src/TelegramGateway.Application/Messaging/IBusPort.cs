@@ -21,5 +21,5 @@ public interface IBusPort
     /// <param name="message">The envelope to publish.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes when the broker confirms the publish.</returns>
-    public ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class;
+    ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class;
 }

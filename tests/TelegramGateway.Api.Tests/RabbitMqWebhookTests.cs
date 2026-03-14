@@ -39,8 +39,8 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
             try
             {
                 var item = new ConnectionFactory { Uri = new Uri(uri) };
-                await using var link = await item.CreateConnectionAsync(note.Token);
-                await using var lane = await link.CreateChannelAsync(cancellationToken: note.Token);
+                await using IConnection link = await item.CreateConnectionAsync(note.Token);
+                await using IChannel lane = await link.CreateChannelAsync(cancellationToken: note.Token);
                 await lane.CloseAsync(note.Token);
                 return;
             }
@@ -59,10 +59,7 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     /// </code>
     /// </summary>
     /// <returns>A task that completes when the container is stopped.</returns>
-    public Task DisposeAsync()
-    {
-        return box.DisposeAsync().AsTask();
-    }
+    public Task DisposeAsync() => box.DisposeAsync().AsTask();
     /// <summary>
     /// Verifies end-to-end publish with a bound queue.
     /// Example:
@@ -73,12 +70,12 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     [Fact(DisplayName = "Publishes one workspace command to RabbitMQ when the queue is bound")]
     public async Task Accepts_publish()
     {
-        var name = $"workspace-{Guid.CreateVersion7():N}";
+        string name = $"workspace-{Guid.CreateVersion7():N}";
         await Bind(name);
         await using var host = new GatewayApiFactory(Note("telegram-gateway-rabbit"));
-        using var item = Client(host);
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
-        var data = await Message(name);
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
+        MessageEnvelope<WorkspaceRequestedCommand>? data = await Message(name);
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
         Assert.NotNull(data);
         Assert.Equal("promo-42", data!.Payload.Payload);
@@ -94,8 +91,8 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     public async Task Rejects_publish()
     {
         await using var host = new GatewayApiFactory(Note("telegram-gateway-rabbit"));
-        using var item = Client(host);
-        var note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
         Assert.Equal(HttpStatusCode.ServiceUnavailable, note.StatusCode);
     }
     /// <summary>
@@ -128,12 +125,12 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     private async Task<MessageEnvelope<WorkspaceRequestedCommand>?> Message(string name)
     {
         var item = new ConnectionFactory { Uri = new Uri(uri) };
-        await using var link = await item.CreateConnectionAsync();
-        await using var lane = await link.CreateChannelAsync(cancellationToken: default);
+        await using IConnection link = await item.CreateConnectionAsync();
+        await using IChannel lane = await link.CreateChannelAsync(cancellationToken: default);
         using var note = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (!note.IsCancellationRequested)
         {
-            var data = await lane.BasicGetAsync(name, true, note.Token);
+            BasicGetResult? data = await lane.BasicGetAsync(name, true, note.Token);
             if (data is not null)
             {
                 return JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data.Body.Span, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -153,7 +150,7 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     /// <returns>The configured client.</returns>
     private static HttpClient Client(GatewayApiFactory item)
     {
-        var note = item.CreateClient();
+        HttpClient note = item.CreateClient();
         note.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
         return note;
     }
@@ -190,17 +187,15 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     /// </summary>
     /// <param name="text">The message text.</param>
     /// <returns>The webhook payload.</returns>
-    private static object Body(string text)
+    private static object Body(string text) => new
     {
-        return new
+        update_id = 7,
+        message = new
         {
-            update_id = 7,
-            message = new
-            {
-                message_id = 8,
-                date = 1_736_000_000,
-                text,
-                entities = new[]
+            message_id = 8,
+            date = 1_736_000_000,
+            text,
+            entities = new[]
                 {
                     new
                     {
@@ -209,20 +204,19 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
                         length = text.Contains(' ', StringComparison.Ordinal) ? text.IndexOf(' ', StringComparison.Ordinal) : text.Length
                     }
                 },
-                chat = new
-                {
-                    id = 100,
-                    type = "private"
-                },
-                from = new
-                {
-                    id = 42,
-                    first_name = "Alex",
-                    last_name = "Doe",
-                    username = "alex",
-                    language_code = "en"
-                }
+            chat = new
+            {
+                id = 100,
+                type = "private"
+            },
+            from = new
+            {
+                id = 42,
+                first_name = "Alex",
+                last_name = "Doe",
+                username = "alex",
+                language_code = "en"
             }
-        };
-    }
+        }
+    };
 }
