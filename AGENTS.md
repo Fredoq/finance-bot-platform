@@ -145,6 +145,8 @@ Changelog: Keep a Changelog.
 Commits: Conventional Commits.
 Branches: `main` is protected; working branches are `feat/*`, `fix/*`, `docs/*`.
 PRs: CI, review, and a clear change description are required.
+Do not create commits and do not push branches to GitHub unless the user explicitly asks for it.
+By default, only the user performs commits and pushes.
 
 Architecture Artifacts
 
