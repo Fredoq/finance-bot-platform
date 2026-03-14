@@ -8,11 +8,12 @@
 
 Project Context
 
-This repository contains the application monorepo for a Telegram-based personal finance platform. It hosts `bot-gateway`, `finance-core`, `job-worker`, shared contracts, shared libraries, tests, and architecture documentation.
+This repository contains the application monorepo for a Telegram-based personal finance platform. It hosts `telegram-gateway`, `finance-core`, `job-worker`, shared contracts, shared libraries, tests, and architecture documentation.
 
 Language and Tone
 
-Respond in English using .NET 10 / C# 14 technical terminology.
+Respond in Russian using .NET 10 / C# 14 technical terminology.
+Use English only inside code, identifiers, docblocks, log messages, error messages, and other repository artifacts that are required to stay in English.
 Tone: professional, constructive, and concise.
 
 Response Structure
@@ -25,19 +26,24 @@ Development (.NET 10 / C# 14)
 
 Use idiomatic C# 14 and .NET 10 features when they genuinely simplify the code.
 Provide code examples in `csharp` blocks with fully compilable methods, classes, or tests.
-Prefer `file-scoped namespaces`, `required`, `collection expressions`, `await foreach`, and `primary constructors` where appropriate.
+Prefer `file-scoped namespaces`, `required`, `collection expressions`, and `await foreach` where appropriate.
 New code must stay aligned with the architectural decisions and documents in `docs/architecture` and `docs/adr`.
 
 Style Guide C#
 
 Use `file-scoped namespaces`, `required`, and `collection expressions`.
+Prefer `sealed record` for immutable value objects and immutable contract models.
+Use `class` for objects with identity, lifecycle, or behavior-heavy invariants.
+Use `record struct` only when the default value is valid and the allocation benefit is justified by measurements or a hot path.
 
 Code Design
 
-Every class or record must have a supplementary docblock preceding it.
-A class or record docblock must explain the purpose of the class or record and provide usage examples.
-Every method and function must have a supplementary docblock preceding it.
+Only public classes, records, interfaces, properties, constructors, methods, and functions may have supplementary docblocks.
+Each public docblock must be brief and explain only the purpose of the public API surface.
 Docblocks must be written in English only, using UTF-8 encoding.
+Docblocks must not contain code examples or `<code>` blocks.
+Do not remove concise `<param>` or `<returns>` documentation from public methods and constructors when it is applicable.
+Primary constructors are prohibited for classes and records.
 
 Method bodies may not contain blank lines.
 Method and function bodies may not contain comments.
@@ -64,8 +70,6 @@ Class or record names should be based on what they are, not what they do.
 Examples of bad names: `Manager`, `Controller`, `Helper`, `Handler`, `Writer`, `Reader`, `Converter`, `Validator`, `Router`, `Dispatcher`, `Observer`, `Listener`, `Sorter`, `Encoder`, `Decoder`.
 Exceptions include names such as `User` and `Computer`.
 
-Constructor bodies may not contain any code except assignment statements.
-Constructors must only create the object without processing the input data in their body.
 Data processing must occur on demand by calling object methods.
 
 Encapsulate as few fields as possible in classes or records.

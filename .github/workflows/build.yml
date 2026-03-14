@@ -1,0 +1,131 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SONAR_ORGANIZATION: fredoq
+  SONAR_PROJECT_KEY: Fredoq_finance-bot-platform
+  SOLUTION_PATH: finance-bot-platform.slnx
+  BUILD_CONFIGURATION: Release
+  TEST_RESULTS_PATH: artifacts/TestResults
+
+jobs:
+  build:
+    name: Restore, build, test, analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', 'Directory.Build.props', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Cache Sonar packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Sonar scanner
+        id: cache-sonar-scanner
+        if: env.SONAR_TOKEN != ''
+        uses: actions/cache@v5
+        with:
+          path: .sonar/scanner
+          key: ${{ runner.os }}-sonar-scanner-v1
+
+      - name: Cache coverage tool
+        id: cache-dotnet-coverage
+        uses: actions/cache@v5
+        with:
+          path: .tools
+          key: ${{ runner.os }}-dotnet-coverage-v1
+
+      - name: Install Sonar scanner
+        if: env.SONAR_TOKEN != '' && steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .sonar/scanner
+          dotnet tool update dotnet-sonarscanner --tool-path .sonar/scanner
+
+      - name: Install coverage tool
+        if: steps.cache-dotnet-coverage.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .tools
+          dotnet tool update dotnet-coverage --tool-path .tools
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Begin Sonar analysis
+        id: sonar-begin
+        if: env.SONAR_TOKEN != ''
+        run: >
+          ./.sonar/scanner/dotnet-sonarscanner begin
+          /k:"${{ env.SONAR_PROJECT_KEY }}"
+          /o:"${{ env.SONAR_ORGANIZATION }}"
+          /d:sonar.token="${{ env.SONAR_TOKEN }}"
+          /d:sonar.cs.vscoveragexml.reportsPaths="${{ env.TEST_RESULTS_PATH }}/coverage.xml"
+          /d:sonar.cs.vstest.reportsPaths="${{ env.TEST_RESULTS_PATH }}/*.trx"
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+
+      - name: Test with coverage
+        run: |
+          mkdir -p "${{ env.TEST_RESULTS_PATH }}"
+          ./.tools/dotnet-coverage collect 'dotnet test ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --logger "trx;LogFilePrefix=test" --results-directory ${{ env.TEST_RESULTS_PATH }}' -f xml -o "${{ env.TEST_RESULTS_PATH }}/coverage.xml"
+
+      - name: End Sonar analysis
+        if: always() && env.SONAR_TOKEN != '' && steps.sonar-begin.outcome == 'success'
+        run: ./.sonar/scanner/dotnet-sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN }}"
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results
+          path: |
+            ${{ env.TEST_RESULTS_PATH }}/*.trx
+            ${{ env.TEST_RESULTS_PATH }}/coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14

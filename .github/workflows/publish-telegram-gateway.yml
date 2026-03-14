@@ -1,0 +1,85 @@
+name: Publish telegram-gateway
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-telegram-gateway-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION_PATH: finance-bot-platform.slnx
+  PROJECT_PATH: services/telegram-gateway/src/TelegramGateway.Api/TelegramGateway.Api.csproj
+  TEST_PROJECT_PATH: tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj
+  CONTAINER_NAME: finance-bot-platform-telegram-gateway
+
+jobs:
+  publish:
+    name: Test and publish container
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Lowercase owner
+        id: owner
+        shell: bash
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Test
+        run: dotnet test ${{ env.TEST_PROJECT_PATH }} --configuration Release --no-restore
+
+      - name: Resolve short SHA
+        id: sha
+        shell: bash
+        run: echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve version from tag
+        id: version
+        shell: bash
+        run: |
+          value="${GITHUB_REF_NAME#v}"
+          project_version="$(dotnet msbuild ${{ env.PROJECT_PATH }} -getProperty:Version | tr -d '\r')"
+          if [ "$project_version" != "$value" ]; then
+            echo "Tag version ($value) does not match project version ($project_version)" >&2
+            exit 1
+          fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Publish container
+        env:
+          ContainerImageTags: ${{ steps.version.outputs.value }};sha-${{ steps.sha.outputs.value }}
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }}
+          --configuration Release
+          --os linux
+          --arch x64
+          /t:PublishContainer
+          -p:ContainerRegistry=ghcr.io
+          -p:ContainerRepository=${{ steps.owner.outputs.value }}/${{ env.CONTAINER_NAME }}

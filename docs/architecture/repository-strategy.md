@@ -54,7 +54,7 @@ Separating infrastructure from application code helps when:
 
 These should stay in the monorepo until there is a strong reason to split them:
 
-- `bot-gateway`
+- `telegram-gateway`
 - `finance-core`
 - `job-worker`
 - shared contracts and shared libraries
