@@ -283,4 +283,9 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
             ["RabbitMq:MaxAttempts"] = "5"
         };
     }
+    /// <summary>
+    /// Returns the PostgreSQL connection string.
+    /// </summary>
+    /// <returns>The PostgreSQL connection string.</returns>
+    protected string Postgres() => postgres;
 }

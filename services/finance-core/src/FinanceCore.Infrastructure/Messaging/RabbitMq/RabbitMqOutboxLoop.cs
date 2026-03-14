@@ -8,39 +8,21 @@ using RabbitMQ.Client.Exceptions;
 
 namespace FinanceCore.Infrastructure.Messaging.RabbitMq;
 
-internal sealed class RabbitMqOutboxLoop : BackgroundService
+internal sealed class RabbitMqOutboxLoop : RabbitMqLoop
 {
     private readonly IBrokerState state;
     private readonly RabbitMqOptions option;
     private readonly PostgresOutboxPort port;
-    private readonly ILogger<RabbitMqOutboxLoop> log;
     internal RabbitMqOutboxLoop(IBrokerState state, IOptions<RabbitMqOptions> option, PostgresOutboxPort port, ILogger<RabbitMqOutboxLoop> log)
+        : base(log)
     {
         this.state = state ?? throw new ArgumentNullException(nameof(state));
         ArgumentNullException.ThrowIfNull(option);
         this.option = option.Value;
         this.port = port ?? throw new ArgumentNullException(nameof(port));
-        this.log = log ?? throw new ArgumentNullException(nameof(log));
     }
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await Loop(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception error)
-            {
-                log.LogError(error, "Outbox loop failed");
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
-            }
-        }
-    }
+    protected override string Failure() => "Outbox loop failed";
+    protected override ValueTask Run(CancellationToken token) => Loop(token);
     private async ValueTask Loop(CancellationToken token)
     {
         IReadOnlyList<OutboxItem> list = await port.Items(option.OutboxBatchSize, token);
@@ -65,7 +47,7 @@ internal sealed class RabbitMqOutboxLoop : BackgroundService
             catch (PublishException error)
             {
                 await port.Fail(note.Head.MessageId, error.Message, token);
-                log.LogWarning(error, "Outbox publish failed");
+                Log.LogWarning(error, "Outbox publish failed");
             }
         }
     }

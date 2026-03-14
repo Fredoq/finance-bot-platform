@@ -5,21 +5,8 @@ namespace FinanceCore.Infrastructure.Observability.Checks;
 
 internal sealed class BrokerHealthCheck : IHealthCheck
 {
+    private const string Error = "Broker is unavailable";
     private readonly IBrokerState state;
     public BrokerHealthCheck(IBrokerState state) => this.state = state ?? throw new ArgumentNullException(nameof(state));
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await state.Ready(cancellationToken) ? HealthCheckResult.Healthy() : HealthCheckResult.Unhealthy("Broker is unavailable");
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception error)
-        {
-            return HealthCheckResult.Unhealthy("Broker is unavailable", error);
-        }
-    }
+    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default) => HealthProbe.Run(Error, state.Ready, cancellationToken);
 }

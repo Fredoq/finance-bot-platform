@@ -95,28 +95,28 @@ public sealed class RabbitMqOptions : IValidatableObject
         Positive(list, OutboxBatchSize, nameof(OutboxBatchSize), "RabbitMq outbox batch size must be greater than zero");
         return list;
     }
-    private static void Require(ICollection<ValidationResult> list, string value, string name, string error)
+    private static void Require(List<ValidationResult> list, string value, string name, string error)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             list.Add(Result(error, name));
         }
     }
-    private static void Range(ICollection<ValidationResult> list, int value, int low, int high, string name, string error)
+    private static void Range(List<ValidationResult> list, int value, int low, int high, string name, string error)
     {
         if (value < low || value > high)
         {
             list.Add(Result(error, name));
         }
     }
-    private static void Positive(ICollection<ValidationResult> list, int value, string name, string error)
+    private static void Positive(List<ValidationResult> list, int value, string name, string error)
     {
         if (value <= 0)
         {
             list.Add(Result(error, name));
         }
     }
-    private static void Distinct(ICollection<ValidationResult> list, string left, string right, string leftName, string rightName, string error)
+    private static void Distinct(List<ValidationResult> list, string left, string right, string leftName, string rightName, string error)
     {
         if (!string.IsNullOrWhiteSpace(left) && !string.IsNullOrWhiteSpace(right) && string.Equals(left, right, StringComparison.Ordinal))
         {

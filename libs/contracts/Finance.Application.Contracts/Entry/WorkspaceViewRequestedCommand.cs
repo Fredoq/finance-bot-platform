@@ -27,10 +27,7 @@ public sealed record WorkspaceViewRequestedCommand
         Actions = list.Length > 0 ? Array.AsReadOnly(list) : throw new ArgumentException("Workspace actions are required", nameof(actions));
         IsNewUser = isNewUser;
         IsNewWorkspace = isNewWorkspace;
-        if (occurredUtc == default)
-        {
-            throw new ArgumentOutOfRangeException(nameof(occurredUtc));
-        }
+        ArgumentOutOfRangeException.ThrowIfEqual(occurredUtc, default);
         OccurredUtc = occurredUtc.Offset == TimeSpan.Zero ? occurredUtc : throw new ArgumentException("Workspace occurrence time must be UTC", nameof(occurredUtc));
     }
     /// <summary>

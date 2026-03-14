@@ -15,6 +15,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
     private const string Contract = "workspace.view.requested";
     private const string RoutingKey = "workspace.view.requested";
     private const string Source = "finance-core";
+    private const string UpdatedUtc = "updated_utc";
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private readonly NpgsqlDataSource data;
     private readonly IWorkspaceActions actions;
@@ -71,21 +72,20 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         add.Parameters.AddWithValue("locale", message.Payload.Profile.Locale);
         add.Parameters.AddWithValue("created_utc", message.Payload.OccurredUtc);
         add.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
-        if (await row.ReadAsync(token))
+        Guid? userId = await UserId(add, token);
+        if (userId.HasValue)
         {
-            return (row.GetGuid(0), true);
+            return (userId.Value, true);
         }
-        await row.DisposeAsync();
         await using NpgsqlCommand note = new("update finance.user_account set name = @name, locale = @locale, updated_utc = @updated_utc where actor_key = @actor_key returning id", link, lane);
         note.Parameters.AddWithValue("actor_key", message.Payload.Identity.ActorKey);
         note.Parameters.AddWithValue("name", message.Payload.Profile.Name);
         note.Parameters.AddWithValue("locale", message.Payload.Profile.Locale);
-        note.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
-        if (await data.ReadAsync(token))
+        note.Parameters.AddWithValue(UpdatedUtc, message.Payload.OccurredUtc);
+        userId = await UserId(note, token);
+        if (userId.HasValue)
         {
-            return (data.GetGuid(0), false);
+            return (userId.Value, false);
         }
         throw new InvalidOperationException("User upsert failed");
     }
@@ -103,22 +103,21 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         add.Parameters.AddWithValue("created_utc", message.Payload.OccurredUtc);
         add.Parameters.AddWithValue("opened_utc", message.Payload.OccurredUtc);
         add.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
-        if (await row.ReadAsync(token))
+        WorkspaceItem? item = await WorkspaceItem(add, true, token);
+        if (item is not null)
         {
-            return new WorkspaceItem(row.GetGuid(0), new WorkspaceSnapshot(row.GetString(1), row.GetString(2), row.GetInt64(3), true));
+            return item;
         }
-        await row.DisposeAsync();
         await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where conversation_key = @conversation_key returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("user_id", userId);
         note.Parameters.AddWithValue("conversation_key", message.Payload.Identity.ConversationKey);
         note.Parameters.AddWithValue("last_payload", message.Payload.Payload);
         note.Parameters.AddWithValue("opened_utc", message.Payload.OccurredUtc);
-        note.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
-        await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
-        if (await data.ReadAsync(token))
+        note.Parameters.AddWithValue(UpdatedUtc, message.Payload.OccurredUtc);
+        item = await WorkspaceItem(note, false, token);
+        if (item is not null)
         {
-            return new WorkspaceItem(data.GetGuid(0), new WorkspaceSnapshot(data.GetString(1), data.GetString(2), data.GetInt64(3), false));
+            return item;
         }
         throw new InvalidOperationException("Workspace upsert failed");
     }
@@ -153,5 +152,15 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         {
             throw new InvalidOperationException("Inbox processed update failed");
         }
+    }
+    private static async ValueTask<Guid?> UserId(NpgsqlCommand note, CancellationToken token)
+    {
+        await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
+        return await data.ReadAsync(token) ? data.GetGuid(0) : null;
+    }
+    private static async ValueTask<WorkspaceItem?> WorkspaceItem(NpgsqlCommand note, bool isNew, CancellationToken token)
+    {
+        await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
+        return await data.ReadAsync(token) ? new WorkspaceItem(data.GetGuid(0), new WorkspaceSnapshot(data.GetString(1), data.GetString(2), data.GetInt64(3), isNew)) : null;
     }
 }

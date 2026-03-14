@@ -10,9 +10,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 
 internal sealed class MigrationBoot : IHostedService
 {
-    private const int count = 5;
     private const long key = 5_832_147_011;
-    private static readonly TimeSpan pause = TimeSpan.FromSeconds(1);
     private readonly IOptions<PostgresOptions> option;
     private readonly ILoggerFactory factory;
     private readonly ILogger<MigrationBoot> log;
@@ -22,28 +20,7 @@ internal sealed class MigrationBoot : IHostedService
         this.factory = factory ?? throw new ArgumentNullException(nameof(factory));
         this.log = log ?? throw new ArgumentNullException(nameof(log));
     }
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        TimeSpan span = pause;
-        for (int item = 1; item <= count; item++)
-        {
-            try
-            {
-                await Ensure(cancellationToken);
-                return;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception error) when (item < count)
-            {
-                log.LogWarning(error, "Postgres migration warm-up failed on attempt {Attempt} of {Count}", item, count);
-                await Task.Delay(span, cancellationToken);
-                span = TimeSpan.FromSeconds(Math.Min(span.TotalSeconds * 2, 15));
-            }
-        }
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => StartupRetry.Run("Postgres migration warm-up failed on attempt {Attempt} of {Count}", Ensure, log, cancellationToken);
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     private async ValueTask Ensure(CancellationToken token)
     {

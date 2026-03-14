@@ -4,7 +4,7 @@ namespace FinanceCore.Application.Runtime.Flow;
 
 internal sealed class CommandFlow : ICommandFlow
 {
-    private readonly IReadOnlyDictionary<string, ICommandSlice> map;
+    private readonly Dictionary<string, ICommandSlice> map;
     internal CommandFlow(IEnumerable<ICommandSlice> list)
     {
         ArgumentNullException.ThrowIfNull(list);

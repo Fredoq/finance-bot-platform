@@ -5,24 +5,14 @@ namespace FinanceCore.Infrastructure.Observability.Checks;
 
 internal sealed class PostgresHealthCheck : IHealthCheck
 {
+    private const string Error = "Postgres is unavailable";
     private readonly NpgsqlDataSource data;
     public PostgresHealthCheck(NpgsqlDataSource data) => this.data = data ?? throw new ArgumentNullException(nameof(data));
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default) => HealthProbe.Run(Error, Run, cancellationToken);
+    private async ValueTask Run(CancellationToken token)
     {
-        try
-        {
-            await using NpgsqlConnection link = await data.OpenConnectionAsync(cancellationToken);
-            await using NpgsqlCommand ping = new("select 1", link);
-            _ = await ping.ExecuteScalarAsync(cancellationToken);
-            return HealthCheckResult.Healthy();
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception error)
-        {
-            return HealthCheckResult.Unhealthy("Postgres is unavailable", error);
-        }
+        await using NpgsqlConnection link = await data.OpenConnectionAsync(token);
+        await using NpgsqlCommand ping = new("select 1", link);
+        _ = await ping.ExecuteScalarAsync(token);
     }
 }
