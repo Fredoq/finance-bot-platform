@@ -12,7 +12,8 @@ This repository contains the application monorepo for a Telegram-based personal 
 
 Language and Tone
 
-Respond in English using .NET 10 / C# 14 technical terminology.
+Respond in Russian using .NET 10 / C# 14 technical terminology.
+Use English only inside code, identifiers, docblocks, log messages, error messages, and other repository artifacts that are required to stay in English.
 Tone: professional, constructive, and concise.
 
 Response Structure
