@@ -55,7 +55,9 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
         var room = new ConversationKey(text.Text("conversation", "telegram:chat", chat.Id));
         var payload = new StartPayload(command.Payload);
         var note = new WorkspaceRequestedCommand(new WorkspaceIdentity(actor.Value, room.Value), new WorkspaceProfile(user.Name, user.Locale), payload.Value, DateTimeOffset.FromUnixTimeSeconds(message.Date));
-        var data = new MessageEnvelope<WorkspaceRequestedCommand>(Guid.CreateVersion7(), Contract, note.OccurredUtc, trace, $"edge-update-{update.UpdateId}", $"edge-update-{update.UpdateId}", Source, note);
+        string cause = $"edge-update-{update.UpdateId}";
+        string key = $"workspace-requested-{update.UpdateId}";
+        var data = new MessageEnvelope<WorkspaceRequestedCommand>(Guid.CreateVersion7(), Contract, note.OccurredUtc, trace, cause, key, Source, note);
         await bus.Publish(data, token);
     }
 }

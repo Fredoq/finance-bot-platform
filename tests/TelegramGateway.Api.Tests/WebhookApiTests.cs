@@ -84,6 +84,9 @@ public sealed class WebhookApiTests
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items.Single().Payload.Payload);
+        Assert.Equal("edge-update-7", port.Items.Single().CausationId);
+        Assert.Equal("workspace-requested-7", port.Items.Single().IdempotencyKey);
+        Assert.NotEqual(port.Items.Single().CausationId, port.Items.Single().IdempotencyKey);
     }
     /// <summary>
     /// Verifies that publish faults become service unavailable responses.
