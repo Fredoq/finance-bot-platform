@@ -7,8 +7,10 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="MinVer" PrivateAssets="all" />
     <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" IncludeAssets="build; analyzers; buildtransitive" />
   </ItemGroup>
 </Project>

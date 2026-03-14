@@ -2,6 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>TelegramGateway.Api</RootNamespace>
+    <ContainerPort>8080</ContainerPort>
+    <ContainerRepository>finance-bot-platform-telegram-gateway</ContainerRepository>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TelegramGateway.Application/TelegramGateway.Application.csproj" />
