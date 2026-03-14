@@ -17,6 +17,10 @@ internal sealed class BrokerHealthCheck(IBrokerState state) : IHealthCheck
         {
             return await state.Ready(cancellationToken) ? HealthCheckResult.Healthy() : HealthCheckResult.Unhealthy("Broker is unavailable");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception error)
         {
             return HealthCheckResult.Unhealthy("Broker is unavailable", error);

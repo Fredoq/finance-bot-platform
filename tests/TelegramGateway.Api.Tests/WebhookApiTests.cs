@@ -57,6 +57,20 @@ public sealed class WebhookApiTests
         Assert.Empty(port.Items);
     }
     /// <summary>
+    /// Verifies that out-of-range Telegram timestamps are ignored.
+    /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
+    [Fact(DisplayName = "Returns 200 and does not publish when the Telegram timestamp is out of range")]
+    public async Task Ignores_timestamp()
+    {
+        var port = new RecordingWorkspacePort();
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        using HttpClient item = Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
+        Assert.Equal(HttpStatusCode.OK, note.StatusCode);
+        Assert.Empty(port.Items);
+    }
+    /// <summary>
     /// Verifies that a start command is published.
     /// </summary>
     /// <returns>A task that completes when the operation finishes.</returns>
@@ -113,13 +127,13 @@ public sealed class WebhookApiTests
         ["RabbitMq:Exchange"] = "finance.command",
         ["RabbitMq:Client"] = "telegram-gateway-tests"
     };
-    private static object Body(string text) => new
+    private static object Body(string text, long date = 1_736_000_000) => new
     {
         update_id = 7,
         message = new
         {
             message_id = 8,
-            date = 1_736_000_000,
+            date,
             text,
             entities = new[]
                 {

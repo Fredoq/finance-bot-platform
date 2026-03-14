@@ -13,6 +13,7 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
 {
     private const string Contract = "workspace.requested";
     private const string Source = "telegram-gateway";
+    private static readonly long limit = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
     /// <summary>
     /// Determines whether the update is a private `/start` command.
     /// </summary>
@@ -21,7 +22,7 @@ internal sealed class StartSlice(IOpaqueKey text, IBusPort bus) : ITelegramSlice
     public bool Match(TelegramUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
-        if (update.Message is null || update.Message.Chat is null || update.Message.From is null || update.Message.Chat.Type != "private" || update.Message.Date <= 0)
+        if (update.Message is null || update.Message.Chat is null || update.Message.From is null || update.Message.Chat.Type != "private" || update.Message.Date <= 0 || update.Message.Date > limit)
         {
             return false;
         }
