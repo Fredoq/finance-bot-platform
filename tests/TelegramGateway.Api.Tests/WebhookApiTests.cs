@@ -19,7 +19,7 @@ public sealed class WebhookApiTests
     public async Task Rejects_secret()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
@@ -34,7 +34,7 @@ public sealed class WebhookApiTests
     public async Task Rejects_invalid_payload()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
         using var payload = new StringContent("{", Encoding.UTF8, "application/json");
@@ -50,7 +50,7 @@ public sealed class WebhookApiTests
     public async Task Ignores_update()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/help"));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -64,7 +64,7 @@ public sealed class WebhookApiTests
     public async Task Ignores_timestamp()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -78,7 +78,7 @@ public sealed class WebhookApiTests
     public async Task Accepts_start()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -96,7 +96,7 @@ public sealed class WebhookApiTests
     public async Task Rejects_publish()
     {
         var port = new RecordingWorkspacePort(new BusException("Message publish failed"));
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
@@ -108,7 +108,7 @@ public sealed class WebhookApiTests
     [Fact(DisplayName = "Returns 200 for the readiness endpoint when the broker state is ready")]
     public async Task Ready()
     {
-        await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         HttpResponseMessage response = await client.GetAsync("/health/ready");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -122,13 +122,23 @@ public sealed class WebhookApiTests
     private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
     {
         ["Telegram:Webhook:SecretToken"] = "test-secret",
+        ["Telegram:Bot:Token"] = "test-bot-token",
+        ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
+        ["Telegram:Bot:TimeoutSeconds"] = "10",
         ["RabbitMq:Host"] = "localhost",
         ["RabbitMq:Port"] = "5672",
         ["RabbitMq:VirtualHost"] = "/",
         ["RabbitMq:Username"] = "guest",
         ["RabbitMq:Password"] = "guest",
-        ["RabbitMq:Exchange"] = "finance.command",
-        ["RabbitMq:Client"] = "telegram-gateway-tests"
+        ["RabbitMq:CommandExchange"] = "finance.command",
+        ["RabbitMq:DeliveryExchange"] = "finance.delivery",
+        ["RabbitMq:DeliveryQueue"] = "telegram-gateway.delivery",
+        ["RabbitMq:DeliveryRetryQueue"] = "telegram-gateway.delivery.retry",
+        ["RabbitMq:DeliveryDeadQueue"] = "telegram-gateway.delivery.dead",
+        ["RabbitMq:Client"] = "telegram-gateway-tests",
+        ["RabbitMq:DeliveryPrefetch"] = "16",
+        ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
+        ["RabbitMq:DeliveryMaxAttempts"] = "5"
     };
     private static object Body(string text, long date = 1_736_000_000) => new
     {

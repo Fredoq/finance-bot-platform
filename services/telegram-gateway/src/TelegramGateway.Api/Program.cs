@@ -22,7 +22,7 @@ builder.Services.AddTelegramGatewayInfrastructure();
 OpenTelemetryBuilder open = builder.Services.AddOpenTelemetry();
 open.ConfigureResource(item => item.AddService("telegram-gateway"));
 open.WithTracing(item => item.AddAspNetCoreInstrumentation().AddOtlpExporter());
-open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation().AddOtlpExporter());
+open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation().AddMeter("TelegramGateway.Delivery").AddOtlpExporter());
 WebApplication app = builder.Build();
 app.UseExceptionHandler();
 app.UseWhen(item => item.Request.Path.Equals("/telegram/webhook", StringComparison.Ordinal), note => note.UseMiddleware<SecretGate>());

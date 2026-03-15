@@ -32,9 +32,13 @@ public sealed class RabbitMqOptions : IValidatableObject
     /// </summary>
     public string Password { get; init; } = string.Empty;
     /// <summary>
-    /// Gets or sets the public command exchange name.
+    /// Gets or sets the inbound command exchange name.
     /// </summary>
-    public string Exchange { get; init; } = "finance.command";
+    public string CommandExchange { get; init; } = "finance.command";
+    /// <summary>
+    /// Gets or sets the outbound delivery exchange name.
+    /// </summary>
+    public string DeliveryExchange { get; init; } = "finance.delivery";
     /// <summary>
     /// Gets or sets the main queue name.
     /// </summary>
@@ -81,7 +85,8 @@ public sealed class RabbitMqOptions : IValidatableObject
         Require(list, VirtualHost, nameof(VirtualHost), "RabbitMq virtual host is required");
         Require(list, Username, nameof(Username), "RabbitMq username is required");
         Require(list, Password, nameof(Password), "RabbitMq password is required");
-        Require(list, Exchange, nameof(Exchange), "RabbitMq exchange is required");
+        Require(list, CommandExchange, nameof(CommandExchange), "RabbitMq command exchange is required");
+        Require(list, DeliveryExchange, nameof(DeliveryExchange), "RabbitMq delivery exchange is required");
         Require(list, Queue, nameof(Queue), "RabbitMq queue is required");
         Require(list, RetryQueue, nameof(RetryQueue), "RabbitMq retry queue is required");
         Require(list, DeadQueue, nameof(DeadQueue), "RabbitMq dead queue is required");

@@ -83,8 +83,19 @@ internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
     public async ValueTask Ensure(CancellationToken token)
     {
         IConnection item = await Connection(token);
-        await using IChannel lane = await item.CreateChannelAsync(cancellationToken: token);
-        await lane.ExchangeDeclareAsync(option.Exchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await using IChannel lane = await item.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken: token);
+        await lane.ExchangeDeclareAsync(option.CommandExchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(option.DeliveryExchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(Retry(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(Resume(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(Dead(), ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        _ = await lane.QueueDeclareAsync(option.DeliveryQueue, true, false, false, new Dictionary<string, object?> { ["x-dead-letter-exchange"] = Retry(), ["x-dead-letter-routing-key"] = option.DeliveryQueue }, false, token);
+        _ = await lane.QueueDeclareAsync(option.DeliveryRetryQueue, true, false, false, new Dictionary<string, object?> { ["x-message-ttl"] = option.DeliveryRetryDelaySeconds * 1000, ["x-dead-letter-exchange"] = Resume(), ["x-dead-letter-routing-key"] = option.DeliveryQueue }, false, token);
+        _ = await lane.QueueDeclareAsync(option.DeliveryDeadQueue, true, false, false, arguments: null, noWait: false, cancellationToken: token);
+        await lane.QueueBindAsync(option.DeliveryQueue, option.DeliveryExchange, "#", null, false, token);
+        await lane.QueueBindAsync(option.DeliveryQueue, Resume(), option.DeliveryQueue, null, false, token);
+        await lane.QueueBindAsync(option.DeliveryRetryQueue, Retry(), option.DeliveryQueue, null, false, token);
+        await lane.QueueBindAsync(option.DeliveryDeadQueue, Dead(), option.DeliveryQueue, null, false, token);
     }
     /// <summary>
     /// Disposes the broker connection resources.
@@ -116,6 +127,9 @@ internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
             gate.Dispose();
         }
     }
+    private string Retry() => $"{option.DeliveryExchange}.retry";
+    private string Resume() => $"{option.DeliveryExchange}.resume";
+    private string Dead() => $"{option.DeliveryExchange}.dead";
     private async ValueTask Close(IConnection item)
     {
         try

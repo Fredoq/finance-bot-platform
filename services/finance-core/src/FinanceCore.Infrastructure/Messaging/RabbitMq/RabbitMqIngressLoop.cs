@@ -77,7 +77,7 @@ internal sealed class RabbitMqIngressLoop : RabbitMqLoop
     private async ValueTask Dead(IChannel lane, BasicGetResult data, int attempt, string error, CancellationToken token)
     {
         BasicProperties item = Properties(data, attempt, error);
-        await lane.BasicPublishAsync($"{option.Exchange}.dead", option.Queue, true, item, data.Body, token);
+        await lane.BasicPublishAsync($"{option.CommandExchange}.dead", option.Queue, true, item, data.Body, token);
         await lane.BasicAckAsync(data.DeliveryTag, false, token);
     }
     private static BasicProperties Properties(BasicGetResult data, int attempt, string error) => new()
