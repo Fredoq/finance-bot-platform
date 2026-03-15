@@ -111,28 +111,7 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     {
         var item = new Uri(uri);
         string[] data = item.UserInfo.Split(':', 2, StringSplitOptions.None);
-        return new Dictionary<string, string?>
-        {
-            ["Telegram:Webhook:SecretToken"] = "test-secret",
-            ["Telegram:Bot:Token"] = "test-bot-token",
-            ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
-            ["Telegram:Bot:TimeoutSeconds"] = "10",
-            ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
-            ["RabbitMq:Host"] = item.Host,
-            ["RabbitMq:Port"] = item.Port.ToString(),
-            ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),
-            ["RabbitMq:Username"] = data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty,
-            ["RabbitMq:Password"] = data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty,
-            ["RabbitMq:CommandExchange"] = "finance.command",
-            ["RabbitMq:DeliveryExchange"] = "finance.delivery",
-            ["RabbitMq:DeliveryQueue"] = "telegram-gateway.delivery",
-            ["RabbitMq:DeliveryRetryQueue"] = "telegram-gateway.delivery.retry",
-            ["RabbitMq:DeliveryDeadQueue"] = "telegram-gateway.delivery.dead",
-            ["RabbitMq:Client"] = name,
-            ["RabbitMq:DeliveryPrefetch"] = "16",
-            ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
-            ["RabbitMq:DeliveryMaxAttempts"] = "5"
-        };
+        return GatewaySettings.Note(name, item.Host, item.Port.ToString(), Uri.UnescapeDataString(item.AbsolutePath), data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty, data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty);
     }
     private static object Body(string text) => new
     {

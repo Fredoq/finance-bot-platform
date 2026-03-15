@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using TelegramGateway.Application.Telegram.Delivery;
@@ -23,7 +24,15 @@ internal sealed class TelegramBotPort : ITelegramPort
         try
         {
             using HttpResponseMessage note = await client.PostAsJsonAsync(Path(message.Method), message.Payload(), token);
-            TelegramResponse? data = await note.Content.ReadFromJsonAsync<TelegramResponse>(cancellationToken: token);
+            TelegramResponse? data;
+            try
+            {
+                data = await note.Content.ReadFromJsonAsync<TelegramResponse>(cancellationToken: token);
+            }
+            catch (Exception error) when (error is JsonException or NotSupportedException or InvalidOperationException)
+            {
+                throw new DeliveryException("Telegram response payload was invalid", Retryable(note.StatusCode, null), error);
+            }
             if (note.IsSuccessStatusCode && data is { Ok: true })
             {
                 return;

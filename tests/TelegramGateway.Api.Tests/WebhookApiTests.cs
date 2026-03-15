@@ -119,28 +119,7 @@ public sealed class WebhookApiTests
         client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
         return client;
     }
-    private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
-    {
-        ["Telegram:Webhook:SecretToken"] = "test-secret",
-        ["Telegram:Bot:Token"] = "test-bot-token",
-        ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
-        ["Telegram:Bot:TimeoutSeconds"] = "10",
-        ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
-        ["RabbitMq:Host"] = "localhost",
-        ["RabbitMq:Port"] = "5672",
-        ["RabbitMq:VirtualHost"] = "/",
-        ["RabbitMq:Username"] = "guest",
-        ["RabbitMq:Password"] = "guest",
-        ["RabbitMq:CommandExchange"] = "finance.command",
-        ["RabbitMq:DeliveryExchange"] = "finance.delivery",
-        ["RabbitMq:DeliveryQueue"] = "telegram-gateway.delivery",
-        ["RabbitMq:DeliveryRetryQueue"] = "telegram-gateway.delivery.retry",
-        ["RabbitMq:DeliveryDeadQueue"] = "telegram-gateway.delivery.dead",
-        ["RabbitMq:Client"] = "telegram-gateway-tests",
-        ["RabbitMq:DeliveryPrefetch"] = "16",
-        ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
-        ["RabbitMq:DeliveryMaxAttempts"] = "5"
-    };
+    private static Dictionary<string, string?> Note() => GatewaySettings.Note("telegram-gateway-tests", "localhost", "5672", "/", "guest", "guest");
     private static object Body(string text, long date = 1_736_000_000) => new
     {
         update_id = 7,

@@ -65,28 +65,9 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     {
         var item = new Uri(rabbit);
         string[] data = item.UserInfo.Split(':', 2, StringSplitOptions.None);
-        return new Dictionary<string, string?>
-        {
-            ["Telegram:Webhook:SecretToken"] = "test-secret",
-            ["Telegram:Bot:Token"] = "test-bot-token",
-            ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
-            ["Telegram:Bot:TimeoutSeconds"] = "10",
-            ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
-            ["RabbitMq:Host"] = item.Host,
-            ["RabbitMq:Port"] = item.Port.ToString(),
-            ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),
-            ["RabbitMq:Username"] = data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty,
-            ["RabbitMq:Password"] = data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty,
-            ["RabbitMq:CommandExchange"] = "finance.command",
-            ["RabbitMq:DeliveryExchange"] = "finance.delivery",
-            ["RabbitMq:DeliveryQueue"] = "telegram-gateway.delivery",
-            ["RabbitMq:DeliveryRetryQueue"] = "telegram-gateway.delivery.retry",
-            ["RabbitMq:DeliveryDeadQueue"] = "telegram-gateway.delivery.dead",
-            ["RabbitMq:Client"] = name,
-            ["RabbitMq:DeliveryPrefetch"] = "16",
-            ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
-            ["RabbitMq:DeliveryMaxAttempts"] = "2"
-        };
+        Dictionary<string, string?> note = GatewaySettings.Note(name, item.Host, item.Port.ToString(), Uri.UnescapeDataString(item.AbsolutePath), data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty, data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty);
+        note["RabbitMq:DeliveryMaxAttempts"] = "2";
+        return note;
     }
     /// <summary>
     /// Publishes a raw delivery message.
@@ -140,7 +121,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             }
             catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
-                throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
+                throw Timeout(name);
             }
             if (data is not null)
             {
@@ -152,10 +133,10 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             }
             catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
-                throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
+                throw Timeout(name);
             }
         }
-        throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
+        throw Timeout(name);
     }
     /// <summary>
     /// Checks whether the queue is currently empty.
@@ -167,8 +148,13 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
         var item = new ConnectionFactory { Uri = new Uri(rabbit) };
         await using IConnection link = await item.CreateConnectionAsync();
         await using IChannel lane = await link.CreateChannelAsync(cancellationToken: default);
-        BasicGetResult? data = await lane.BasicGetAsync(name, true, default);
-        return data is null;
+        BasicGetResult? data = await lane.BasicGetAsync(name, false, default);
+        if (data is null)
+        {
+            return true;
+        }
+        await lane.BasicRejectAsync(data.DeliveryTag, true, default);
+        return false;
     }
     /// <summary>
     /// Creates a workspace view envelope for delivery tests.
@@ -195,4 +181,5 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
                 false,
                 DateTimeOffset.UtcNow));
     }
+    private static TimeoutException Timeout(string name) => new($"Timed out waiting for message on queue '{name}'");
 }
