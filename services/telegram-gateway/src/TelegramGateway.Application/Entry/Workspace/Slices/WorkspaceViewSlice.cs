@@ -17,7 +17,7 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
     }
-    public bool Match(string contract) => string.Equals(contract, Contract, StringComparison.Ordinal);
+    public static bool Match(string contract) => string.Equals(contract, Contract, StringComparison.Ordinal);
     public async ValueTask Run(ReadOnlyMemory<byte> body, CancellationToken token)
     {
         MessageEnvelope<WorkspaceViewRequestedCommand>? item;
