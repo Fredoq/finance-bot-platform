@@ -49,4 +49,14 @@ public sealed class ConfigurationValidationTests
         ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
         Assert.Contains(note, data => data.MemberNames.Contains(nameof(TelegramBotOptions.Token), StringComparer.Ordinal));
     }
+    /// <summary>
+    /// Verifies that a blank opaque key secret is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects a blank Telegram key secret")]
+    public void Rejects_key_secret_blank()
+    {
+        var item = new OpaqueKeyOptions { CurrentSecret = " " };
+        ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Contains(note, data => data.MemberNames.Contains(nameof(OpaqueKeyOptions.CurrentSecret), StringComparer.Ordinal));
+    }
 }

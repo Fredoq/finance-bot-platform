@@ -33,7 +33,7 @@ public sealed class RabbitMqDeliveryTests : GatewayRuntimeSuite
             await Task.Delay(100, note.Token);
         }
         Assert.Single(port.Items);
-        Assert.Null(await Queue("telegram-gateway.delivery.dead"));
+        Assert.True(await Missing("telegram-gateway.delivery.dead"));
     }
     /// <summary>
     /// Verifies that retryable transport failures move the message to the retry queue.
@@ -50,7 +50,7 @@ public sealed class RabbitMqDeliveryTests : GatewayRuntimeSuite
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Publish(Envelope(100));
-        BasicGetResult? item = await Queue("telegram-gateway.delivery.retry");
+        BasicGetResult item = await Queue("telegram-gateway.delivery.retry");
         Assert.NotNull(item);
     }
     /// <summary>
@@ -68,7 +68,7 @@ public sealed class RabbitMqDeliveryTests : GatewayRuntimeSuite
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Publish("budget.unknown", "budget.unknown", System.Text.Encoding.UTF8.GetBytes("{\"contract\":\"budget.unknown\"}"));
-        BasicGetResult? item = await Queue("telegram-gateway.delivery.dead");
+        BasicGetResult item = await Queue("telegram-gateway.delivery.dead");
         Assert.NotNull(item);
         Assert.Empty(port.Items);
     }

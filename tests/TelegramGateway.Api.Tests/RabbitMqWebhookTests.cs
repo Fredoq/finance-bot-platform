@@ -117,6 +117,7 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
             ["Telegram:Bot:Token"] = "test-bot-token",
             ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
             ["Telegram:Bot:TimeoutSeconds"] = "10",
+            ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
             ["RabbitMq:Host"] = item.Host,
             ["RabbitMq:Port"] = item.Port.ToString(),
             ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),

@@ -13,7 +13,7 @@ public sealed class OpaqueKeyTests
     [Fact(DisplayName = "Decodes the original identifier from an opaque conversation key")]
     public void Restores_identifier()
     {
-        var item = new OpaqueKey();
+        var item = new OpaqueKey("current-secret", []);
         string text = item.Text("conversation", "telegram:chat", 42);
         long data = item.Id("conversation", "telegram:chat", text);
         Assert.Equal(42, data);
@@ -24,9 +24,11 @@ public sealed class OpaqueKeyTests
     [Fact(DisplayName = "Rejects a tampered opaque key")]
     public void Rejects_tamper()
     {
-        var item = new OpaqueKey();
+        var item = new OpaqueKey("current-secret", []);
         string text = item.Text("conversation", "telegram:chat", 42);
-        string data = $"{text[..^1]}A";
+        char tail = text[^1];
+        char swap = tail == 'A' ? 'B' : 'A';
+        string data = $"{text[..^1]}{swap}";
         Assert.Throws<ArgumentException>(() => item.Id("conversation", "telegram:chat", data));
     }
 }

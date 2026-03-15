@@ -125,6 +125,7 @@ public sealed class WebhookApiTests
         ["Telegram:Bot:Token"] = "test-bot-token",
         ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
         ["Telegram:Bot:TimeoutSeconds"] = "10",
+        ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
         ["RabbitMq:Host"] = "localhost",
         ["RabbitMq:Port"] = "5672",
         ["RabbitMq:VirtualHost"] = "/",

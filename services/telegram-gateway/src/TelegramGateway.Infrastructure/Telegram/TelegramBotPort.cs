@@ -22,7 +22,7 @@ internal sealed class TelegramBotPort : ITelegramPort
         ArgumentNullException.ThrowIfNull(message);
         try
         {
-            using HttpResponseMessage note = await client.PostAsJsonAsync(Path(message.Method), Body(message), token);
+            using HttpResponseMessage note = await client.PostAsJsonAsync(Path(message.Method), message.Payload(), token);
             TelegramResponse? data = await note.Content.ReadFromJsonAsync<TelegramResponse>(cancellationToken: token);
             if (note.IsSuccessStatusCode && data is { Ok: true })
             {
@@ -40,24 +40,7 @@ internal sealed class TelegramBotPort : ITelegramPort
             throw new DeliveryException("Telegram transport failed", true, error);
         }
     }
-    private string Path(string method) => $"bot{option.Token}/{method}";
-    private static object Body(TelegramOperation message) => message switch
-    {
-        TelegramText item => new
-        {
-            chat_id = item.ChatId,
-            text = item.Text,
-            reply_markup = item.Keys.Count > 0 ? new
-            {
-                inline_keyboard = item.Keys.Select(item => item.Cells.Select(item => new
-                {
-                    text = item.Text,
-                    callback_data = item.Data
-                }).ToArray()).ToArray()
-            } : null
-        },
-        _ => throw new DeliveryException("Telegram method is not supported", false)
-    };
+    private Uri Path(string method) => new($"/bot{option.Token}/{method}", UriKind.Relative);
     private static bool Retryable(HttpStatusCode code, int? errorCode) => code switch
     {
         HttpStatusCode.RequestTimeout => true,

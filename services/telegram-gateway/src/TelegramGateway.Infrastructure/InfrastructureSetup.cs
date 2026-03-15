@@ -23,7 +23,12 @@ public static class InfrastructureSetup
     {
         items.AddOptionsWithValidateOnStart<RabbitMqOptions>().BindConfiguration(RabbitMqOptions.Section).ValidateDataAnnotations();
         items.AddOptionsWithValidateOnStart<TelegramBotOptions>().BindConfiguration(TelegramBotOptions.Section).ValidateDataAnnotations();
-        items.AddSingleton<IOpaqueKey, OpaqueKey>();
+        items.AddOptionsWithValidateOnStart<OpaqueKeyOptions>().BindConfiguration(OpaqueKeyOptions.Section).ValidateDataAnnotations();
+        items.AddSingleton<IOpaqueKey>(item =>
+        {
+            OpaqueKeyOptions note = item.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpaqueKeyOptions>>().Value;
+            return new OpaqueKey(note.CurrentSecret, note.PreviousSecrets);
+        });
         items.AddSingleton<IBrokerState, RabbitMqLink>();
         items.AddSingleton<IBusPort, RabbitMqBusPort>();
         items.AddHttpClient<ITelegramPort, TelegramBotPort>((item, client) =>

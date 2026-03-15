@@ -83,6 +83,7 @@ public sealed class RabbitMqOptions : IValidatableObject
         Require(list, Password, nameof(Password), "RabbitMq password is required");
         Require(list, CommandExchange, nameof(CommandExchange), "RabbitMq command exchange is required");
         Require(list, DeliveryExchange, nameof(DeliveryExchange), "RabbitMq delivery exchange is required");
+        Distinct(list, CommandExchange, DeliveryExchange, nameof(CommandExchange), nameof(DeliveryExchange), "RabbitMq command exchange and delivery exchange must be distinct");
         Require(list, DeliveryQueue, nameof(DeliveryQueue), "RabbitMq delivery queue is required");
         Require(list, DeliveryRetryQueue, nameof(DeliveryRetryQueue), "RabbitMq delivery retry queue is required");
         Require(list, DeliveryDeadQueue, nameof(DeliveryDeadQueue), "RabbitMq delivery dead queue is required");

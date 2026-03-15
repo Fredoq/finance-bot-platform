@@ -33,6 +33,10 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
         {
             throw new DeliveryException("Telegram delivery payload is missing", false);
         }
+        if (item.Payload?.Identity is null || string.IsNullOrWhiteSpace(item.Payload.Identity.ConversationKey))
+        {
+            throw new DeliveryException("Telegram delivery payload identity is missing", false);
+        }
         long chatId;
         try
         {

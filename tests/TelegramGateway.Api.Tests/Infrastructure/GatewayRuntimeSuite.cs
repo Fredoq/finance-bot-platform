@@ -71,6 +71,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             ["Telegram:Bot:Token"] = "test-bot-token",
             ["Telegram:Bot:BaseUrl"] = "https://api.telegram.org",
             ["Telegram:Bot:TimeoutSeconds"] = "10",
+            ["Telegram:Keys:CurrentSecret"] = "test-current-secret",
             ["RabbitMq:Host"] = item.Host,
             ["RabbitMq:Port"] = item.Port.ToString(),
             ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),
@@ -124,7 +125,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     /// </summary>
     /// <param name="name">The queue name.</param>
     /// <returns>The queued message when it is available.</returns>
-    protected async Task<BasicGetResult?> Queue(string name)
+    protected async Task<BasicGetResult> Queue(string name)
     {
         var item = new ConnectionFactory { Uri = new Uri(rabbit) };
         await using IConnection link = await item.CreateConnectionAsync();
@@ -139,7 +140,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             }
             catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
-                break;
+                throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
             }
             if (data is not null)
             {
@@ -151,10 +152,23 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             }
             catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
-                break;
+                throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
             }
         }
-        return null;
+        throw new TimeoutException($"Timed out waiting for message on queue '{name}'");
+    }
+    /// <summary>
+    /// Checks whether the queue is currently empty.
+    /// </summary>
+    /// <param name="name">The queue name.</param>
+    /// <returns><see langword="true"/> when the queue has no message; otherwise <see langword="false"/>.</returns>
+    protected async Task<bool> Missing(string name)
+    {
+        var item = new ConnectionFactory { Uri = new Uri(rabbit) };
+        await using IConnection link = await item.CreateConnectionAsync();
+        await using IChannel lane = await link.CreateChannelAsync(cancellationToken: default);
+        BasicGetResult? data = await lane.BasicGetAsync(name, true, default);
+        return data is null;
     }
     /// <summary>
     /// Creates a workspace view envelope for delivery tests.
@@ -165,7 +179,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     /// <returns>The workspace view envelope.</returns>
     protected static MessageEnvelope<WorkspaceViewRequestedCommand> Envelope(long chatId, string state = "home", IReadOnlyList<string>? actions = null)
     {
-        var key = new OpaqueKey();
+        var key = new OpaqueKey("test-current-secret", []);
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),
             "workspace.view.requested",

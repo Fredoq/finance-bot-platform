@@ -76,13 +76,13 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
         {
             await flow.Run(contract, data.Body, token);
             await lane.BasicAckAsync(data.DeliveryTag, false, token);
-            success.Add(1, Tags(contract, data.BasicProperties.CorrelationId, attempt));
+            success.Add(1, Tags(contract, attempt));
             log.LogInformation("Telegram delivery succeeded for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
         }
         catch (DeliveryException error) when (!error.Retryable)
         {
             await Dead(lane, data, attempt, error.Message, token);
-            dead.Add(1, Tags(contract, data.BasicProperties.CorrelationId, attempt));
+            dead.Add(1, Tags(contract, attempt));
             log.LogWarning(error, "Telegram delivery moved to dead queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -94,12 +94,12 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
             if (attempt >= option.DeliveryMaxAttempts)
             {
                 await Dead(lane, data, attempt, error.Message, token);
-                dead.Add(1, Tags(contract, data.BasicProperties.CorrelationId, attempt));
+                dead.Add(1, Tags(contract, attempt));
                 log.LogError(error, "Telegram delivery exhausted retry budget for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
                 return;
             }
             await lane.BasicRejectAsync(data.DeliveryTag, false, token);
-            retry.Add(1, Tags(contract, data.BasicProperties.CorrelationId, attempt));
+            retry.Add(1, Tags(contract, attempt));
             log.LogWarning(error, "Telegram delivery moved to retry queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
         }
     }
@@ -133,7 +133,7 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
         item[Failure] = error;
         return item;
     }
-    private static KeyValuePair<string, object?>[] Tags(string contract, string? correlationId, int attempt) => [new("contract", contract), new("correlation_id", correlationId ?? string.Empty), new("attempt", attempt)];
+    private static KeyValuePair<string, object?>[] Tags(string contract, int attempt) => [new("contract", contract), new("attempt", attempt)];
     private static string Header(IDictionary<string, object?>? source, string key)
     {
         if (source is null || !source.TryGetValue(key, out object? value) || value is null)
