@@ -23,7 +23,8 @@ public sealed class ConfigurationOptionsTests
             VirtualHost = string.Empty,
             Username = string.Empty,
             Password = string.Empty,
-            Exchange = string.Empty,
+            CommandExchange = string.Empty,
+            DeliveryExchange = string.Empty,
             Queue = "queue",
             RetryQueue = "queue",
             DeadQueue = "queue",
@@ -34,7 +35,7 @@ public sealed class ConfigurationOptionsTests
             OutboxBatchSize = 0
         };
         ValidationResult[] list = item.Validate(new ValidationContext(item)).ToArray();
-        Assert.Equal(14, list.Length);
+        Assert.Equal(15, list.Length);
         return Task.CompletedTask;
     }
     /// <summary>

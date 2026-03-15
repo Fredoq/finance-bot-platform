@@ -19,10 +19,10 @@ public sealed class WebhookApiTests
     public async Task Rejects_secret()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
-        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start"));
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(port.Items);
     }
@@ -34,7 +34,7 @@ public sealed class WebhookApiTests
     public async Task Rejects_invalid_payload()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "wrong");
         using var payload = new StringContent("{", Encoding.UTF8, "application/json");
@@ -50,9 +50,9 @@ public sealed class WebhookApiTests
     public async Task Ignores_update()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
-        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/help"));
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/help"));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(port.Items);
     }
@@ -64,9 +64,9 @@ public sealed class WebhookApiTests
     public async Task Ignores_timestamp()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
-        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start", DateTimeOffset.MaxValue.ToUnixTimeSeconds() + 1));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty(port.Items);
     }
@@ -78,9 +78,9 @@ public sealed class WebhookApiTests
     public async Task Accepts_start()
     {
         var port = new RecordingWorkspacePort();
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
-        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start promo-42"));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Single(port.Items);
         Assert.Equal("promo-42", port.Items.Single().Payload.Payload);
@@ -96,9 +96,9 @@ public sealed class WebhookApiTests
     public async Task Rejects_publish()
     {
         var port = new RecordingWorkspacePort(new BusException("Message publish failed"));
-        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
-        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start"));
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
     /// <summary>
@@ -108,58 +108,11 @@ public sealed class WebhookApiTests
     [Fact(DisplayName = "Returns 200 for the readiness endpoint when the broker state is ready")]
     public async Task Ready()
     {
-        await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState());
+        await using var host = new GatewayApiFactory(Note(), new RecordingWorkspacePort(), new ReadyBrokerState(), hosted: false);
         using HttpClient client = host.CreateClient();
         HttpResponseMessage response = await client.GetAsync("/health/ready");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
-    private static HttpClient Client(GatewayApiFactory host)
-    {
-        HttpClient client = host.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
-        return client;
-    }
-    private static Dictionary<string, string?> Note() => new Dictionary<string, string?>
-    {
-        ["Telegram:Webhook:SecretToken"] = "test-secret",
-        ["RabbitMq:Host"] = "localhost",
-        ["RabbitMq:Port"] = "5672",
-        ["RabbitMq:VirtualHost"] = "/",
-        ["RabbitMq:Username"] = "guest",
-        ["RabbitMq:Password"] = "guest",
-        ["RabbitMq:Exchange"] = "finance.command",
-        ["RabbitMq:Client"] = "telegram-gateway-tests"
-    };
-    private static object Body(string text, long date = 1_736_000_000) => new
-    {
-        update_id = 7,
-        message = new
-        {
-            message_id = 8,
-            date,
-            text,
-            entities = new[]
-                {
-                    new
-                    {
-                        type = "bot_command",
-                        offset = 0,
-                        length = text.Contains(' ', StringComparison.Ordinal) ? text.IndexOf(' ', StringComparison.Ordinal) : text.Length
-                    }
-                },
-            chat = new
-            {
-                id = 100,
-                type = "private"
-            },
-            from = new
-            {
-                id = 42,
-                first_name = "Alex",
-                last_name = "Doe",
-                username = "alex",
-                language_code = "en"
-            }
-        }
-    };
+    private static HttpClient Client(GatewayApiFactory host) => WebhookUpdate.Client(host);
+    private static Dictionary<string, string?> Note() => GatewaySettings.Note("telegram-gateway-tests", "localhost", "5672", "/", "guest", "guest");
 }

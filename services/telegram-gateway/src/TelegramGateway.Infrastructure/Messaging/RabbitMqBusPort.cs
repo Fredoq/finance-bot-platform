@@ -49,7 +49,7 @@ internal sealed class RabbitMqBusPort : IBusPort, IAsyncDisposable
             }
             byte[] note = JsonSerializer.SerializeToUtf8Bytes(message);
             BasicProperties data = Properties(message);
-            await lane.BasicPublishAsync(option.Exchange, message.Contract, true, data, note, token);
+            await lane.BasicPublishAsync(option.CommandExchange, message.Contract, true, data, note, token);
             log.LogInformation("Application message was published");
         }
         catch (PublishException error)

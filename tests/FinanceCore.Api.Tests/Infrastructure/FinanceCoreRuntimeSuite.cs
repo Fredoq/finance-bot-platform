@@ -116,9 +116,9 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
         var item = new ConnectionFactory { Uri = new Uri(rabbit) };
         await using IConnection link = await item.CreateConnectionAsync();
         await using IChannel lane = await link.CreateChannelAsync(cancellationToken: default);
-        await lane.ExchangeDeclareAsync("finance.command", ExchangeType.Topic, true, false, null, false, false, default);
+        await lane.ExchangeDeclareAsync("finance.delivery", ExchangeType.Topic, true, false, null, false, false, default);
         _ = await lane.QueueDeclareAsync(queue, false, false, true, null, false, false, default);
-        await lane.QueueBindAsync(queue, "finance.command", routingKey, null, false, default);
+        await lane.QueueBindAsync(queue, "finance.delivery", routingKey, null, false, default);
     }
     /// <summary>
     /// Publishes a workspace request envelope.
@@ -273,7 +273,8 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
             ["RabbitMq:VirtualHost"] = Uri.UnescapeDataString(item.AbsolutePath),
             ["RabbitMq:Username"] = data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty,
             ["RabbitMq:Password"] = data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty,
-            ["RabbitMq:Exchange"] = "finance.command",
+            ["RabbitMq:CommandExchange"] = "finance.command",
+            ["RabbitMq:DeliveryExchange"] = "finance.delivery",
             ["RabbitMq:Queue"] = "finance-core.command",
             ["RabbitMq:RetryQueue"] = "finance-core.command.retry",
             ["RabbitMq:DeadQueue"] = "finance-core.command.dead",

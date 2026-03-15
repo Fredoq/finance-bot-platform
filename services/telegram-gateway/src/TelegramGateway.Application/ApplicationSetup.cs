@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TelegramGateway.Application.Entry.Workspace;
 using TelegramGateway.Application.Keys;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Messaging;
 using TelegramGateway.Application.Telegram.Flow;
 
@@ -18,9 +19,10 @@ public static class ApplicationSetup
     /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddTelegramGatewayApplication(this IServiceCollection items)
     {
-        items.AddSingleton<IOpaqueKey, OpaqueKey>();
         items.AddSingleton<ITelegramSlice>(item => new StartSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<IBusPort>()));
+        items.AddSingleton<ITelegramDeliverySlice>(item => new WorkspaceViewSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<ITelegramPort>()));
         items.AddSingleton<ITelegramFlow, TelegramFlow>();
+        items.AddSingleton<ITelegramDeliveryFlow, TelegramDeliveryFlow>();
         return items;
     }
 }

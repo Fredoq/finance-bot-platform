@@ -39,7 +39,7 @@ internal sealed class RabbitMqOutboxLoop : RabbitMqLoop
         {
             try
             {
-                await lane.BasicPublishAsync(option.Exchange, note.Head.RoutingKey, true, Properties(note), note.Body.Payload, token);
+                await lane.BasicPublishAsync(option.DeliveryExchange, note.Head.RoutingKey, true, Properties(note), note.Body.Payload, token);
                 await port.Mark(note.Head.MessageId, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)

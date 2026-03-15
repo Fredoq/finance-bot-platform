@@ -27,8 +27,9 @@ The architecture must support this MVP without painting the system into a corner
 
 - The application codebase lives in a single monorepo.
 - The system is split into a small number of services with clear ownership.
-- `telegram-gateway` is the Telegram-facing webhook boundary inside the platform.
+- `telegram-gateway` is the Telegram-facing boundary inside the platform for both webhook ingress and outbound Bot API delivery.
 - Telegram-specific request models are normalized inside `telegram-gateway` and do not cross the async boundary.
+- `finance-core` publishes semantic presentation intents and does not render Telegram payloads.
 - Business processing is asynchronous where it improves resilience and delivery guarantees.
 - PostgreSQL is the source of truth for business data.
 - RabbitMQ is the durable async transport between the edge and business services.
@@ -37,11 +38,12 @@ The architecture must support this MVP without painting the system into a corner
 
 ## Service Model
 
-The target application layer consists of three services:
+The current runtime model uses two active services:
 
 1. `telegram-gateway`
 2. `finance-core`
-3. `job-worker`
+
+`job-worker` remains a planned extraction target for scheduled and batch work when that load becomes materially different from the gateway runtime.
 
 Supporting platform components:
 
@@ -55,11 +57,11 @@ Supporting platform components:
 ## High-Level Request Flow
 
 1. Telegram delivers an update to `telegram-gateway` via webhook.
-2. `telegram-gateway` authenticates the request and normalizes supported intents.
-3. `telegram-gateway` publishes an application command such as `WorkspaceRequestedCommand`.
-4. `finance-core` performs business logic and persists state changes.
-5. Outgoing messages are emitted through an outbox-driven delivery flow.
-6. `job-worker` processes retries, delayed work, reminders, and scheduled reporting.
+2. `telegram-gateway` authenticates the request, normalizes supported intents, and publishes an application command such as `WorkspaceRequestedCommand`.
+3. `finance-core` performs business logic, persists state changes, and stores semantic outbound intents in its outbox.
+4. `finance-core` publishes user-visible contracts such as `WorkspaceViewRequestedCommand` to the delivery exchange.
+5. `telegram-gateway` consumes delivery contracts, renders the Telegram response, and sends it through the Bot API.
+6. `job-worker` is reserved for future scheduled reporting, reminders, and batch flows that should not run inside the gateway.
 
 ## Reliability Baseline
 
@@ -68,6 +70,7 @@ The platform is expected to include these properties from the start:
 - retry-safe command processing
 - durable persistence for business records
 - asynchronous boundaries between edge traffic and business logic
+- at-least-once user-visible delivery through RabbitMQ retry and dead-letter queues
 - health and readiness checks
 - structured logs and traceable correlation ids
 - backup and restore procedures for PostgreSQL
