@@ -20,7 +20,7 @@ public sealed class PostgresPersistenceTests : FinanceCoreRuntimeSuite
     [Fact(DisplayName = "Stores inbound envelopes in the inbox table")]
     public async Task Stores_inbox_message()
     {
-        await using var host = new CoreApiFactory(Settings("finance-core-inbox-port"));
+        await using var host = new CoreApiFactory(Settings("finance-core-inbox-port"), false);
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Reset();
@@ -36,7 +36,7 @@ public sealed class PostgresPersistenceTests : FinanceCoreRuntimeSuite
     [Fact(DisplayName = "Stores and updates outbound envelopes in the outbox table")]
     public async Task Stores_outbox_message()
     {
-        await using var host = new CoreApiFactory(Settings("finance-core-outbox-port"));
+        await using var host = new CoreApiFactory(Settings("finance-core-outbox-port"), false);
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Reset();

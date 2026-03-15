@@ -17,7 +17,7 @@ public sealed class DbUpLogTests
     public Task Forwards_messages()
     {
         var sink = new LogSink<DbUpLog>();
-        IUpgradeLog item = new DbUpLog(sink);
+        DbUpLog item = new(sink);
         item.LogTrace("trace {0}", 1);
         item.LogDebug("debug {0}", 2);
         item.LogInformation("info {0}", 3);

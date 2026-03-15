@@ -27,6 +27,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
     public async ValueTask Save(MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(message);
+        DateTimeOffset occurred = message.Payload.OccurredUtc;
+        ArgumentOutOfRangeException.ThrowIfEqual(occurred, default);
+        if (occurred.Offset != TimeSpan.Zero)
+        {
+            throw new ArgumentException("Workspace occurrence time must be UTC", nameof(message));
+        }
         string inbound = JsonSerializer.Serialize(message, json);
         await using NpgsqlConnection link = await data.OpenConnectionAsync(token);
         await using NpgsqlTransaction lane = await link.BeginTransactionAsync(token);
@@ -37,12 +43,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
             return;
         }
         (Guid userId, bool isNewUser) = await User(link, lane, message, token);
-        WorkspaceItem state = await Workspace(link, lane, userId, message, token);
+        WorkspaceItem state = await Workspace(link, lane, userId, message, occurred, token);
         var note = new WorkspaceState(state.Snapshot.State, state.Snapshot.Data, state.Snapshot.Revision);
-        var view = new WorkspaceView(message.Payload.Identity, message.Payload.Profile, note, actions.Codes(), isNewUser, state.Snapshot.IsNew, message.Payload.OccurredUtc);
-        var item = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, view.State.Code, view.Actions, view.IsNewUser, view.IsNewWorkspace, view.OccurredUtc);
+        var view = new WorkspaceView(message.Payload.Identity, message.Payload.Profile, note, actions.Codes(), isNewUser, state.Snapshot.IsNew, occurred);
+        var item = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, view.State.Code, view.Actions, view.IsNewUser, view.IsNewWorkspace, occurred);
         var messageId = Guid.CreateVersion7();
-        var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(messageId, Contract, view.OccurredUtc, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), Source, item);
+        var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(messageId, Contract, occurred, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), Source, item);
         string outbound = JsonSerializer.Serialize(envelope, json);
         await Outbox(link, lane, messageId, outbound, message, view, token);
         await Processed(link, lane, message, token);
@@ -89,7 +95,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         }
         throw new InvalidOperationException("User upsert failed");
     }
-    private static async ValueTask<WorkspaceItem> Workspace(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, MessageEnvelope<WorkspaceRequestedCommand> message, CancellationToken token)
+    private static async ValueTask<WorkspaceItem> Workspace(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, MessageEnvelope<WorkspaceRequestedCommand> message, DateTimeOffset occurred, CancellationToken token)
     {
         await using NpgsqlCommand add = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) on conflict do nothing returning id, state_code, state_data, revision", link, lane);
         add.Parameters.AddWithValue("id", Guid.CreateVersion7());
@@ -100,9 +106,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         add.Parameters.AddWithValue("revision", 1L);
         add.Parameters.AddWithValue("entry_payload", message.Payload.Payload);
         add.Parameters.AddWithValue("last_payload", message.Payload.Payload);
-        add.Parameters.AddWithValue("created_utc", message.Payload.OccurredUtc);
-        add.Parameters.AddWithValue("opened_utc", message.Payload.OccurredUtc);
-        add.Parameters.AddWithValue("updated_utc", message.Payload.OccurredUtc);
+        add.Parameters.AddWithValue("created_utc", occurred);
+        add.Parameters.AddWithValue("opened_utc", occurred);
+        add.Parameters.AddWithValue("updated_utc", occurred);
         WorkspaceItem? item = await WorkspaceItem(add, true, token);
         if (item is not null)
         {
@@ -112,8 +118,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort
         note.Parameters.AddWithValue("user_id", userId);
         note.Parameters.AddWithValue("conversation_key", message.Payload.Identity.ConversationKey);
         note.Parameters.AddWithValue("last_payload", message.Payload.Payload);
-        note.Parameters.AddWithValue("opened_utc", message.Payload.OccurredUtc);
-        note.Parameters.AddWithValue(UpdatedUtc, message.Payload.OccurredUtc);
+        note.Parameters.AddWithValue("opened_utc", occurred);
+        note.Parameters.AddWithValue(UpdatedUtc, occurred);
         item = await WorkspaceItem(note, false, token);
         if (item is not null)
         {

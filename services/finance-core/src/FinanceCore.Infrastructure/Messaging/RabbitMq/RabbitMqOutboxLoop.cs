@@ -10,6 +10,8 @@ namespace FinanceCore.Infrastructure.Messaging.RabbitMq;
 
 internal sealed class RabbitMqOutboxLoop : RabbitMqLoop
 {
+    private const string Publish = "Outbox publish failed";
+    private const string FailureState = "Outbox failure state update failed";
     private readonly IBrokerState state;
     private readonly RabbitMqOptions option;
     private readonly PostgresOutboxPort port;
@@ -44,10 +46,9 @@ internal sealed class RabbitMqOutboxLoop : RabbitMqLoop
             {
                 throw;
             }
-            catch (PublishException error)
+            catch (Exception error)
             {
-                await port.Fail(note.Head.MessageId, error.Message, token);
-                Log.LogWarning(error, "Outbox publish failed");
+                await Fail(note, error, token);
             }
         }
     }
@@ -67,4 +68,20 @@ internal sealed class RabbitMqOutboxLoop : RabbitMqLoop
             ["causation-id"] = item.Mark.CausationId
         }
     };
+    private async ValueTask Fail(OutboxItem item, Exception error, CancellationToken token)
+    {
+        try
+        {
+            await port.Fail(item.Head.MessageId, error.Message, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception note)
+        {
+            Log.LogError(note, "{Message}", FailureState);
+        }
+        Log.LogWarning(error, "{Message}", Publish);
+    }
 }
