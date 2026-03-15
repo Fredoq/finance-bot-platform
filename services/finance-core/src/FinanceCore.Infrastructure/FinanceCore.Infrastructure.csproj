@@ -9,6 +9,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqConnectionOptions.cs" Link="Shared/RabbitMqConnectionOptions.cs" />
+    <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqExchanges.cs" Link="Shared/RabbitMqExchanges.cs" />
+    <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqQueues.cs" Link="Shared/RabbitMqQueues.cs" />
     <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqState.cs" Link="Shared/RabbitMqState.cs" />
     <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqTopology.cs" Link="Shared/RabbitMqTopology.cs" />
     <Compile Include="../../../../libs/shared/RabbitMq/RabbitMqValidation.cs" Link="Shared/RabbitMqValidation.cs" />

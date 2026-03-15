@@ -19,7 +19,7 @@ internal sealed class TelegramDeliveryFlow : ITelegramDeliveryFlow
             log.LogWarning("Telegram delivery contract was rejected because the contract name was blank");
             throw new DeliveryException("Telegram delivery contract is not supported", false);
         }
-        ITelegramDeliverySlice[] item = [.. list.Where(item => item.Match(contract)).Take(2)];
+        ITelegramDeliverySlice[] item = [.. list.Where(item => string.Equals(item.Contract, contract, StringComparison.Ordinal)).Take(2)];
         if (item.Length == 0)
         {
             log.LogWarning("Telegram delivery contract was rejected because no slice matched");

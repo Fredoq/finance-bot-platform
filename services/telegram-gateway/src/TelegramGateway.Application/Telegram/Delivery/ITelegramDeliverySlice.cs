@@ -2,6 +2,6 @@ namespace TelegramGateway.Application.Telegram.Delivery;
 
 internal interface ITelegramDeliverySlice
 {
-    bool Match(string contract);
+    string Contract { get; }
     ValueTask Run(ReadOnlyMemory<byte> body, CancellationToken token);
 }

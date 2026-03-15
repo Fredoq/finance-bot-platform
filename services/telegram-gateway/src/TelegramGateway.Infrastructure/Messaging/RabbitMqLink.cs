@@ -8,18 +8,15 @@ namespace TelegramGateway.Infrastructure.Messaging;
 
 internal sealed class RabbitMqLink : RabbitMqState<RabbitMqOptions>, IBrokerState
 {
-    public RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<RabbitMqLink> log) : base(option?.Value ?? throw new ArgumentNullException(nameof(option)), log)
-    {
-    }
+    private readonly RabbitMqExchanges exchange;
+    public RabbitMqLink(IOptions<RabbitMqOptions> option, ILogger<RabbitMqLink> log) : base(option?.Value ?? throw new ArgumentNullException(nameof(option)), log) => exchange = new(Option.CommandExchange, Option.DeliveryExchange, $"{Option.DeliveryExchange}.retry", $"{Option.DeliveryExchange}.resume", $"{Option.DeliveryExchange}.dead");
     public async ValueTask Ensure(CancellationToken token)
     {
         IConnection item = await Connection(token);
         await using IChannel lane = await item.CreateChannelAsync(new CreateChannelOptions(true, true), cancellationToken: token);
-        await RabbitMqTopology.Declare(lane, Option.CommandExchange, Option.DeliveryExchange, Retry(), Resume(), Dead(), token);
-        await RabbitMqTopology.Queue(lane, Option.DeliveryQueue, Option.DeliveryRetryQueue, Option.DeliveryDeadQueue, Option.DeliveryRetryDelaySeconds, Retry(), Resume(), Dead(), Option.DeliveryQueue, Option.DeliveryDeadQueue, token);
+        RabbitMqQueues queue = new(Option.DeliveryQueue, Option.DeliveryRetryQueue, Option.DeliveryDeadQueue, Option.DeliveryRetryDelaySeconds, Option.DeliveryQueue, Option.DeliveryDeadQueue);
+        await RabbitMqTopology.Declare(lane, exchange, token);
+        await RabbitMqTopology.Queue(lane, exchange, queue, token);
         await lane.QueueBindAsync(Option.DeliveryQueue, Option.DeliveryExchange, "#", null, false, token);
     }
-    private string Retry() => $"{Option.DeliveryExchange}.retry";
-    private string Resume() => $"{Option.DeliveryExchange}.resume";
-    private string Dead() => $"{Option.DeliveryExchange}.dead";
 }

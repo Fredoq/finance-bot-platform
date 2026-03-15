@@ -4,21 +4,24 @@ namespace Finance.Platform.RabbitMq;
 
 internal static class RabbitMqTopology
 {
-    internal static async ValueTask Declare(IChannel lane, string commandExchange, string deliveryExchange, string retryExchange, string resumeExchange, string deadExchange, CancellationToken token)
+    internal static async ValueTask Declare(IChannel lane, RabbitMqExchanges item, CancellationToken token)
     {
-        await lane.ExchangeDeclareAsync(commandExchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
-        await lane.ExchangeDeclareAsync(deliveryExchange, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
-        await lane.ExchangeDeclareAsync(retryExchange, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
-        await lane.ExchangeDeclareAsync(resumeExchange, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
-        await lane.ExchangeDeclareAsync(deadExchange, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        ArgumentNullException.ThrowIfNull(item);
+        await lane.ExchangeDeclareAsync(item.Command, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(item.Delivery, ExchangeType.Topic, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(item.Retry, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(item.Resume, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
+        await lane.ExchangeDeclareAsync(item.Dead, ExchangeType.Direct, true, false, arguments: null, cancellationToken: token);
     }
-    internal static async ValueTask Queue(IChannel lane, string queue, string retryQueue, string deadQueue, int retryDelaySeconds, string retryExchange, string resumeExchange, string deadExchange, string liveRoutingKey, string deadRoutingKey, CancellationToken token)
+    internal static async ValueTask Queue(IChannel lane, RabbitMqExchanges exchange, RabbitMqQueues queue, CancellationToken token)
     {
-        _ = await lane.QueueDeclareAsync(queue, true, false, false, new Dictionary<string, object?> { ["x-dead-letter-exchange"] = retryExchange, ["x-dead-letter-routing-key"] = liveRoutingKey }, false, token);
-        _ = await lane.QueueDeclareAsync(retryQueue, true, false, false, new Dictionary<string, object?> { ["x-message-ttl"] = retryDelaySeconds * 1000, ["x-dead-letter-exchange"] = resumeExchange, ["x-dead-letter-routing-key"] = liveRoutingKey }, false, token);
-        _ = await lane.QueueDeclareAsync(deadQueue, true, false, false, arguments: null, noWait: false, cancellationToken: token);
-        await lane.QueueBindAsync(queue, resumeExchange, liveRoutingKey, null, false, token);
-        await lane.QueueBindAsync(retryQueue, retryExchange, liveRoutingKey, null, false, token);
-        await lane.QueueBindAsync(deadQueue, deadExchange, deadRoutingKey, null, false, token);
+        ArgumentNullException.ThrowIfNull(exchange);
+        ArgumentNullException.ThrowIfNull(queue);
+        _ = await lane.QueueDeclareAsync(queue.Live, true, false, false, new Dictionary<string, object?> { ["x-dead-letter-exchange"] = exchange.Retry, ["x-dead-letter-routing-key"] = queue.LiveRouting }, false, token);
+        _ = await lane.QueueDeclareAsync(queue.Retry, true, false, false, new Dictionary<string, object?> { ["x-message-ttl"] = queue.RetryDelaySeconds * 1000, ["x-dead-letter-exchange"] = exchange.Resume, ["x-dead-letter-routing-key"] = queue.LiveRouting }, false, token);
+        _ = await lane.QueueDeclareAsync(queue.Dead, true, false, false, arguments: null, noWait: false, cancellationToken: token);
+        await lane.QueueBindAsync(queue.Live, exchange.Resume, queue.LiveRouting, null, false, token);
+        await lane.QueueBindAsync(queue.Retry, exchange.Retry, queue.LiveRouting, null, false, token);
+        await lane.QueueBindAsync(queue.Dead, exchange.Dead, queue.DeadRouting, null, false, token);
     }
 }

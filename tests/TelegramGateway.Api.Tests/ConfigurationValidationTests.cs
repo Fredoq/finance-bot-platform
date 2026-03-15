@@ -40,6 +40,26 @@ public sealed class ConfigurationValidationTests
         Assert.Contains(note, data => data.MemberNames.Contains(nameof(RabbitMqOptions.CommandExchange), StringComparer.Ordinal));
     }
     /// <summary>
+    /// Verifies that a blank RabbitMQ client name is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects a blank RabbitMQ client name")]
+    public void Rejects_client_blank()
+    {
+        var item = new RabbitMqOptions { Username = "guest", Password = "guest", Client = " " };
+        ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Contains(note, data => data.MemberNames.Contains(nameof(RabbitMqOptions.Client), StringComparer.Ordinal));
+    }
+    /// <summary>
+    /// Verifies that identical command and delivery exchanges are rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects identical RabbitMQ command and delivery exchanges")]
+    public void Rejects_exchange_same()
+    {
+        var item = new RabbitMqOptions { Username = "guest", Password = "guest", CommandExchange = "finance", DeliveryExchange = "finance" };
+        ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Contains(note, data => data.MemberNames.Contains(nameof(RabbitMqOptions.CommandExchange), StringComparer.Ordinal) && data.MemberNames.Contains(nameof(RabbitMqOptions.DeliveryExchange), StringComparer.Ordinal));
+    }
+    /// <summary>
     /// Verifies that a blank Telegram bot token is rejected.
     /// </summary>
     [Fact(DisplayName = "Rejects a blank Telegram bot token")]

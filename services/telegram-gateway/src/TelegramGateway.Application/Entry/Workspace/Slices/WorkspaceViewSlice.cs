@@ -9,15 +9,16 @@ namespace TelegramGateway.Application.Entry.Workspace;
 internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
 {
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
-    private const string Contract = "workspace.view.requested";
+    private const string Name = "workspace.view.requested";
     private readonly IOpaqueKey key;
     private readonly ITelegramPort port;
     internal WorkspaceViewSlice(IOpaqueKey key, ITelegramPort port)
     {
+        Contract = Name;
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
     }
-    public static bool Match(string contract) => string.Equals(contract, Contract, StringComparison.Ordinal);
+    public string Contract { get; }
     public async ValueTask Run(ReadOnlyMemory<byte> body, CancellationToken token)
     {
         MessageEnvelope<WorkspaceViewRequestedCommand>? item;
