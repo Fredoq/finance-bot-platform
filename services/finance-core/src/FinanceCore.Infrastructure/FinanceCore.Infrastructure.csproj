@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FinanceCore.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FinanceCore.Application/FinanceCore.Application.csproj" />
+    <ProjectReference Include="../../../../libs/contracts/Finance.Application.Contracts/Finance.Application.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="dbup-core" />
+    <PackageReference Include="dbup-postgresql" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence/Postgres/Migrations/Scripts/*.sql" />
+  </ItemGroup>
+</Project>

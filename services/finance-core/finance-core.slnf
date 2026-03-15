@@ -1,6 +1,13 @@
 {
   "solution": {
     "path": "../../finance-bot-platform.slnx",
-    "projects": []
+    "projects": [
+      "services/finance-core/src/FinanceCore.Api/FinanceCore.Api.csproj",
+      "services/finance-core/src/FinanceCore.Application/FinanceCore.Application.csproj",
+      "services/finance-core/src/FinanceCore.Domain/FinanceCore.Domain.csproj",
+      "services/finance-core/src/FinanceCore.Infrastructure/FinanceCore.Infrastructure.csproj",
+      "tests/FinanceCore.Api.Tests/FinanceCore.Api.Tests.csproj",
+      "libs/contracts/Finance.Application.Contracts/Finance.Application.Contracts.csproj"
+    ]
   }
 }

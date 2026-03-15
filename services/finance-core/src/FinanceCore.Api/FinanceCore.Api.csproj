@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FinanceCore.Api</RootNamespace>
+    <ContainerPort>8080</ContainerPort>
+    <ContainerRepository>finance-bot-platform-finance-core</ContainerRepository>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FinanceCore.Application/FinanceCore.Application.csproj" />
+    <ProjectReference Include="../FinanceCore.Infrastructure/FinanceCore.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+  </ItemGroup>
+</Project>

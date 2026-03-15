@@ -11,7 +11,15 @@
     <Project Path="services/telegram-gateway/src/TelegramGateway.Domain/TelegramGateway.Domain.csproj" />
     <Project Path="services/telegram-gateway/src/TelegramGateway.Infrastructure/TelegramGateway.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/services/finance-core/" />
+  <Folder Name="/services/finance-core/src/">
+    <Project Path="services/finance-core/src/FinanceCore.Api/FinanceCore.Api.csproj" />
+    <Project Path="services/finance-core/src/FinanceCore.Application/FinanceCore.Application.csproj" />
+    <Project Path="services/finance-core/src/FinanceCore.Domain/FinanceCore.Domain.csproj" />
+    <Project Path="services/finance-core/src/FinanceCore.Infrastructure/FinanceCore.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj" />
+    <Project Path="tests/FinanceCore.Api.Tests/FinanceCore.Api.Tests.csproj" />
   </Folder>
 </Solution>

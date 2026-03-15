@@ -4,8 +4,8 @@ using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using RabbitMQ.Client;
-using Testcontainers.RabbitMq;
 using TelegramGateway.Api.Tests.Infrastructure;
+using Testcontainers.RabbitMq;
 
 namespace TelegramGateway.Api.Tests;
 
