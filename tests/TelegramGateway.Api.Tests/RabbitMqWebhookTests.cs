@@ -41,8 +41,8 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
         string name = $"workspace-{Guid.CreateVersion7():N}";
         await Bind(name);
         await using var host = new GatewayApiFactory(Note("telegram-gateway-rabbit"));
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start promo-42"));
+        using HttpClient item = WebhookUpdate.Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start promo-42"));
         MessageEnvelope<WorkspaceRequestedCommand>? data = await Message(name);
         Assert.Equal(HttpStatusCode.OK, note.StatusCode);
         Assert.NotNull(data);
@@ -56,8 +56,8 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
     public async Task Rejects_publish()
     {
         await using var host = new GatewayApiFactory(Note("telegram-gateway-rabbit"));
-        using HttpClient item = Client(host);
-        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", Body("/start"));
+        using HttpClient item = WebhookUpdate.Client(host);
+        HttpResponseMessage note = await item.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start"));
         Assert.Equal(HttpStatusCode.ServiceUnavailable, note.StatusCode);
     }
     private async Task Bind(string name)
@@ -101,48 +101,9 @@ public sealed class RabbitMqWebhookTests : IAsyncLifetime
         }
         return null;
     }
-    private static HttpClient Client(GatewayApiFactory item)
-    {
-        HttpClient note = item.CreateClient();
-        note.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", "test-secret");
-        return note;
-    }
     private Dictionary<string, string?> Note(string name)
     {
         var item = new Uri(uri);
-        string[] data = item.UserInfo.Split(':', 2, StringSplitOptions.None);
-        return GatewaySettings.Note(name, item.Host, item.Port.ToString(), Uri.UnescapeDataString(item.AbsolutePath), data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty, data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty);
+        return GatewaySettings.Note(name, item);
     }
-    private static object Body(string text) => new
-    {
-        update_id = 7,
-        message = new
-        {
-            message_id = 8,
-            date = 1_736_000_000,
-            text,
-            entities = new[]
-                {
-                    new
-                    {
-                        type = "bot_command",
-                        offset = 0,
-                        length = text.Contains(' ', StringComparison.Ordinal) ? text.IndexOf(' ', StringComparison.Ordinal) : text.Length
-                    }
-                },
-            chat = new
-            {
-                id = 100,
-                type = "private"
-            },
-            from = new
-            {
-                id = 42,
-                first_name = "Alex",
-                last_name = "Doe",
-                username = "alex",
-                language_code = "en"
-            }
-        }
-    };
 }

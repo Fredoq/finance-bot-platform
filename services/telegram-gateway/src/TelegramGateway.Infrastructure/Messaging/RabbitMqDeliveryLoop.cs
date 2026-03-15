@@ -72,18 +72,26 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
             contract = data.BasicProperties.Type ?? string.Empty;
         }
         int attempt = Number(data.BasicProperties.Headers, option.DeliveryQueue);
+        string? messageId = data.BasicProperties.MessageId;
+        string? correlationId = data.BasicProperties.CorrelationId;
         try
         {
             await flow.Run(contract, data.Body, token);
             await lane.BasicAckAsync(data.DeliveryTag, false, token);
             success.Add(1, Tags(contract, attempt));
-            log.LogInformation("Telegram delivery succeeded for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
+            if (log.IsEnabled(LogLevel.Information))
+            {
+                log.LogInformation("Telegram delivery succeeded for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, messageId, correlationId, attempt);
+            }
         }
         catch (DeliveryException error) when (!error.Retryable)
         {
             await Dead(lane, data, attempt, error.Message, token);
             dead.Add(1, Tags(contract, attempt));
-            log.LogWarning(error, "Telegram delivery moved to dead queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
+            if (log.IsEnabled(LogLevel.Warning))
+            {
+                log.LogWarning(error, "Telegram delivery moved to dead queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, messageId, correlationId, attempt);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -95,18 +103,24 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
             {
                 await Dead(lane, data, attempt, error.Message, token);
                 dead.Add(1, Tags(contract, attempt));
-                log.LogError(error, "Telegram delivery exhausted retry budget for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
+                if (log.IsEnabled(LogLevel.Error))
+                {
+                    log.LogError(error, "Telegram delivery exhausted retry budget for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, messageId, correlationId, attempt);
+                }
                 return;
             }
             await lane.BasicRejectAsync(data.DeliveryTag, false, token);
             retry.Add(1, Tags(contract, attempt));
-            log.LogWarning(error, "Telegram delivery moved to retry queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, data.BasicProperties.MessageId, data.BasicProperties.CorrelationId, attempt);
+            if (log.IsEnabled(LogLevel.Warning))
+            {
+                log.LogWarning(error, "Telegram delivery moved to retry queue for contract {Contract} message {MessageId} correlation {CorrelationId} attempt {Attempt}", contract, messageId, correlationId, attempt);
+            }
         }
     }
     private async ValueTask Dead(IChannel lane, BasicGetResult data, int attempt, string error, CancellationToken token)
     {
         BasicProperties item = Properties(data, attempt, error);
-        await lane.BasicPublishAsync($"{option.DeliveryExchange}.dead", option.DeliveryQueue, true, item, data.Body, token);
+        await lane.BasicPublishAsync($"{option.DeliveryExchange}.dead", option.DeliveryDeadQueue, true, item, data.Body, token);
         await lane.BasicAckAsync(data.DeliveryTag, false, token);
     }
     private static BasicProperties Properties(BasicGetResult data, int attempt, string error) => new()
@@ -159,26 +173,31 @@ internal sealed class RabbitMqDeliveryLoop : BackgroundService
     }
     private static int Death(IDictionary<string, object?>? source, string queue)
     {
-        if (source is null || !source.TryGetValue("x-death", out object? value) || value is null || value is not IList<object> list)
+        IDictionary<string, object?>? item = Deaths(source).FirstOrDefault(item => string.Equals(Header(item, "queue"), queue, StringComparison.Ordinal));
+        if (item is null)
         {
             return 0;
         }
+        return Count(item.TryGetValue("count", out object? count) ? count : null);
+    }
+    private static IEnumerable<IDictionary<string, object?>> Deaths(IDictionary<string, object?>? source)
+    {
+        if (source is null || !source.TryGetValue("x-death", out object? value) || value is not IList<object> list)
+        {
+            yield break;
+        }
         foreach (object? item in list)
         {
-            if (item is IDictionary<string, object?> note && string.Equals(Header(note, "queue"), queue, StringComparison.Ordinal))
+            if (item is IDictionary<string, object?> note)
             {
-                return Count(note.TryGetValue("count", out object? count) ? count : null);
+                yield return note;
+                continue;
             }
             if (item is IDictionary<string, object> data)
             {
-                var head = data.ToDictionary(pair => pair.Key, pair => (object?)pair.Value);
-                if (string.Equals(Header(head, "queue"), queue, StringComparison.Ordinal))
-                {
-                    return Count(head.TryGetValue("count", out object? count) ? count : null);
-                }
+                yield return data.ToDictionary(pair => pair.Key, pair => (object?)pair.Value);
             }
         }
-        return 0;
     }
     private static int Count(object? value) => value switch
     {

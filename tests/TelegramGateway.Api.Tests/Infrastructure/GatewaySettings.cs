@@ -24,4 +24,16 @@ internal static class GatewaySettings
         ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
         ["RabbitMq:DeliveryMaxAttempts"] = "5"
     };
+    internal static Dictionary<string, string?> Note(string name, Uri address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        string[] data = address.UserInfo.Split(':', 2, StringSplitOptions.None);
+        return Note(name, address.Host, address.Port.ToString(), Vhost(address.AbsolutePath), data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty, data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty);
+    }
+    internal static string Vhost(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        string item = Uri.UnescapeDataString(path).TrimStart('/');
+        return string.IsNullOrWhiteSpace(item) ? "/" : item;
+    }
 }

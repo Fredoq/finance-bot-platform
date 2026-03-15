@@ -34,7 +34,7 @@ public static class InfrastructureSetup
         items.AddHttpClient<ITelegramPort, TelegramBotPort>((item, client) =>
         {
             TelegramBotOptions note = item.GetRequiredService<Microsoft.Extensions.Options.IOptions<TelegramBotOptions>>().Value;
-            client.BaseAddress = new Uri(note.BaseUrl.EndsWith("/", StringComparison.Ordinal) ? note.BaseUrl : $"{note.BaseUrl}/", UriKind.Absolute);
+            client.BaseAddress = new Uri(note.BaseUrl[^1] == '/' ? note.BaseUrl : $"{note.BaseUrl}/", UriKind.Absolute);
             client.Timeout = TimeSpan.FromSeconds(note.TimeoutSeconds);
         });
         items.AddHostedService<RabbitMqBoot>();

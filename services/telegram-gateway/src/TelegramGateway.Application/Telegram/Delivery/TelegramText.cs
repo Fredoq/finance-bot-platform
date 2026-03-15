@@ -7,8 +7,11 @@ internal sealed record TelegramText : TelegramOperation
         ChatId = chatId;
         Text = !string.IsNullOrWhiteSpace(text) ? text.Trim() : throw new ArgumentException("Telegram text is required", nameof(text));
         ArgumentNullException.ThrowIfNull(keys);
-        TelegramRow[] list = keys.Where(item => item is not null).ToArray();
-        Keys = Array.AsReadOnly(list);
+        if (keys.Any(item => item is null))
+        {
+            throw new ArgumentException("Telegram keyboard row is required", nameof(keys));
+        }
+        Keys = Array.AsReadOnly(keys.ToArray());
     }
     public long ChatId { get; }
     public string Text { get; }

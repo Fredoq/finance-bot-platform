@@ -95,7 +95,7 @@ internal sealed class RabbitMqLink : IBrokerState, IAsyncDisposable
         await lane.QueueBindAsync(option.DeliveryQueue, option.DeliveryExchange, "#", null, false, token);
         await lane.QueueBindAsync(option.DeliveryQueue, Resume(), option.DeliveryQueue, null, false, token);
         await lane.QueueBindAsync(option.DeliveryRetryQueue, Retry(), option.DeliveryQueue, null, false, token);
-        await lane.QueueBindAsync(option.DeliveryDeadQueue, Dead(), option.DeliveryQueue, null, false, token);
+        await lane.QueueBindAsync(option.DeliveryDeadQueue, Dead(), option.DeliveryDeadQueue, null, false, token);
     }
     /// <summary>
     /// Disposes the broker connection resources.

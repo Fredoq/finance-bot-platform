@@ -12,6 +12,14 @@ internal sealed class TelegramBotPort : ITelegramPort
 {
     private readonly HttpClient client;
     private readonly TelegramBotOptions option;
+    private readonly HttpStatusCode[] list =
+    [
+        HttpStatusCode.RequestTimeout,
+        HttpStatusCode.TooManyRequests,
+        HttpStatusCode.BadGateway,
+        HttpStatusCode.ServiceUnavailable,
+        HttpStatusCode.GatewayTimeout
+    ];
     public TelegramBotPort(HttpClient client, IOptions<TelegramBotOptions> option)
     {
         this.client = client ?? throw new ArgumentNullException(nameof(client));
@@ -31,14 +39,15 @@ internal sealed class TelegramBotPort : ITelegramPort
             }
             catch (Exception error) when (error is JsonException or NotSupportedException or InvalidOperationException)
             {
-                throw new DeliveryException("Telegram response payload was invalid", Retryable(note.StatusCode, null), error);
+                throw new DeliveryException("Telegram response payload was invalid", Retryable(note.StatusCode), error);
             }
             if (note.IsSuccessStatusCode && data is { Ok: true })
             {
                 return;
             }
             string text = !string.IsNullOrWhiteSpace(data?.Description) ? data.Description : note.ReasonPhrase ?? "Telegram delivery failed";
-            throw new DeliveryException(text, Retryable(note.StatusCode, data?.ErrorCode));
+            bool retry = data?.ErrorCode is int code ? Retryable(note.StatusCode, code) : Retryable(note.StatusCode);
+            throw new DeliveryException(text, retry);
         }
         catch (OperationCanceledException error) when (!token.IsCancellationRequested)
         {
@@ -50,17 +59,8 @@ internal sealed class TelegramBotPort : ITelegramPort
         }
     }
     private Uri Path(string method) => new($"/bot{option.Token}/{method}", UriKind.Relative);
-    private static bool Retryable(HttpStatusCode code, int? errorCode) => code switch
-    {
-        HttpStatusCode.RequestTimeout => true,
-        HttpStatusCode.TooManyRequests => true,
-        HttpStatusCode.BadGateway => true,
-        HttpStatusCode.ServiceUnavailable => true,
-        HttpStatusCode.GatewayTimeout => true,
-        _ when (int)code >= 500 => true,
-        _ when errorCode is 429 or >= 500 => true,
-        _ => false
-    };
+    private bool Retryable(HttpStatusCode code) => list.Contains(code) || (int)code >= 500;
+    private bool Retryable(HttpStatusCode code, int errorCode) => Retryable(code) || errorCode is 429 or >= 500;
     private sealed record TelegramResponse
     {
         [JsonPropertyName("ok")]

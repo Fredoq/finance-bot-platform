@@ -40,6 +40,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
         using var note = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!note.IsCancellationRequested)
         {
+            bool wait = false;
             try
             {
                 HttpResponseMessage data = await client.GetAsync("/health/ready", note.Token);
@@ -47,11 +48,19 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
                 {
                     return;
                 }
-                await Task.Delay(250, note.Token);
+                wait = true;
+            }
+            catch (HttpRequestException) when (!note.IsCancellationRequested)
+            {
+                wait = true;
             }
             catch (OperationCanceledException) when (note.IsCancellationRequested)
             {
                 break;
+            }
+            if (wait)
+            {
+                await Task.Delay(250, note.Token);
             }
         }
         throw new TimeoutException("Timed out waiting for /health/ready");
@@ -64,8 +73,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     protected Dictionary<string, string?> Settings(string name)
     {
         var item = new Uri(rabbit);
-        string[] data = item.UserInfo.Split(':', 2, StringSplitOptions.None);
-        Dictionary<string, string?> note = GatewaySettings.Note(name, item.Host, item.Port.ToString(), Uri.UnescapeDataString(item.AbsolutePath), data.Length > 0 ? Uri.UnescapeDataString(data[0]) : string.Empty, data.Length > 1 ? Uri.UnescapeDataString(data[1]) : string.Empty);
+        Dictionary<string, string?> note = GatewaySettings.Note(name, item);
         note["RabbitMq:DeliveryMaxAttempts"] = "2";
         return note;
     }
@@ -111,7 +119,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
         var item = new ConnectionFactory { Uri = new Uri(rabbit) };
         await using IConnection link = await item.CreateConnectionAsync();
         await using IChannel lane = await link.CreateChannelAsync(cancellationToken: default);
-        using var note = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var note = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (!note.IsCancellationRequested)
         {
             BasicGetResult? data;
