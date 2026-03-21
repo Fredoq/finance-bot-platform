@@ -50,4 +50,16 @@ public sealed class ConfigurationOptionsTests
         Assert.Single(list);
         return Task.CompletedTask;
     }
+    /// <summary>
+    /// Verifies that an absolute AMQP connection string is accepted for the finance core runtime.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Accepts an absolute RabbitMQ connection string for finance core")]
+    public Task Accepts_rabbit_connection_string()
+    {
+        var item = new RabbitMqOptions { ConnectionString = "amqp://guest:guest@rabbitmq:5672/%2f", Client = "finance-core" };
+        ValidationResult[] list = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Empty(list);
+        return Task.CompletedTask;
+    }
 }

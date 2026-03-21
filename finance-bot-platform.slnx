@@ -26,6 +26,7 @@
     <Project Path="services/finance-core/src/FinanceCore.Infrastructure/FinanceCore.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FinanceBot.AppHost.Tests/FinanceBot.AppHost.Tests.csproj" />
     <Project Path="tests/TelegramGateway.Api.Tests/TelegramGateway.Api.Tests.csproj" />
     <Project Path="tests/FinanceCore.Api.Tests/FinanceCore.Api.Tests.csproj" />
   </Folder>
