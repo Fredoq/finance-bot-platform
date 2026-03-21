@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/aspire/" />
+  <Folder Name="/aspire/FinanceBot.AppHost/">
+    <Project Path="aspire/FinanceBot.AppHost/FinanceBot.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/aspire/FinanceBot.ServiceDefaults/">
+    <Project Path="aspire/FinanceBot.ServiceDefaults/FinanceBot.ServiceDefaults.csproj" />
+  </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/contracts/">
     <Project Path="libs/contracts/Finance.Application.Contracts/Finance.Application.Contracts.csproj" />

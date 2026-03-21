@@ -1,5 +1,4 @@
 using Finance.Application.Contracts.Entry;
-using FinanceCore.Domain.Workspace.Models;
 
 namespace FinanceCore.Domain.Workspace.Models;
 

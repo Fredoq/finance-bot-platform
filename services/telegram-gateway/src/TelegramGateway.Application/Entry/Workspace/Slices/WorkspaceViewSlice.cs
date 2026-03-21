@@ -4,7 +4,7 @@ using Finance.Application.Contracts.Messaging;
 using TelegramGateway.Application.Keys;
 using TelegramGateway.Application.Telegram.Delivery;
 
-namespace TelegramGateway.Application.Entry.Workspace;
+namespace TelegramGateway.Application.Entry.Workspace.Slices;
 
 internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
 {

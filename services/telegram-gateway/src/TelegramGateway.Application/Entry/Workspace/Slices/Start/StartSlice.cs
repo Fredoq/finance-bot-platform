@@ -7,7 +7,7 @@ using TelegramGateway.Application.Telegram.Flow;
 using TelegramGateway.Application.Telegram.Normalization;
 using TelegramGateway.Domain.Entry.Workspace;
 
-namespace TelegramGateway.Application.Entry.Workspace;
+namespace TelegramGateway.Application.Entry.Workspace.Slices.Start;
 
 internal sealed class StartSlice : ITelegramSlice
 {

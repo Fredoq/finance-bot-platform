@@ -1,10 +1,8 @@
 using FinanceCore.Infrastructure.Configuration.RabbitMq;
 using FinanceCore.Infrastructure.Persistence.Postgres.Outbox;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Exceptions;
 
 namespace FinanceCore.Infrastructure.Messaging.RabbitMq;
 

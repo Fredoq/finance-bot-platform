@@ -14,13 +14,20 @@ internal abstract class RabbitMqState<TOptions> : IAsyncDisposable where TOption
     {
         Option = option ?? throw new ArgumentNullException(nameof(option));
         this.log = log ?? throw new ArgumentNullException(nameof(log));
-        factory = new ConnectionFactory
+        factory = string.IsNullOrWhiteSpace(Option.ConnectionString) ? new ConnectionFactory
         {
             HostName = Option.Host,
             Port = Option.Port,
             VirtualHost = Option.VirtualHost,
             UserName = Option.Username,
             Password = Option.Password,
+            AutomaticRecoveryEnabled = true,
+            TopologyRecoveryEnabled = true,
+            ClientProvidedName = Option.Client,
+            RequestedHeartbeat = TimeSpan.FromSeconds(30)
+        } : new ConnectionFactory
+        {
+            Uri = new Uri(Option.ConnectionString, UriKind.Absolute),
             AutomaticRecoveryEnabled = true,
             TopologyRecoveryEnabled = true,
             ClientProvidedName = Option.Client,

@@ -2,11 +2,9 @@ using System.Text;
 using FinanceCore.Application.Runtime.Faults;
 using FinanceCore.Application.Runtime.Flow;
 using FinanceCore.Infrastructure.Configuration.RabbitMq;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Exceptions;
 
 namespace FinanceCore.Infrastructure.Messaging.RabbitMq;
 

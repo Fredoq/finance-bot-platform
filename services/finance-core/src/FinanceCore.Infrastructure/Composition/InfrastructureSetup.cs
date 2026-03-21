@@ -13,7 +13,7 @@ using FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace FinanceCore.Infrastructure;
+namespace FinanceCore.Infrastructure.Composition;
 
 /// <summary>
 /// Registers the infrastructure services required by the finance core runtime.

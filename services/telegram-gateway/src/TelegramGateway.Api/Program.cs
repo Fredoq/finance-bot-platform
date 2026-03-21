@@ -1,9 +1,6 @@
 using System.Diagnostics;
+using FinanceBot.ServiceDefaults;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 using TelegramGateway.Api;
 using TelegramGateway.Application;
 using TelegramGateway.Application.Messaging;
@@ -12,20 +9,16 @@ using TelegramGateway.Application.Telegram.Flow;
 using TelegramGateway.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-builder.Logging.ClearProviders();
-builder.Logging.AddJsonConsole();
+builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
 builder.Services.AddSingleton<SecretGate>();
 builder.Services.AddOptionsWithValidateOnStart<TelegramWebhookOptions>().BindConfiguration(TelegramWebhookOptions.Section).ValidateDataAnnotations();
 builder.Services.AddTelegramGatewayApplication();
 builder.Services.AddTelegramGatewayInfrastructure();
-OpenTelemetryBuilder open = builder.Services.AddOpenTelemetry();
-open.ConfigureResource(item => item.AddService("telegram-gateway"));
-open.WithTracing(item => item.AddAspNetCoreInstrumentation().AddOtlpExporter());
-open.WithMetrics(item => item.AddAspNetCoreInstrumentation().AddRuntimeInstrumentation().AddMeter("TelegramGateway.Delivery").AddOtlpExporter());
 WebApplication app = builder.Build();
 app.UseExceptionHandler();
 app.UseWhen(item => item.Request.Path.Equals("/telegram/webhook", StringComparison.Ordinal), note => note.UseMiddleware<SecretGate>());
+app.MapDefaultEndpoints();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = item => item.Tags.Contains("ready") });
 app.MapPost("/telegram/webhook", async Task<IResult> (TelegramUpdate update, ITelegramFlow flow, HttpContext item, ILogger<Program> log, CancellationToken token) =>

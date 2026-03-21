@@ -1,8 +1,7 @@
-using DbUp.Engine.Output;
 using FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 using Microsoft.Extensions.Logging;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Runtime;
 
 /// <summary>
 /// Covers DbUp log forwarding behavior.

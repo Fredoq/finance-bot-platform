@@ -1,5 +1,5 @@
 using Finance.Application.Contracts.Entry;
-using TelegramGateway.Application.Entry.Workspace;
+using TelegramGateway.Application.Entry.Workspace.Slices;
 using TelegramGateway.Application.Telegram.Delivery;
 
 namespace TelegramGateway.Api.Tests;

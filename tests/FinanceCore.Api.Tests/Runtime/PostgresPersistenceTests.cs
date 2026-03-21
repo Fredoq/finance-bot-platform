@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using FinanceCore.Api.Tests.Infrastructure;
@@ -6,7 +5,7 @@ using FinanceCore.Infrastructure.Persistence.Postgres.Inbox;
 using FinanceCore.Infrastructure.Persistence.Postgres.Outbox;
 using Npgsql;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Runtime;
 
 /// <summary>
 /// Covers direct PostgreSQL persistence behavior.

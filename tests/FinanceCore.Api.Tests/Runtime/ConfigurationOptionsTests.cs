@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using FinanceCore.Infrastructure.Configuration.Postgres;
 using FinanceCore.Infrastructure.Configuration.RabbitMq;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Runtime;
 
 /// <summary>
 /// Covers infrastructure option validation behavior.

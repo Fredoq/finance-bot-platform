@@ -3,7 +3,7 @@ using FinanceCore.Application.Workspace.Flow;
 using FinanceCore.Application.Workspace.Ports;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FinanceCore.Application;
+namespace FinanceCore.Application.Composition;
 
 /// <summary>
 /// Registers the application services required by the finance core runtime.

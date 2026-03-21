@@ -6,13 +6,8 @@
     <ContainerRepository>finance-bot-platform-telegram-gateway</ContainerRepository>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../../aspire/FinanceBot.ServiceDefaults/FinanceBot.ServiceDefaults.csproj" />
     <ProjectReference Include="../TelegramGateway.Application/TelegramGateway.Application.csproj" />
     <ProjectReference Include="../TelegramGateway.Infrastructure/TelegramGateway.Infrastructure.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   </ItemGroup>
 </Project>

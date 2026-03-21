@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using TelegramGateway.Api;
 using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Api.Tests;
