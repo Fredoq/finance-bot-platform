@@ -49,7 +49,7 @@ public static class Extensions
             item.IncludeScopes = true;
         });
         builder.Services.AddOpenTelemetry()
-            .WithMetrics(item => item.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddRuntimeInstrumentation())
+            .WithMetrics(item => item.AddMeter("TelegramGateway.Delivery").AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddRuntimeInstrumentation())
             .WithTracing(item => item.AddSource(builder.Environment.ApplicationName).AddAspNetCoreInstrumentation(note => note.Filter = context => !context.Request.Path.StartsWithSegments(HealthEndpointPath) && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath)).AddHttpClientInstrumentation());
         builder.AddOpenTelemetryExporters();
         return builder;

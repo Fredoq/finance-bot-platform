@@ -20,8 +20,10 @@ dotnet user-secrets --project aspire/FinanceBot.AppHost set "Parameters:telegram
 
 Start the local Aspire stack:
 
+Ensure the Aspire CLI is installed and available in your `PATH`.
+
 ```bash
-~/.aspire/bin/aspire run --project aspire/FinanceBot.AppHost --non-interactive
+aspire run --project aspire/FinanceBot.AppHost --non-interactive
 ```
 
 The AppHost starts `PostgreSQL`, `RabbitMQ`, `finance-core`, and `telegram-gateway`. `telegram-gateway` is exposed locally on `http://127.0.0.1:8082`.

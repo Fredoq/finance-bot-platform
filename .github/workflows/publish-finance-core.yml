@@ -44,10 +44,10 @@ jobs:
         run: |
           previous="$(git describe --tags --abbrev=0 "${GITHUB_SHA}^" 2>/dev/null || true)"
           if [ -n "$previous" ]; then
-            changed="$(git diff --name-only "$previous" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts)"
+            changed="$(git diff --name-only "$previous" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts aspire/FinanceBot.ServiceDefaults)"
           else
             empty="$(git hash-object -t tree /dev/null)"
-            changed="$(git diff --name-only "$empty" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts)"
+            changed="$(git diff --name-only "$empty" "$GITHUB_SHA" -- services/finance-core libs/contracts/Finance.Application.Contracts aspire/FinanceBot.ServiceDefaults)"
           fi
           if [ -n "$changed" ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"

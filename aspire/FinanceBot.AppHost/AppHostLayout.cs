@@ -16,7 +16,7 @@ internal sealed class AppHostLayout : IAppHostLayout
         IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres", port: 5432);
         IResourceBuilder<PostgresDatabaseResource> database = postgres.AddDatabase("finance-db", "finance");
         IResourceBuilder<RabbitMQServerResource> rabbit = builder.AddRabbitMQ("rabbitmq", port: 5672).WithManagementPlugin();
-        builder.AddProject<Projects.FinanceCore_Api>("finance-core")
+        IResourceBuilder<ProjectResource> core = builder.AddProject<Projects.FinanceCore_Api>("finance-core")
             .WithEnvironment("Postgres__ConnectionString", database)
             .WithEnvironment("RabbitMq__ConnectionString", rabbit)
             .WithHttpEndpoint(port: 8081, name: "http")
@@ -28,7 +28,8 @@ internal sealed class AppHostLayout : IAppHostLayout
             .WithEnvironment("Telegram__Webhook__SecretToken", hook)
             .WithEnvironment("Telegram__Keys__CurrentSecret", key)
             .WithHttpEndpoint(port: 8082, name: "http")
-            .WaitFor(rabbit);
+            .WaitFor(rabbit)
+            .WaitFor(core);
     }
 
     private static string Read(IDistributedApplicationBuilder builder, string name) => builder.Configuration[name] ?? throw new InvalidOperationException($"Missing {name}");
