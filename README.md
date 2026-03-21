@@ -6,7 +6,9 @@ Monorepo for the Telegram personal finance platform: `telegram-gateway`, `financ
 
 This repository contains the application code for a Telegram-based personal finance system. The current runtime model uses `telegram-gateway` for Telegram ingress and delivery, `finance-core` for business processing and persistence, and shared contracts for asynchronous integration. `job-worker` remains a future extraction target for scheduled and batch workloads.
 
-## Local development
+## Dev runtime
+
+This workflow is for local development only. It is not a production or staging deployment model.
 
 Set the AppHost secrets once:
 
@@ -16,13 +18,43 @@ dotnet user-secrets --project aspire/FinanceBot.AppHost set "Parameters:telegram
 dotnet user-secrets --project aspire/FinanceBot.AppHost set "Parameters:telegram-key-secret" "<opaque-key-secret>"
 ```
 
-Run the local stack:
+Start the local Aspire stack:
 
 ```bash
-dotnet run --project aspire/FinanceBot.AppHost
+~/.aspire/bin/aspire run --project aspire/FinanceBot.AppHost --non-interactive
 ```
 
-Expose `telegram-gateway` through a tunnel and point Telegram to `https://<public-url>/telegram/webhook`.
+The AppHost starts `PostgreSQL`, `RabbitMQ`, `finance-core`, and `telegram-gateway`. `telegram-gateway` is exposed locally on `http://127.0.0.1:8082`.
+
+Expose the webhook endpoint through a temporary HTTPS tunnel for development:
+
+```bash
+npx --yes localtunnel --port 8082
+```
+
+Use the returned public URL to configure the Telegram webhook:
+
+```bash
+BOT=$(dotnet user-secrets --project aspire/FinanceBot.AppHost list | awk -F' = ' '/Parameters:telegram-bot-token/ {print $2}')
+HOOK=$(dotnet user-secrets --project aspire/FinanceBot.AppHost list | awk -F' = ' '/Parameters:telegram-webhook-secret/ {print $2}')
+curl -X POST "https://api.telegram.org/bot${BOT}/setWebhook" \
+  -d "url=https://<public-url>/telegram/webhook" \
+  -d "secret_token=${HOOK}" \
+  -d "drop_pending_updates=true"
+```
+
+Check the webhook state:
+
+```bash
+curl "https://api.telegram.org/bot${BOT}/getWebhookInfo"
+```
+
+Delete the webhook when the dev session ends:
+
+```bash
+curl -X POST "https://api.telegram.org/bot${BOT}/deleteWebhook" \
+  -d "drop_pending_updates=true"
+```
 
 ## Architecture docs
 
