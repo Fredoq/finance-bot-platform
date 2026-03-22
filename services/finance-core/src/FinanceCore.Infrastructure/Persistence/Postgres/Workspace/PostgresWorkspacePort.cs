@@ -95,6 +95,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, token);
             IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
             WorkspaceData body = current is null ? Home(list, string.Empty) : Data(current.Snapshot.Data);
+            WorkspaceData draft = body;
             string state = current?.Snapshot.State ?? HomeState;
             WorkspaceMove move = Move(state, body, command);
             if (move.Entry is not null)
@@ -102,7 +103,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 bool fresh = await Account(link, lane, userId, move.Entry, when, token);
                 if (!fresh)
                 {
-                    move = new WorkspaceMove(NameState, new WorkspaceData([], move.Body.Name, move.Body.Currency, move.Body.Amount, "Account name already exists", string.Empty, false), null);
+                    move = new WorkspaceMove(ConfirmState, new WorkspaceData([], draft.Name, draft.Currency, draft.Amount, "Account name already exists", string.Empty, false), null);
                 }
             }
             if (string.Equals(move.Code, HomeState, StringComparison.Ordinal))

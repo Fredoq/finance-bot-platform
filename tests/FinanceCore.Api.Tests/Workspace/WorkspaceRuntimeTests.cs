@@ -143,8 +143,11 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         _ = await Create(queue, "actor-5", "room-5", "Cash", "RUB", "10", "11");
         MessageEnvelope<WorkspaceViewRequestedCommand>? view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
         Assert.NotNull(view);
-        Assert.Equal("account.name", view!.Payload.Frame.State);
+        Assert.Equal("account.confirm", view!.Payload.Frame.State);
         Assert.Contains("Account name already exists", view.Payload.Frame.StateData, StringComparison.Ordinal);
+        Assert.Equal("Cash", DraftName(view.Payload.Frame.StateData));
+        Assert.Equal("USD", DraftCurrency(view.Payload.Frame.StateData));
+        Assert.Equal(20m, Amount(view.Payload.Frame.StateData));
         Assert.Equal(1, await Number("select count(*) from finance.account"));
     }
     /// <summary>
@@ -234,5 +237,15 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(data);
         return item.RootElement.GetProperty("accounts")[0].GetProperty("name").GetString() ?? string.Empty;
+    }
+    private static string DraftName(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("name").GetString() ?? string.Empty;
+    }
+    private static string DraftCurrency(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("currency").GetString() ?? string.Empty;
     }
 }
