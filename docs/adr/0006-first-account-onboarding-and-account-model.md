@@ -1,0 +1,55 @@
+# ADR-0006: First account onboarding and account model
+
+## Status
+
+Accepted
+
+## Context
+
+The current workspace baseline opens a generic `home` screen with placeholder actions.
+
+This is a poor fit for a new user because the first useful action is to add an account and its current balance.
+
+The platform also needs an initial account model that is simple enough for v1 while remaining compatible with future transaction flows.
+
+## Decision
+
+The first-run workspace experience is a guided account onboarding flow.
+
+The v1 workspace states are:
+
+- `home`
+- `account.name`
+- `account.currency`
+- `account.balance`
+- `account.confirm`
+
+The v1 account model is:
+
+- one user can own many accounts
+- each account has a name
+- each account has a required ISO-style currency code
+- each account stores both `opening_amount` and `current_amount`
+- account type is intentionally omitted in v1
+
+The current balance is collected during onboarding and saved directly on the account row.
+
+The initial `home` screen shows only `account.add` when the user has no accounts.
+
+Workspace user input is carried through a new application contract named `WorkspaceInputRequestedCommand` with `Kind` values `action` and `text`.
+
+`WorkspaceViewRequestedCommand` includes serialized `StateData` so that `telegram-gateway` can render state-specific screens without reading business persistence.
+
+## Consequences
+
+### Positive
+
+- new users reach the first meaningful outcome immediately
+- the account model is explicit in PostgreSQL instead of being hidden in workspace state
+- the bot can render multi-step onboarding while keeping Telegram concerns inside `telegram-gateway`
+
+### Negative
+
+- `/start` now resets the current workspace to the account-aware `home` screen instead of preserving the previous state
+- the delivery contract becomes larger because it now carries `StateData`
+- later transaction flows must decide how account balance changes are projected into `current_amount`

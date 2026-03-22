@@ -25,6 +25,18 @@ create table if not exists finance.workspace
     updated_utc timestamptz not null
 );
 
+create table if not exists finance.account
+(
+    id uuid primary key,
+    user_id uuid not null references finance.user_account(id),
+    name text not null,
+    currency_code text not null,
+    opening_amount numeric(19, 4) not null,
+    current_amount numeric(19, 4) not null,
+    created_utc timestamptz not null,
+    updated_utc timestamptz not null
+);
+
 create table if not exists finance.inbox_message
 (
     message_id uuid primary key,
@@ -59,6 +71,8 @@ create table if not exists finance.outbox_message
 );
 
 create index if not exists idx_workspace_user on finance.workspace(user_id);
+create index if not exists idx_account_user on finance.account(user_id);
+create unique index if not exists ux_account_user_name on finance.account(user_id, lower(name));
 drop index if exists finance.idx_inbox_pending;
 drop index if exists finance.idx_outbox_pending;
 create index if not exists idx_inbox_pending on finance.inbox_message(received_utc) where processed_utc is null;

@@ -9,5 +9,5 @@ public interface IWorkspaceActions
     /// Gets the supported action codes.
     /// </summary>
     /// <returns>The supported action codes.</returns>
-    IReadOnlyList<string> Codes();
+    IReadOnlyList<string> Codes(string state, bool custom);
 }

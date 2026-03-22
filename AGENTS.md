@@ -144,9 +144,11 @@ Versioning: SemVer.
 Changelog: Keep a Changelog.
 Commits: Conventional Commits.
 Branches: `main` is protected; working branches are `feat/*`, `fix/*`, `docs/*`.
+Before any implementation work, verify that local `main` matches the latest `origin/main`, create the working branch from that `main`, and publish the branch to `origin`.
 PRs: CI, review, and a clear change description are required.
 Do not create commits and do not push branches to GitHub unless the user explicitly asks for it.
 By default, only the user performs commits and pushes.
+Until the schema is released and stabilized, database schema changes must update the baseline migration instead of adding new incremental migrations.
 
 Architecture Artifacts
 

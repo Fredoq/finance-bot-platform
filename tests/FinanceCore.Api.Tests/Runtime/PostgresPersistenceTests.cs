@@ -55,5 +55,5 @@ public sealed class PostgresPersistenceTests : FinanceCoreRuntimeSuite
         DateTimeOffset.UtcNow,
         new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
         "finance-core",
-        new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor-8", "room-8"), new WorkspaceProfile("Alex", "en"), "home", ["transaction.expense.add"], false, false, DateTimeOffset.UtcNow));
+        new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor-8", "room-8"), new WorkspaceProfile("Alex", "en"), "home", "{\"accounts\":[]}", ["account.add"], false, false, DateTimeOffset.UtcNow));
 }

@@ -41,7 +41,9 @@ public static class InfrastructureSetup
         items.AddSingleton<IOutboxPort>(item => item.GetRequiredService<PostgresOutboxPort>());
         items.AddSingleton<IInboxPort>(item => item.GetRequiredService<PostgresInboxPort>());
         items.AddSingleton<IViewPort>(item => new OutboxViewPort(item.GetRequiredService<IOutboxPort>()));
-        items.AddSingleton<IWorkspacePort>(item => new PostgresWorkspacePort(item.GetRequiredService<NpgsqlDataSource>(), item.GetRequiredService<IWorkspaceActions>()));
+        items.AddSingleton(item => new PostgresWorkspacePort(item.GetRequiredService<NpgsqlDataSource>(), item.GetRequiredService<IWorkspaceActions>()));
+        items.AddSingleton<IWorkspacePort>(item => item.GetRequiredService<PostgresWorkspacePort>());
+        items.AddSingleton<IWorkspaceInputPort>(item => item.GetRequiredService<PostgresWorkspacePort>());
         items.AddSingleton(item => new MigrationBoot(item.GetRequiredService<Microsoft.Extensions.Options.IOptions<PostgresOptions>>(), item.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>(), item.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MigrationBoot>>()));
         items.AddSingleton(item => new RabbitMqBoot(item.GetRequiredService<IBrokerState>(), item.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RabbitMqBoot>>()));
         items.AddSingleton(item => new RabbitMqOutboxLoop(item.GetRequiredService<IBrokerState>(), item.GetRequiredService<Microsoft.Extensions.Options.IOptions<RabbitMqOptions>>(), item.GetRequiredService<PostgresOutboxPort>(), item.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RabbitMqOutboxLoop>>()));

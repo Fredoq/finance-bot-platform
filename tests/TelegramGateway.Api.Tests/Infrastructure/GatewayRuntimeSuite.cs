@@ -174,6 +174,11 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     protected static MessageEnvelope<WorkspaceViewRequestedCommand> Envelope(long chatId, string state = "home", IReadOnlyList<string>? actions = null)
     {
         var key = new OpaqueKey("test-current-secret", []);
+        string data = state switch
+        {
+            "account.confirm" => "{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}",
+            _ => "{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}]}"
+        };
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),
             "workspace.view.requested",
@@ -184,7 +189,8 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
                 new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)),
                 new WorkspaceProfile("Alex", "en"),
                 state,
-                actions ?? ["transaction.expense.add", "summary.month.show"],
+                data,
+                actions ?? ["account.add"],
                 false,
                 false,
                 DateTimeOffset.UtcNow));

@@ -18,5 +18,6 @@ internal sealed class RabbitMqLink : RabbitMqState<RabbitMqOptions>, IBrokerStat
         await RabbitMqTopology.Declare(lane, exchange, token);
         await RabbitMqTopology.Queue(lane, exchange, queue, token);
         await lane.QueueBindAsync(Option.Queue, Option.CommandExchange, "workspace.requested", null, false, token);
+        await lane.QueueBindAsync(Option.Queue, Option.CommandExchange, "workspace.input.requested", null, false, token);
     }
 }

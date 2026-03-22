@@ -11,11 +11,12 @@ public sealed record WorkspaceViewRequestedCommand
     /// <param name="identity">The workspace identity.</param>
     /// <param name="profile">The workspace profile.</param>
     /// <param name="state">The current workspace state code.</param>
+    /// <param name="stateData">The serialized state data.</param>
     /// <param name="actions">The supported action codes.</param>
     /// <param name="isNewUser">Indicates whether the user was created by the workflow.</param>
     /// <param name="isNewWorkspace">Indicates whether the workspace was created by the workflow.</param>
     /// <param name="occurredUtc">The UTC occurrence time.</param>
-    public WorkspaceViewRequestedCommand(WorkspaceIdentity identity, WorkspaceProfile profile, string state, IReadOnlyList<string> actions, bool isNewUser, bool isNewWorkspace, DateTimeOffset occurredUtc)
+    public WorkspaceViewRequestedCommand(WorkspaceIdentity identity, WorkspaceProfile profile, string state, string stateData, IReadOnlyList<string> actions, bool isNewUser, bool isNewWorkspace, DateTimeOffset occurredUtc)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(profile);
@@ -24,6 +25,7 @@ public sealed record WorkspaceViewRequestedCommand
         Identity = identity;
         Profile = profile;
         State = !string.IsNullOrWhiteSpace(state) ? state.Trim() : throw new ArgumentException("Workspace state is required", nameof(state));
+        StateData = stateData ?? throw new ArgumentNullException(nameof(stateData));
         Actions = list.Length > 0 ? Array.AsReadOnly(list) : throw new ArgumentException("Workspace actions are required", nameof(actions));
         IsNewUser = isNewUser;
         IsNewWorkspace = isNewWorkspace;
@@ -42,6 +44,10 @@ public sealed record WorkspaceViewRequestedCommand
     /// Gets the current workspace state code.
     /// </summary>
     public string State { get; }
+    /// <summary>
+    /// Gets the serialized state data.
+    /// </summary>
+    public string StateData { get; }
     /// <summary>
     /// Gets the supported action codes.
     /// </summary>

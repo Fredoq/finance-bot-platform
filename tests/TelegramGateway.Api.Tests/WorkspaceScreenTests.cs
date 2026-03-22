@@ -15,10 +15,44 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen for Telegram delivery")]
     public void Builds_home_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "home", ["transaction.expense.add", "summary.month.show"], true, true, DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "home", "{\"accounts\":[]}", ["account.add"], true, true, DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Equal("sendMessage", data.Method);
-        Assert.Contains("Welcome to your finance workspace", data.Text, StringComparison.Ordinal);
+        Assert.Equal("HTML", data.ParseMode);
+        Assert.Contains("<b>Finance workspace</b>", data.Text, StringComparison.Ordinal);
+        Assert.Single(data.Keys.SelectMany(item => item.Cells));
+        Assert.Equal("➕ Add account", data.Keys.SelectMany(item => item.Cells).Single().Text);
+    }
+    /// <summary>
+    /// Verifies that the confirmation screen includes the account draft summary.
+    /// </summary>
+    [Fact(DisplayName = "Builds the confirm workspace screen for Telegram delivery")]
+    public void Builds_confirm_screen()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "account.confirm", "{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1200}", ["account.create", "account.cancel"], false, false, DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("<b>Confirm account</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Balance: <b>1 200 ₽ (<code>RUB</code>)</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(2, data.Keys.SelectMany(item => item.Cells).Count());
+    }
+    /// <summary>
+    /// Verifies that unknown currencies keep the code without a symbol.
+    /// </summary>
+    [Fact(DisplayName = "Builds the home workspace screen for unknown currency codes")]
+    public void Builds_code()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}]}", ["account.add"], false, false, DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("- <b>Vault</b>: 1 200 <code>ABC</code>", data.Text, StringComparison.Ordinal);
+    }
+    /// <summary>
+    /// Verifies that user input is escaped for HTML rendering.
+    /// </summary>
+    [Fact(DisplayName = "Escapes HTML sensitive account names in the confirm screen")]
+    public void Escapes_name()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "account.confirm", "{\"name\":\"<cash&card>\",\"currency\":\"USD\",\"amount\":1200}", ["account.create", "account.cancel"], false, false, DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("&lt;cash&amp;card&gt;", data.Text, StringComparison.Ordinal);
     }
 }

@@ -21,6 +21,8 @@ public static class ApplicationSetup
     public static IServiceCollection AddTelegramGatewayApplication(this IServiceCollection items)
     {
         items.AddSingleton<ITelegramSlice>(item => new StartSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<IBusPort>()));
+        items.AddSingleton<ITelegramSlice>(item => new ActionSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<IBusPort>(), item.GetRequiredService<ITelegramPort>()));
+        items.AddSingleton<ITelegramSlice>(item => new TextSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<IBusPort>()));
         items.AddSingleton<ITelegramDeliverySlice>(item => new WorkspaceViewSlice(item.GetRequiredService<IOpaqueKey>(), item.GetRequiredService<ITelegramPort>()));
         items.AddSingleton<ITelegramFlow, TelegramFlow>();
         items.AddSingleton<ITelegramDeliveryFlow, TelegramDeliveryFlow>();
