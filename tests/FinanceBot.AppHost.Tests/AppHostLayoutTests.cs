@@ -52,7 +52,7 @@ public sealed class AppHostLayoutTests
         item.Configuration["Parameters:telegram-bot-token"] = "token";
         item.Configuration["Parameters:telegram-webhook-secret"] = "hook";
         item.Configuration["Parameters:telegram-key-secret"] = "key";
-        IAppHostLayout app = new AppHostLayout();
+        var app = new AppHostLayout();
         app.Add(item);
         IResource gate = Assert.Single(item.Resources, note => string.Equals(note.Name, "telegram-gateway", StringComparison.Ordinal));
         WaitAnnotation note = Assert.Single(gate.Annotations.OfType<WaitAnnotation>(), data => string.Equals(data.Resource.Name, "finance-core", StringComparison.Ordinal));
