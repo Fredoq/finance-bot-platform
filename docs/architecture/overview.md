@@ -13,6 +13,7 @@ Build a Telegram personal finance platform that can deliver the MVP without sacr
 
 The initial MVP is a Telegram bot for personal finance tracking with these core capabilities:
 
+- guide a new user through adding the first account and its current balance
 - add expense transactions
 - add income transactions
 - auto-categorize transactions using rules

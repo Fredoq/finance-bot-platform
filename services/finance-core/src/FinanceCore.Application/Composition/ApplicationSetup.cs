@@ -18,6 +18,7 @@ public static class ApplicationSetup
     public static IServiceCollection AddFinanceCoreApplication(this IServiceCollection items)
     {
         items.AddSingleton<ICommandSlice>(item => new WorkspaceSlice(item.GetRequiredService<IWorkspacePort>()));
+        items.AddSingleton<ICommandSlice>(item => new WorkspaceInputSlice(item.GetRequiredService<IWorkspaceInputPort>()));
         items.AddSingleton<ICommandFlow>(item => new CommandFlow(item.GetRequiredService<IEnumerable<ICommandSlice>>()));
         return items;
     }

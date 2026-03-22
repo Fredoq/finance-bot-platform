@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using TelegramGateway.Application.Messaging;
 
@@ -9,18 +8,9 @@ namespace TelegramGateway.Api.Tests.Infrastructure;
 internal sealed class RecordingWorkspacePort : IBusPort
 {
     private readonly Exception? error;
-    private readonly ConcurrentQueue<MessageEnvelope<WorkspaceRequestedCommand>> list = new();
+    private readonly ConcurrentQueue<RecordNote> list = new();
     internal RecordingWorkspacePort(Exception? error = null) => this.error = error;
-    /// <summary>
-    /// Gets the captured publish collection.
-    /// </summary>
-    public IReadOnlyCollection<MessageEnvelope<WorkspaceRequestedCommand>> Items => list.ToArray();
-    /// <summary>
-    /// Publishes the envelope into the in-memory capture.
-    /// </summary>
-    /// <param name="message">The message envelope.</param>
-    /// <param name="token">The cancellation token.</param>
-    /// <returns>A task that completes when the capture finishes.</returns>
+    public IReadOnlyCollection<RecordNote> Items => list.ToArray();
     public ValueTask Publish<TMessage>(MessageEnvelope<TMessage> message, CancellationToken token) where TMessage : class
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -29,9 +19,26 @@ internal sealed class RecordingWorkspacePort : IBusPort
         {
             throw error;
         }
-        byte[] data = JsonSerializer.SerializeToUtf8Bytes(message);
-        MessageEnvelope<WorkspaceRequestedCommand> item = JsonSerializer.Deserialize<MessageEnvelope<WorkspaceRequestedCommand>>(data) ?? throw new InvalidOperationException("Message capture failed");
-        list.Enqueue(item);
+        list.Enqueue(new RecordNote(message.Contract, JsonSerializer.Serialize(message, RecordingWorkspaceJson.Value)));
         return ValueTask.CompletedTask;
     }
+}
+
+internal sealed record RecordNote
+{
+    internal RecordNote(string contract, string payload)
+    {
+        ArgumentNullException.ThrowIfNull(contract);
+        ArgumentNullException.ThrowIfNull(payload);
+        Contract = !string.IsNullOrWhiteSpace(contract) ? contract : throw new ArgumentException("Contract cannot be empty", nameof(contract));
+        Payload = !string.IsNullOrWhiteSpace(payload) ? payload : throw new ArgumentException("Payload cannot be empty", nameof(payload));
+    }
+    internal string Contract { get; }
+    internal string Payload { get; }
+    internal MessageEnvelope<TMessage> Note<TMessage>() where TMessage : class => JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(Payload, RecordingWorkspaceJson.Value) ?? throw new InvalidOperationException("Message capture failed");
+}
+
+internal static class RecordingWorkspaceJson
+{
+    internal static readonly JsonSerializerOptions Value = new(JsonSerializerDefaults.Web);
 }

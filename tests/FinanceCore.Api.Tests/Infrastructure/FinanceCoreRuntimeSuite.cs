@@ -69,7 +69,7 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
     /// Clears the finance core tables.
     /// </summary>
     /// <returns>A task that completes when the reset finishes.</returns>
-    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message, finance.workspace, finance.user_account restart identity cascade");
+    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message, finance.account, finance.workspace, finance.user_account restart identity cascade");
     /// <summary>
     /// Executes a SQL command.
     /// </summary>
@@ -128,6 +128,16 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
     {
         byte[] data = JsonSerializer.SerializeToUtf8Bytes(note, json);
         return Publish("workspace.requested", note.Contract, data);
+    }
+    /// <summary>
+    /// Publishes a workspace input envelope.
+    /// </summary>
+    /// <param name="note">The workspace input envelope.</param>
+    /// <returns>A task that completes when publish finishes.</returns>
+    protected Task Publish(MessageEnvelope<WorkspaceInputRequestedCommand> note)
+    {
+        byte[] data = JsonSerializer.SerializeToUtf8Bytes(note, json);
+        return Publish("workspace.input.requested", note.Contract, data);
     }
     /// <summary>
     /// Publishes a raw message to RabbitMQ.
@@ -254,6 +264,35 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
             new WorkspaceIdentity(actor, conversation),
             new WorkspaceProfile("Alex", "en"),
             payload,
+            DateTimeOffset.UtcNow));
+    /// <summary>
+    /// Creates a workspace input envelope for tests.
+    /// </summary>
+    /// <param name="actor">The actor key.</param>
+    /// <param name="conversation">The conversation key.</param>
+    /// <param name="kind">The input kind.</param>
+    /// <param name="value">The input value.</param>
+    /// <param name="idempotencyKey">The idempotency key.</param>
+    /// <returns>The workspace input envelope.</returns>
+    protected static MessageEnvelope<WorkspaceInputRequestedCommand> Input(
+        string actor,
+        string conversation,
+        string kind,
+        string value,
+        string idempotencyKey) => new(
+        Guid.CreateVersion7(),
+        "workspace.input.requested",
+        DateTimeOffset.UtcNow,
+        new MessageContext(
+            $"trace-{Guid.CreateVersion7():N}",
+            $"cause-{Guid.CreateVersion7():N}",
+            idempotencyKey),
+        "telegram-gateway",
+        new WorkspaceInputRequestedCommand(
+            new WorkspaceIdentity(actor, conversation),
+            new WorkspaceProfile("Alex", "en"),
+            kind,
+            value,
             DateTimeOffset.UtcNow));
     /// <summary>
     /// Builds configuration overrides for the finance core host.

@@ -174,20 +174,18 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     protected static MessageEnvelope<WorkspaceViewRequestedCommand> Envelope(long chatId, string state = "home", IReadOnlyList<string>? actions = null)
     {
         var key = new OpaqueKey("test-current-secret", []);
+        string data = state switch
+        {
+            "account.confirm" => "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}",
+            _ => "{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"
+        };
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),
             "workspace.view.requested",
             DateTimeOffset.UtcNow,
             new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
             "finance-core",
-            new WorkspaceViewRequestedCommand(
-                new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)),
-                new WorkspaceProfile("Alex", "en"),
-                state,
-                actions ?? ["transaction.expense.add", "summary.month.show"],
-                false,
-                false,
-                DateTimeOffset.UtcNow));
+            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, data, actions ?? ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
     }
     private static TimeoutException Timeout(string name) => new($"Timed out waiting for message on queue '{name}'");
 }

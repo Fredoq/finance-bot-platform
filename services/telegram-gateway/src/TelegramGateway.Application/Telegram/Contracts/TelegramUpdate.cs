@@ -17,4 +17,9 @@ public sealed record TelegramUpdate
     /// </summary>
     [JsonPropertyName("message")]
     public TelegramMessage? Message { get; init; }
+    /// <summary>
+    /// Gets the source callback query.
+    /// </summary>
+    [JsonPropertyName("callback_query")]
+    public TelegramCallback? Callback { get; init; }
 }

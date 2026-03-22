@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using Finance.Application.Contracts.Entry;
+using Finance.Application.Contracts.Messaging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using TelegramGateway.Api.Tests.Infrastructure;
 using TelegramGateway.Application.Messaging;
+using TelegramGateway.Application.Telegram.Delivery;
 
 namespace TelegramGateway.Api.Tests;
 
@@ -81,12 +86,59 @@ public sealed class WebhookApiTests
         await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
         using HttpClient client = Client(host);
         HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("/start promo-42"));
+        MessageEnvelope<WorkspaceRequestedCommand> item = port.Items.Single().Note<WorkspaceRequestedCommand>();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Single(port.Items);
-        Assert.Equal("promo-42", port.Items.Single().Payload.Payload);
-        Assert.Equal("edge-update-7", port.Items.Single().Context.CausationId);
-        Assert.Equal("workspace-requested-7", port.Items.Single().Context.IdempotencyKey);
-        Assert.NotEqual(port.Items.Single().Context.CausationId, port.Items.Single().Context.IdempotencyKey);
+        Assert.Equal("workspace.requested", port.Items.Single().Contract);
+        Assert.Equal("promo-42", item.Payload.Payload);
+        Assert.Equal("edge-update-7", item.Context.CausationId);
+        Assert.Equal("workspace-requested-7", item.Context.IdempotencyKey);
+        Assert.NotEqual(item.Context.CausationId, item.Context.IdempotencyKey);
+    }
+    /// <summary>
+    /// Verifies that a callback query is published.
+    /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
+    [Fact(DisplayName = "Returns 200 and publishes one workspace input command for callback queries")]
+    public async Task Accepts_callback()
+    {
+        var port = new RecordingWorkspacePort();
+        var gate = new RecordingTelegramPort();
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), data =>
+        {
+            data.RemoveAll<ITelegramPort>();
+            data.AddSingleton<ITelegramPort>(gate);
+        }, false);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Callback("account.add"));
+        MessageEnvelope<WorkspaceInputRequestedCommand> item = port.Items.Single().Note<WorkspaceInputRequestedCommand>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(port.Items);
+        Assert.Single(gate.Items);
+        Assert.IsType<TelegramCallbackAck>(gate.Items.Single());
+        Assert.Equal("workspace.input.requested", port.Items.Single().Contract);
+        Assert.Equal("action", item.Payload.Kind);
+        Assert.Equal("account.add", item.Payload.Value);
+        Assert.Equal("edge-update-9", item.Context.CausationId);
+    }
+    /// <summary>
+    /// Verifies that a plain text message is published as workspace input.
+    /// </summary>
+    /// <returns>A task that completes when the operation finishes.</returns>
+    [Fact(DisplayName = "Returns 200 and publishes one workspace input command for plain text")]
+    public async Task Accepts_text()
+    {
+        var port = new RecordingWorkspacePort();
+        await using var host = new GatewayApiFactory(Note(), port, new ReadyBrokerState(), hosted: false);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Body("Cash"));
+        MessageEnvelope<WorkspaceInputRequestedCommand> item = port.Items.Single().Note<WorkspaceInputRequestedCommand>();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(port.Items);
+        Assert.Equal("workspace.input.requested", port.Items.Single().Contract);
+        Assert.Equal("text", item.Payload.Kind);
+        Assert.Equal("Cash", item.Payload.Value);
+        Assert.Equal("workspace-input-7", item.Context.IdempotencyKey);
     }
     /// <summary>
     /// Verifies that publish faults become service unavailable responses.

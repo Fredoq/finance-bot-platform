@@ -21,15 +21,16 @@ public sealed class OutboxViewPortTests
     {
         var port = new OutboxStub();
         var item = new OutboxViewPort(port);
-        var view = new WorkspaceView(new WorkspaceIdentity("actor-9", "room-9"), new WorkspaceProfile("Alex", "en"), new WorkspaceState("home", "{}", 1), ["transaction.expense.add"], false, true, DateTimeOffset.UtcNow);
+        var view = new WorkspaceView(new WorkspaceIdentity("actor-9", "room-9"), new WorkspaceProfile("Alex", "en"), new WorkspaceState("home", "{\"accounts\":[]}", 1), ["account.add"], false, true, DateTimeOffset.UtcNow);
         var mark = new MessageContext("trace", "cause", "view-key");
         await item.Save(view, mark, default);
         MessageEnvelope<WorkspaceViewRequestedCommand> note = port.Note();
         Assert.Equal("workspace.view.requested", note.Contract);
         Assert.Equal("workspace.view.requested", port.RoutingKey);
         Assert.Equal("finance-core", note.Source);
-        Assert.Equal("home", note.Payload.State);
-        Assert.True(note.Payload.IsNewWorkspace);
+        Assert.Equal("home", note.Payload.Frame.State);
+        Assert.Equal("{\"accounts\":[]}", note.Payload.Frame.StateData);
+        Assert.True(note.Payload.Freshness.IsNewWorkspace);
     }
     private sealed class OutboxStub : IOutboxPort
     {
