@@ -10,6 +10,7 @@ internal static class WebhookUpdate
     }
     internal static object Body(string text, long date = 1_736_000_000)
     {
+        ArgumentNullException.ThrowIfNull(text);
         int length = text.IndexOf(' ');
         length = length >= 0 ? length : text.Length;
         object[]? entities = text.StartsWith('/')
@@ -45,31 +46,35 @@ internal static class WebhookUpdate
             }
         };
     }
-    internal static object Callback(string data) => new
+    internal static object Callback(string data)
     {
-        update_id = 9,
-        callback_query = new
+        ArgumentNullException.ThrowIfNull(data);
+        return new
         {
-            id = "callback-1",
-            data,
-            from = new
+            update_id = 9,
+            callback_query = new
             {
-                id = 42,
-                first_name = "Alex",
-                last_name = "Doe",
-                username = "alex",
-                language_code = "en"
-            },
-            message = new
-            {
-                message_id = 8,
-                date = 1_736_000_000,
-                chat = new
+                id = "callback-1",
+                data,
+                from = new
                 {
-                    id = 100,
-                    type = "private"
+                    id = 42,
+                    first_name = "Alex",
+                    last_name = "Doe",
+                    username = "alex",
+                    language_code = "en"
+                },
+                message = new
+                {
+                    message_id = 8,
+                    date = 1_736_000_000,
+                    chat = new
+                    {
+                        id = 100,
+                        type = "private"
+                    }
                 }
             }
-        }
-    };
+        };
+    }
 }

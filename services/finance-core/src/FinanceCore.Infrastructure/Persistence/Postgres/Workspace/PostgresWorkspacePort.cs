@@ -73,7 +73,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         for (int item = 0; item < RetryCount; item += 1)
         {
-            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, token);
+            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, userId, token);
             IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
             WorkspaceData body = Home(list, string.Empty);
             string note = Json(body);
@@ -92,7 +92,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         for (int item = 0; item < RetryCount; item += 1)
         {
-            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, token);
+            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, userId, token);
             IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
             WorkspaceData body = current is null ? Home(list, string.Empty) : Data(current.Snapshot.Data);
             WorkspaceData draft = body;
@@ -103,7 +103,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 bool fresh = await Account(link, lane, userId, move.Entry, when, token);
                 if (!fresh)
                 {
-                    move = new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(draft.Financial.Name, draft.Financial.Currency, draft.Financial.Amount), new StatusData("Account name already exists", string.Empty), false), null);
+                    move = new WorkspaceMove(NameState, new WorkspaceData([], new FinancialData(draft.Financial.Name, draft.Financial.Currency, draft.Financial.Amount), new StatusData("Account name already exists", string.Empty), false), null);
                 }
             }
             if (string.Equals(move.Code, HomeState, StringComparison.Ordinal))
@@ -284,15 +284,16 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         throw new InvalidOperationException("User upsert failed");
     }
-    private static async ValueTask<WorkspaceItem?> Read(NpgsqlConnection link, NpgsqlTransaction lane, string key, CancellationToken token)
+    private static async ValueTask<WorkspaceItem?> Read(NpgsqlConnection link, NpgsqlTransaction lane, string key, Guid userId, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("select id, state_code, state_data, revision from finance.workspace where conversation_key = @conversation_key for update", link, lane);
+        await using NpgsqlCommand note = new("select id, state_code, state_data, revision from finance.workspace where conversation_key = @conversation_key and user_id = @user_id for update", link, lane);
         note.Parameters.AddWithValue("conversation_key", key);
+        note.Parameters.AddWithValue(UserId, userId);
         return await Item(note, false, token);
     }
     private static async ValueTask<WorkspaceItem?> Add(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceFrame frame, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) on conflict (conversation_key) do nothing returning id, state_code, state_data, revision", link, lane);
+        await using NpgsqlCommand note = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) on conflict (user_id, conversation_key) do nothing returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", Guid.CreateVersion7());
         note.Parameters.AddWithValue(UserId, frame.UserValue);
         note.Parameters.AddWithValue("conversation_key", frame.Room);
@@ -308,7 +309,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static async ValueTask<WorkspaceItem?> Write(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceMark mark, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, state_code = @state_code, state_data = @state_data, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where id = @id and revision = @revision returning id, state_code, state_data, revision", link, lane);
+        await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, state_code = @state_code, state_data = @state_data, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where id = @id and revision = @revision and user_id = @user_id returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", mark.IdValue);
         note.Parameters.AddWithValue("revision", mark.Revision);
         note.Parameters.AddWithValue(UserId, mark.Frame.UserValue);
