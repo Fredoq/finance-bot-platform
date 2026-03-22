@@ -1,5 +1,3 @@
-using System.Net.Http;
-
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
 internal static class WebhookUpdate

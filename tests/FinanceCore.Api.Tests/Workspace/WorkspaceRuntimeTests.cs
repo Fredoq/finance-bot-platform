@@ -1,11 +1,10 @@
-using System.Net;
 using System.Text;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using FinanceCore.Api.Tests.Infrastructure;
 using RabbitMQ.Client;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Workspace;
 
 /// <summary>
 /// Covers finance core behavior with real PostgreSQL and RabbitMQ dependencies.

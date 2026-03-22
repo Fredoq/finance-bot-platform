@@ -6,6 +6,10 @@ namespace Finance.Platform.RabbitMq;
 public abstract class RabbitMqConnectionOptions
 {
     /// <summary>
+    /// Gets or sets the broker connection string.
+    /// </summary>
+    public string ConnectionString { get; init; } = string.Empty;
+    /// <summary>
     /// Gets or sets the broker host name.
     /// </summary>
     public string Host { get; init; } = "localhost";

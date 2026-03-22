@@ -1,7 +1,7 @@
 using FinanceCore.Infrastructure.Observability.Checks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Runtime;
 
 /// <summary>
 /// Covers shared health probe behavior.

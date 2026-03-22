@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using TelegramGateway.Api;
 using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Api.Tests;
@@ -48,6 +47,26 @@ public sealed class ConfigurationValidationTests
         var item = new RabbitMqOptions { Username = "guest", Password = "guest", Client = " " };
         ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
         Assert.Contains(note, data => data.MemberNames.Contains(nameof(RabbitMqOptions.Client), StringComparer.Ordinal));
+    }
+    /// <summary>
+    /// Verifies that an absolute AMQPS connection string is accepted.
+    /// </summary>
+    [Fact(DisplayName = "Accepts an absolute RabbitMQ connection string")]
+    public void Accepts_connection_string()
+    {
+        var item = new RabbitMqOptions { ConnectionString = "amqps://guest:guest@rabbitmq:5671/%2f", Client = "telegram-gateway" };
+        ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Empty(note);
+    }
+    /// <summary>
+    /// Verifies that a non-AMQP connection string is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects a RabbitMQ connection string with a non AMQP scheme")]
+    public void Rejects_connection_string_scheme()
+    {
+        var item = new RabbitMqOptions { ConnectionString = "https://rabbitmq.local", Client = "telegram-gateway" };
+        ValidationResult[] note = item.Validate(new ValidationContext(item)).ToArray();
+        Assert.Contains(note, data => data.MemberNames.Contains(nameof(RabbitMqOptions.ConnectionString), StringComparer.Ordinal));
     }
     /// <summary>
     /// Verifies that identical command and delivery exchanges are rejected.

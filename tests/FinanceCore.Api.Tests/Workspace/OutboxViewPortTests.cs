@@ -5,7 +5,7 @@ using FinanceCore.Application.Runtime.Ports;
 using FinanceCore.Domain.Workspace.Models;
 using FinanceCore.Infrastructure.Persistence.Postgres.Outbox;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Workspace;
 
 /// <summary>
 /// Covers workspace view outbox mapping behavior.

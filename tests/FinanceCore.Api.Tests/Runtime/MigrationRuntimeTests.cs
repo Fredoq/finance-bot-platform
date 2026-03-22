@@ -1,7 +1,7 @@
 using System.Net;
 using FinanceCore.Api.Tests.Infrastructure;
 
-namespace FinanceCore.Api.Tests;
+namespace FinanceCore.Api.Tests.Runtime;
 
 /// <summary>
 /// Covers finance core migration and readiness behavior.
