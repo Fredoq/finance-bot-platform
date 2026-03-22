@@ -176,8 +176,8 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
         var key = new OpaqueKey("test-current-secret", []);
         string data = state switch
         {
-            "account.confirm" => "{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}",
-            _ => "{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}]}"
+            "account.confirm" => "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}",
+            _ => "{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"
         };
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),

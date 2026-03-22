@@ -99,7 +99,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand>? home = await View(queue);
         Assert.NotNull(home);
         Assert.Equal("home", home!.Payload.Frame.State);
-        Assert.Contains("Account was cancelled", home.Payload.Frame.StateData.Replace("creation ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("Account was cancelled", Notice(home.Payload.Frame.StateData), StringComparison.Ordinal);
         Assert.Equal(0, await Number("select count(*) from finance.account"));
     }
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand>? view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
         Assert.NotNull(view);
         Assert.Equal("account.confirm", view!.Payload.Frame.State);
-        Assert.Contains("Account name already exists", view.Payload.Frame.StateData, StringComparison.Ordinal);
+        Assert.Contains("Account name already exists", Error(view.Payload.Frame.StateData), StringComparison.Ordinal);
         Assert.Equal("Cash", DraftName(view.Payload.Frame.StateData));
         Assert.Equal("USD", DraftCurrency(view.Payload.Frame.StateData));
         Assert.Equal(20m, Amount(view.Payload.Frame.StateData));
@@ -231,7 +231,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
     private static decimal Amount(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("amount").GetDecimal();
+        return item.RootElement.GetProperty("financial").GetProperty("amount").GetDecimal();
     }
     private static string Name(string data)
     {
@@ -241,11 +241,21 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
     private static string DraftName(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("name").GetString() ?? string.Empty;
+        return item.RootElement.GetProperty("financial").GetProperty("name").GetString() ?? string.Empty;
     }
     private static string DraftCurrency(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("currency").GetString() ?? string.Empty;
+        return item.RootElement.GetProperty("financial").GetProperty("currency").GetString() ?? string.Empty;
+    }
+    private static string Notice(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("status").GetProperty("notice").GetString() ?? string.Empty;
+    }
+    private static string Error(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("status").GetProperty("error").GetString() ?? string.Empty;
     }
 }

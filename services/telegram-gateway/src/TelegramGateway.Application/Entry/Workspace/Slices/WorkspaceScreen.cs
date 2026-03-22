@@ -31,9 +31,9 @@ internal static class WorkspaceScreen
         if (data.Accounts.Count == 0)
         {
             text.AppendLine("<b>Finance workspace</b>");
-            if (!string.IsNullOrWhiteSpace(data.Notice))
+            if (!string.IsNullOrWhiteSpace(data.Status.Notice))
             {
-                text.AppendLine(Escape(data.Notice));
+                text.AppendLine(Escape(data.Status.Notice));
             }
             text.Append(command.Freshness.IsNewUser ? "Add your first account to start tracking your balance" : "Add an account to start tracking your balance");
             return text.ToString().TrimEnd();
@@ -43,9 +43,9 @@ internal static class WorkspaceScreen
         {
             text.AppendLine($"- <b>{Escape(item.Name)}</b>: {Amount(item.Amount, item.Currency)}");
         }
-        if (!string.IsNullOrWhiteSpace(data.Notice))
+        if (!string.IsNullOrWhiteSpace(data.Status.Notice))
         {
-            text.AppendLine(Escape(data.Notice));
+            text.AppendLine(Escape(data.Status.Notice));
         }
         text.Append("Choose the next action");
         return text.ToString().TrimEnd();
@@ -53,9 +53,9 @@ internal static class WorkspaceScreen
     private static string Name(WorkspaceData data)
     {
         var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Error))
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
         {
-            text.AppendLine(Escape(data.Error));
+            text.AppendLine(Escape(data.Status.Error));
         }
         text.AppendLine("<b>New account</b>");
         text.Append("Send the account name");
@@ -64,39 +64,39 @@ internal static class WorkspaceScreen
     private static string Currency(WorkspaceData data)
     {
         var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Error))
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
         {
-            text.AppendLine(Escape(data.Error));
+            text.AppendLine(Escape(data.Status.Error));
         }
         text.AppendLine("<b>New account</b>");
-        text.AppendLine($"Name: <b>{Escape(data.Name)}</b>");
+        text.AppendLine($"Name: <b>{Escape(data.Financial.Name)}</b>");
         text.Append(data.Custom ? "Send a 3 letter currency code" : "Choose the account currency");
         return text.ToString().TrimEnd();
     }
     private static string Balance(WorkspaceData data)
     {
         var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Error))
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
         {
-            text.AppendLine(Escape(data.Error));
+            text.AppendLine(Escape(data.Status.Error));
         }
         text.AppendLine("<b>New account</b>");
-        text.AppendLine($"Name: <b>{Escape(data.Name)}</b>");
-        text.AppendLine($"Currency: {Code(data.Currency)}");
+        text.AppendLine($"Name: <b>{Escape(data.Financial.Name)}</b>");
+        text.AppendLine($"Currency: {Code(data.Financial.Currency)}");
         text.Append("Send the current balance");
         return text.ToString().TrimEnd();
     }
     private static string Confirm(WorkspaceData data)
     {
         var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Error))
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
         {
-            text.AppendLine(Escape(data.Error));
+            text.AppendLine(Escape(data.Status.Error));
         }
         text.AppendLine("<b>Confirm account</b>");
-        text.AppendLine($"Name: <b>{Escape(data.Name)}</b>");
-        text.AppendLine($"Currency: {Code(data.Currency)}");
-        text.Append($"Balance: <b>{Amount(data.Amount, data.Currency)}</b>");
+        text.AppendLine($"Name: <b>{Escape(data.Financial.Name)}</b>");
+        text.AppendLine($"Currency: {Code(data.Financial.Currency)}");
+        text.Append($"Balance: <b>{Amount(data.Financial.Amount, data.Financial.Currency)}</b>");
         return text.ToString().TrimEnd();
     }
     private static IReadOnlyList<TelegramRow> Keys(WorkspaceViewRequestedCommand command)
@@ -146,30 +146,30 @@ internal static class WorkspaceScreen
             _ => item
         };
     }
-    private static WorkspaceData CurrencyData(WorkspaceData item) => !string.IsNullOrWhiteSpace(item.Name)
+    private static WorkspaceData CurrencyData(WorkspaceData item) => !string.IsNullOrWhiteSpace(item.Financial.Name)
         ? item
         : throw new InvalidOperationException("Workspace screen 'account.currency' requires account name");
     private static WorkspaceData BalanceData(WorkspaceData item)
     {
-        if (string.IsNullOrWhiteSpace(item.Name))
+        if (string.IsNullOrWhiteSpace(item.Financial.Name))
         {
             throw new InvalidOperationException("Workspace screen 'account.balance' requires account name");
         }
-        return !string.IsNullOrWhiteSpace(item.Currency)
+        return !string.IsNullOrWhiteSpace(item.Financial.Currency)
             ? item
             : throw new InvalidOperationException("Workspace screen 'account.balance' requires currency");
     }
     private static WorkspaceData ConfirmData(WorkspaceData item)
     {
-        if (string.IsNullOrWhiteSpace(item.Name))
+        if (string.IsNullOrWhiteSpace(item.Financial.Name))
         {
             throw new InvalidOperationException("Workspace screen 'account.confirm' requires account name");
         }
-        if (string.IsNullOrWhiteSpace(item.Currency))
+        if (string.IsNullOrWhiteSpace(item.Financial.Currency))
         {
             throw new InvalidOperationException("Workspace screen 'account.confirm' requires currency");
         }
-        return item.Amount.HasValue
+        return item.Financial.Amount.HasValue
             ? item
             : throw new InvalidOperationException("Workspace screen 'account.confirm' requires amount");
     }

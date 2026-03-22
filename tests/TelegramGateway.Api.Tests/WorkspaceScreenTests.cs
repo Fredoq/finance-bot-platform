@@ -15,7 +15,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen for Telegram delivery")]
     public void Builds_home_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[]}", ["account.add"]), new WorkspaceViewFreshness(true, true), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(true, true), DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Equal("sendMessage", data.Method);
         Assert.Equal("HTML", data.ParseMode);
@@ -29,7 +29,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the confirm workspace screen for Telegram delivery")]
     public void Builds_confirm_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1200}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1200},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("<b>Confirm account</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Balance: <b>1 200 ₽ (<code>RUB</code>)</b>", data.Text, StringComparison.Ordinal);
@@ -41,7 +41,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen for unknown currency codes")]
     public void Builds_code()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}]}", ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("- <b>Vault</b>: 1 200 <code>ABC</code>", data.Text, StringComparison.Ordinal);
     }
@@ -51,7 +51,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Escapes HTML sensitive account names in the confirm screen")]
     public void Escapes_name()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"name\":\"<cash&card>\",\"currency\":\"USD\",\"amount\":1200}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"<cash&card>\",\"currency\":\"USD\",\"amount\":1200},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("&lt;cash&amp;card&gt;", data.Text, StringComparison.Ordinal);
     }
@@ -71,7 +71,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Rejects missing currency for balance screen")]
     public void Rejects_currency()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.balance", "{\"name\":\"Cash\"}", ["account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.balance", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note));
         Assert.Contains("requires currency", error.Message, StringComparison.Ordinal);
     }
@@ -81,7 +81,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Rejects missing amount for confirm screen")]
     public void Rejects_amount()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"name\":\"Cash\",\"currency\":\"USD\"}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note));
         Assert.Contains("requires amount", error.Message, StringComparison.Ordinal);
     }

@@ -103,13 +103,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 bool fresh = await Account(link, lane, userId, move.Entry, when, token);
                 if (!fresh)
                 {
-                    move = new WorkspaceMove(ConfirmState, new WorkspaceData([], draft.Name, draft.Currency, draft.Amount, "Account name already exists", string.Empty, false), null);
+                    move = new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(draft.Financial.Name, draft.Financial.Currency, draft.Financial.Amount), new StatusData("Account name already exists", string.Empty), false), null);
                 }
             }
             if (string.Equals(move.Code, HomeState, StringComparison.Ordinal))
             {
                 list = await Accounts(link, lane, userId, token);
-                move = new WorkspaceMove(HomeState, Home(list, move.Body.Notice), null);
+                move = new WorkspaceMove(HomeState, Home(list, move.Body.Status.Notice), null);
             }
             string note = Json(move.Body);
             var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, note, string.Empty, command.Value, when);
@@ -130,7 +130,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             "action" => Act(state, body, command.Value),
             "text" => Text(state, body, command.Value),
-            _ => new WorkspaceMove(state, new WorkspaceData(body.Accounts, body.Name, body.Currency, body.Amount, "Input kind is not supported", body.Notice, body.Custom), null)
+            _ => new WorkspaceMove(state, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Input kind is not supported", body.Status.Notice), body.Custom), null)
         };
     }
     private static WorkspaceMove Act(string state, WorkspaceData body, string value)
@@ -138,13 +138,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         string code = value.Trim();
         if (string.Equals(code, "account.cancel", StringComparison.Ordinal))
         {
-            return new WorkspaceMove(HomeState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, "Account creation was cancelled", false), null);
+            return new WorkspaceMove(HomeState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, "Account creation was cancelled"), false), null);
         }
         if (string.Equals(state, HomeState, StringComparison.Ordinal))
         {
             return string.Equals(code, "account.add", StringComparison.Ordinal)
-                ? new WorkspaceMove(NameState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, string.Empty, false), null)
-                : new WorkspaceMove(HomeState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, "Tap Add account to start", false), null);
+                ? new WorkspaceMove(NameState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, string.Empty), false), null)
+                : new WorkspaceMove(HomeState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, "Tap Add account to start"), false), null);
         }
         if (string.Equals(state, CurrencyState, StringComparison.Ordinal))
         {
@@ -153,43 +153,43 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 "account.currency.rub" => Currency(body, "RUB"),
                 "account.currency.usd" => Currency(body, "USD"),
                 "account.currency.eur" => Currency(body, "EUR"),
-                "account.currency.other" => new WorkspaceMove(CurrencyState, new WorkspaceData([], body.Name, string.Empty, body.Amount, string.Empty, string.Empty, true), null),
-                _ => new WorkspaceMove(CurrencyState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Choose one currency option or send a 3 letter code", string.Empty, body.Custom), null)
+                "account.currency.other" => new WorkspaceMove(CurrencyState, new WorkspaceData([], new FinancialData(body.Financial.Name, string.Empty, body.Financial.Amount), new StatusData(string.Empty, string.Empty), true), null),
+                _ => new WorkspaceMove(CurrencyState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), body.Custom), null)
             };
         }
         if (string.Equals(state, ConfirmState, StringComparison.Ordinal))
         {
             return string.Equals(code, "account.create", StringComparison.Ordinal)
                 ? Create(body)
-                : new WorkspaceMove(ConfirmState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Confirm the account or cancel", string.Empty, false), null);
+                : new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Confirm the account or cancel", string.Empty), false), null);
         }
-        return new WorkspaceMove(state, new WorkspaceData([], body.Name, body.Currency, body.Amount, "This action is not available", string.Empty, body.Custom), null);
+        return new WorkspaceMove(state, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("This action is not available", string.Empty), body.Custom), null);
     }
     private static WorkspaceMove Text(string state, WorkspaceData body, string value) => state switch
     {
-        HomeState => new WorkspaceMove(HomeState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, "Tap Add account to start", false), null),
+        HomeState => new WorkspaceMove(HomeState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, "Tap Add account to start"), false), null),
         NameState => Draft(body, value),
         CurrencyState => Currency(body, value),
         BalanceState => Amount(body, value),
-        ConfirmState => new WorkspaceMove(ConfirmState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Use the buttons to confirm or cancel", string.Empty, false), null),
-        _ => new WorkspaceMove(HomeState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, "Tap Add account to start", false), null)
+        ConfirmState => new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Use the buttons to confirm or cancel", string.Empty), false), null),
+        _ => new WorkspaceMove(HomeState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, "Tap Add account to start"), false), null)
     };
     private static WorkspaceMove Draft(WorkspaceData body, string value)
     {
         string text = value.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new WorkspaceMove(NameState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Account name is required", string.Empty, false), null);
+            return new WorkspaceMove(NameState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Account name is required", string.Empty), false), null);
         }
-        if (body.Amount.HasValue && !string.IsNullOrWhiteSpace(body.Currency))
+        if (body.Financial.Amount.HasValue && !string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(ConfirmState, new WorkspaceData([], text, body.Currency, body.Amount, string.Empty, string.Empty, false), null);
+            return new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(text, body.Financial.Currency, body.Financial.Amount), new StatusData(string.Empty, string.Empty), false), null);
         }
-        if (!string.IsNullOrWhiteSpace(body.Currency))
+        if (!string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(BalanceState, new WorkspaceData([], text, body.Currency, body.Amount, string.Empty, string.Empty, false), null);
+            return new WorkspaceMove(BalanceState, new WorkspaceData([], new FinancialData(text, body.Financial.Currency, body.Financial.Amount), new StatusData(string.Empty, string.Empty), false), null);
         }
-        return new WorkspaceMove(CurrencyState, new WorkspaceData([], text, string.Empty, body.Amount, string.Empty, string.Empty, false), null);
+        return new WorkspaceMove(CurrencyState, new WorkspaceData([], new FinancialData(text, string.Empty, body.Financial.Amount), new StatusData(string.Empty, string.Empty), false), null);
     }
     private static WorkspaceMove Currency(WorkspaceData body, string value)
     {
@@ -197,37 +197,37 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         bool valid = text.Length == 3 && text.All(char.IsLetter);
         if (!valid)
         {
-            return new WorkspaceMove(CurrencyState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Currency code must contain 3 letters", string.Empty, true), null);
+            return new WorkspaceMove(CurrencyState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null);
         }
-        return body.Amount.HasValue
-            ? new WorkspaceMove(ConfirmState, new WorkspaceData([], body.Name, text, body.Amount, string.Empty, string.Empty, false), null)
-            : new WorkspaceMove(BalanceState, new WorkspaceData([], body.Name, text, body.Amount, string.Empty, string.Empty, false), null);
+        return body.Financial.Amount.HasValue
+            ? new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(body.Financial.Name, text, body.Financial.Amount), new StatusData(string.Empty, string.Empty), false), null)
+            : new WorkspaceMove(BalanceState, new WorkspaceData([], new FinancialData(body.Financial.Name, text, body.Financial.Amount), new StatusData(string.Empty, string.Empty), false), null);
     }
     private static WorkspaceMove Amount(WorkspaceData body, string value)
     {
         string text = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("\u00A0", string.Empty, StringComparison.Ordinal).Replace(',', '.');
         bool ok = decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal amount);
         return ok
-            ? new WorkspaceMove(ConfirmState, new WorkspaceData([], body.Name, body.Currency, amount, string.Empty, string.Empty, false), null)
-            : new WorkspaceMove(BalanceState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Balance must be a number", string.Empty, false), null);
+            ? new WorkspaceMove(ConfirmState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, amount), new StatusData(string.Empty, string.Empty), false), null)
+            : new WorkspaceMove(BalanceState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Balance must be a number", string.Empty), false), null);
     }
     private static WorkspaceMove Create(WorkspaceData body)
     {
-        if (string.IsNullOrWhiteSpace(body.Name))
+        if (string.IsNullOrWhiteSpace(body.Financial.Name))
         {
-            return new WorkspaceMove(NameState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Account name is required", string.Empty, false), null);
+            return new WorkspaceMove(NameState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Account name is required", string.Empty), false), null);
         }
-        if (string.IsNullOrWhiteSpace(body.Currency))
+        if (string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(CurrencyState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Currency code must contain 3 letters", string.Empty, true), null);
+            return new WorkspaceMove(CurrencyState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null);
         }
-        if (!body.Amount.HasValue)
+        if (!body.Financial.Amount.HasValue)
         {
-            return new WorkspaceMove(BalanceState, new WorkspaceData([], body.Name, body.Currency, body.Amount, "Balance must be a number", string.Empty, false), null);
+            return new WorkspaceMove(BalanceState, new WorkspaceData([], new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Balance must be a number", string.Empty), false), null);
         }
-        return new WorkspaceMove(HomeState, new WorkspaceData([], string.Empty, string.Empty, null, string.Empty, "Account was created", false), new AccountDraft(body.Name, body.Currency, body.Amount.Value));
+        return new WorkspaceMove(HomeState, new WorkspaceData([], new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, "Account was created"), false), new AccountDraft(body.Financial.Name, body.Financial.Currency, body.Financial.Amount.Value));
     }
-    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice) => new(list, string.Empty, string.Empty, null, string.Empty, notice, false);
+    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice) => new(list, new FinancialData(string.Empty, string.Empty, null), new StatusData(string.Empty, notice), false);
     private static WorkspaceData Data(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -235,7 +235,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new WorkspaceData();
         }
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return new WorkspaceData(item?.Accounts ?? [], item?.Name ?? string.Empty, item?.Currency ?? string.Empty, item?.Amount, item?.Error ?? string.Empty, item?.Notice ?? string.Empty, item?.Custom ?? false);
+        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
     }
     private static string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
     private static DateTimeOffset Utc(DateTimeOffset value, string name)
