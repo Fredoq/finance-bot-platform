@@ -15,7 +15,7 @@ internal static class WorkspaceScreen
     private static string Text(WorkspaceViewRequestedCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        WorkspaceData data = Data(command.Frame.StateData);
+        WorkspaceData data = Data(command.Frame.State, command.Frame.StateData);
         return command.Frame.State switch
         {
             "account.name" => Name(data),
@@ -96,7 +96,7 @@ internal static class WorkspaceScreen
         text.AppendLine("<b>Confirm account</b>");
         text.AppendLine($"Name: <b>{Escape(data.Name)}</b>");
         text.AppendLine($"Currency: {Code(data.Currency)}");
-        text.Append($"Balance: <b>{Amount(data.Amount ?? 0m, data.Currency)}</b>");
+        text.Append($"Balance: <b>{Amount(data.Amount, data.Currency)}</b>");
         return text.ToString().TrimEnd();
     }
     private static IReadOnlyList<TelegramRow> Keys(WorkspaceViewRequestedCommand command)
@@ -116,19 +116,71 @@ internal static class WorkspaceScreen
         "account.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
         _ => new TelegramButton(code, code)
     };
-    private static WorkspaceData Data(string value)
+    private static WorkspaceData Data(string state, string value)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(state);
         if (string.IsNullOrWhiteSpace(value))
         {
-            return new WorkspaceData();
+            throw new InvalidOperationException($"Workspace screen '{state}' requires StateData");
         }
-        WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return item ?? new WorkspaceData();
+        WorkspaceData? item;
+        try
+        {
+            item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
+        }
+        catch (JsonException error)
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' has invalid StateData", error);
+        }
+        if (item is null)
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' has invalid StateData");
+        }
+        return state switch
+        {
+            "home" => item,
+            "account.name" => item,
+            "account.currency" => CurrencyData(item),
+            "account.balance" => BalanceData(item),
+            "account.confirm" => ConfirmData(item),
+            _ => item
+        };
     }
-    private static string Amount(decimal value, string code)
+    private static WorkspaceData CurrencyData(WorkspaceData item) => !string.IsNullOrWhiteSpace(item.Name)
+        ? item
+        : throw new InvalidOperationException("Workspace screen 'account.currency' requires account name");
+    private static WorkspaceData BalanceData(WorkspaceData item)
     {
+        if (string.IsNullOrWhiteSpace(item.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'account.balance' requires account name");
+        }
+        return !string.IsNullOrWhiteSpace(item.Currency)
+            ? item
+            : throw new InvalidOperationException("Workspace screen 'account.balance' requires currency");
+    }
+    private static WorkspaceData ConfirmData(WorkspaceData item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'account.confirm' requires account name");
+        }
+        if (string.IsNullOrWhiteSpace(item.Currency))
+        {
+            throw new InvalidOperationException("Workspace screen 'account.confirm' requires currency");
+        }
+        return item.Amount.HasValue
+            ? item
+            : throw new InvalidOperationException("Workspace screen 'account.confirm' requires amount");
+    }
+    private static string Amount(decimal? value, string code)
+    {
+        if (!value.HasValue)
+        {
+            throw new InvalidOperationException("Workspace amount is required");
+        }
         string sign = Sign(code);
-        return string.IsNullOrWhiteSpace(sign) ? $"{Money(value)} <code>{Escape(code)}</code>" : $"{Money(value)} {sign} (<code>{Escape(code)}</code>)";
+        return string.IsNullOrWhiteSpace(sign) ? $"{Money(value.Value)} <code>{Escape(code)}</code>" : $"{Money(value.Value)} {sign} (<code>{Escape(code)}</code>)";
     }
     private static string Code(string code)
     {

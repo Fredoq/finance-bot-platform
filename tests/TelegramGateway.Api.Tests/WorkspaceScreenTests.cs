@@ -55,4 +55,34 @@ public sealed class WorkspaceScreenTests
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("&lt;cash&amp;card&gt;", data.Text, StringComparison.Ordinal);
     }
+    /// <summary>
+    /// Verifies that missing state data is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects missing state data for confirm screen")]
+    public void Rejects_state_data()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", string.Empty, ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note));
+        Assert.Contains("StateData", error.Message, StringComparison.Ordinal);
+    }
+    /// <summary>
+    /// Verifies that missing currency is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects missing currency for balance screen")]
+    public void Rejects_currency()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.balance", "{\"name\":\"Cash\"}", ["account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note));
+        Assert.Contains("requires currency", error.Message, StringComparison.Ordinal);
+    }
+    /// <summary>
+    /// Verifies that missing amount is rejected.
+    /// </summary>
+    [Fact(DisplayName = "Rejects missing amount for confirm screen")]
+    public void Rejects_amount()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"name\":\"Cash\",\"currency\":\"USD\"}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note));
+        Assert.Contains("requires amount", error.Message, StringComparison.Ordinal);
+    }
 }
