@@ -7,7 +7,6 @@ namespace TelegramGateway.Api.Tests.Infrastructure;
 
 internal sealed class RecordingWorkspacePort : IBusPort
 {
-    private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private readonly Exception? error;
     private readonly ConcurrentQueue<RecordNote> list = new();
     internal RecordingWorkspacePort(Exception? error = null) => this.error = error;
@@ -20,14 +19,13 @@ internal sealed class RecordingWorkspacePort : IBusPort
         {
             throw error;
         }
-        list.Enqueue(new RecordNote(message.Contract, JsonSerializer.Serialize(message, json)));
+        list.Enqueue(new RecordNote(message.Contract, JsonSerializer.Serialize(message, RecordingWorkspaceJson.Value)));
         return ValueTask.CompletedTask;
     }
 }
 
 internal sealed record RecordNote
 {
-    private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     internal RecordNote(string contract, string payload)
     {
         Contract = contract ?? throw new ArgumentNullException(nameof(contract));
@@ -35,5 +33,10 @@ internal sealed record RecordNote
     }
     internal string Contract { get; }
     internal string Payload { get; }
-    internal MessageEnvelope<TMessage> Note<TMessage>() where TMessage : class => JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(Payload, json) ?? throw new InvalidOperationException("Message capture failed");
+    internal MessageEnvelope<TMessage> Note<TMessage>() where TMessage : class => JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(Payload, RecordingWorkspaceJson.Value) ?? throw new InvalidOperationException("Message capture failed");
+}
+
+internal static class RecordingWorkspaceJson
+{
+    internal static readonly JsonSerializerOptions Value = new(JsonSerializerDefaults.Web);
 }
