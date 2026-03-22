@@ -26,7 +26,7 @@ public sealed class AppHostLayoutTests
         item.Configuration["Parameters:telegram-bot-token"] = "token";
         item.Configuration["Parameters:telegram-webhook-secret"] = "hook";
         item.Configuration["Parameters:telegram-key-secret"] = "key";
-        IAppHostLayout app = new AppHostLayout();
+        var app = new AppHostLayout();
         app.Add(item);
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "postgres", StringComparison.Ordinal));
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "finance-db", StringComparison.Ordinal));
