@@ -28,8 +28,10 @@ internal sealed record RecordNote
 {
     internal RecordNote(string contract, string payload)
     {
-        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
-        Payload = payload ?? throw new ArgumentNullException(nameof(payload));
+        ArgumentNullException.ThrowIfNull(contract);
+        ArgumentNullException.ThrowIfNull(payload);
+        Contract = !string.IsNullOrWhiteSpace(contract) ? contract : throw new ArgumentException("Contract cannot be empty", nameof(contract));
+        Payload = !string.IsNullOrWhiteSpace(payload) ? payload : throw new ArgumentException("Payload cannot be empty", nameof(payload));
     }
     internal string Contract { get; }
     internal string Payload { get; }

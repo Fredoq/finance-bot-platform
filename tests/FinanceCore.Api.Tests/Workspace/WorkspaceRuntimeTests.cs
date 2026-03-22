@@ -52,7 +52,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Publish(Envelope("actor-2", "room-2", string.Empty, "workspace-requested-2"));
-        _ = await View(queue);
+        await Take(queue, "workspace-requested-2");
         await Publish(Input("actor-2", "room-2", "action", "account.add", "workspace-input-2"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? name = await View(queue);
         Assert.NotNull(name);
@@ -92,9 +92,9 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Publish(Envelope("actor-3", "room-3", string.Empty, "workspace-requested-3"));
-        _ = await View(queue);
+        await Take(queue, "workspace-requested-3");
         await Publish(Input("actor-3", "room-3", "action", "account.add", "workspace-input-7"));
-        _ = await View(queue);
+        await Take(queue, "workspace-input-7");
         await Publish(Input("actor-3", "room-3", "action", "account.cancel", "workspace-input-8"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? home = await View(queue);
         Assert.NotNull(home);
@@ -139,8 +139,8 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Publish(Envelope("actor-5", "room-5", string.Empty, "workspace-requested-5"));
-        _ = await View(queue);
-        _ = await Create(queue, "actor-5", "room-5", "Cash", "RUB", "10", "11");
+        await Take(queue, "workspace-requested-5");
+        await Create(queue, "actor-5", "room-5", "Cash", "RUB", "10", "11");
         MessageEnvelope<WorkspaceViewRequestedCommand> view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
         Assert.Equal("account.name", view.Payload.Frame.State);
         Assert.Equal("Cash", DraftName(view.Payload.Frame.StateData));
@@ -162,17 +162,17 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Publish(Envelope("actor-6", "room-6", string.Empty, "workspace-requested-6"));
-        _ = await View(queue);
+        await Take(queue, "workspace-requested-6");
         await Publish(Input("actor-6", "room-6", "action", "account.add", "workspace-input-22"));
-        _ = await View(queue);
+        await Take(queue, "workspace-input-22");
         await Publish(Input("actor-6", "room-6", "text", "Card", "workspace-input-23"));
-        _ = await View(queue);
-        await Publish(Input("actor-6", "room-6", "text", "USD", "workspace-input-24"));
-        _ = await View(queue);
+        await Take(queue, "workspace-input-23");
+        await Publish(Input("actor-6", "room-6", "action", "account.currency.usd", "workspace-input-24"));
+        await Take(queue, "workspace-input-24");
         await Publish(Input("actor-6", "room-6", "text", "-25.5", "workspace-input-25"));
-        _ = await View(queue);
+        await Take(queue, "workspace-input-25");
         await Publish(Input("actor-6", "room-6", "action", "account.create", "workspace-input-26"));
-        _ = await View(queue);
+        await Take(queue, "workspace-input-26");
         Assert.Equal(-25.5m, decimal.Parse(await Scalar("select current_amount::text from finance.account where user_id = (select id from finance.user_account where actor_key = 'actor-6')"), System.Globalization.CultureInfo.InvariantCulture));
     }
     /// <summary>
@@ -211,15 +211,26 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Create(string queue, string actor, string room, string name, string currency, string balance, string id)
     {
         await Publish(Input(actor, room, "action", "account.add", $"workspace-input-{id}-1"));
-        _ = await Take(queue, $"workspace-input-{id}-1");
+        await Take(queue, $"workspace-input-{id}-1");
         await Publish(Input(actor, room, "text", name, $"workspace-input-{id}-2"));
-        _ = await Take(queue, $"workspace-input-{id}-2");
-        await Publish(Input(actor, room, "text", currency, $"workspace-input-{id}-3"));
-        _ = await Take(queue, $"workspace-input-{id}-3");
+        await Take(queue, $"workspace-input-{id}-2");
+        await Publish(Currency(actor, room, currency, $"workspace-input-{id}-3"));
+        await Take(queue, $"workspace-input-{id}-3");
         await Publish(Input(actor, room, "text", balance, $"workspace-input-{id}-4"));
-        _ = await Take(queue, $"workspace-input-{id}-4");
+        await Take(queue, $"workspace-input-{id}-4");
         await Publish(Input(actor, room, "action", "account.create", $"workspace-input-{id}-5"));
         return await Take(queue, $"workspace-input-{id}-5");
+    }
+    private static MessageEnvelope<WorkspaceInputRequestedCommand> Currency(string actor, string room, string currency, string id)
+    {
+        string text = currency.Trim().ToUpperInvariant();
+        return text switch
+        {
+            "RUB" => Input(actor, room, "action", "account.currency.rub", id),
+            "USD" => Input(actor, room, "action", "account.currency.usd", id),
+            "EUR" => Input(actor, room, "action", "account.currency.eur", id),
+            _ => Input(actor, room, "text", currency, id)
+        };
     }
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Take(string queue, string step)
     {
@@ -239,16 +250,19 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
     private static string Name(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("accounts")[0].GetProperty("name").GetString() ?? string.Empty;
+        string? text = item.RootElement.GetProperty("accounts")[0].GetProperty("name").GetString();
+        return text ?? throw new InvalidOperationException("Workspace state is missing accounts[0].name");
     }
     private static string DraftName(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("financial").GetProperty("name").GetString() ?? string.Empty;
+        string? text = item.RootElement.GetProperty("financial").GetProperty("name").GetString();
+        return text ?? throw new InvalidOperationException("Workspace state is missing financial.name");
     }
     private static string DraftCurrency(string data)
     {
         using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("financial").GetProperty("currency").GetString() ?? string.Empty;
+        string? text = item.RootElement.GetProperty("financial").GetProperty("currency").GetString();
+        return text ?? throw new InvalidOperationException("Workspace state is missing financial.currency");
     }
 }
