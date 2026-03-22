@@ -27,6 +27,7 @@ internal sealed class RecordingWorkspacePort : IBusPort
 
 internal sealed record RecordNote
 {
+    private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     internal RecordNote(string contract, string payload)
     {
         Contract = contract ?? throw new ArgumentNullException(nameof(contract));
@@ -34,5 +35,5 @@ internal sealed record RecordNote
     }
     internal string Contract { get; }
     internal string Payload { get; }
-    internal MessageEnvelope<TMessage> Note<TMessage>() where TMessage : class => JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(Payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new InvalidOperationException("Message capture failed");
+    internal MessageEnvelope<TMessage> Note<TMessage>() where TMessage : class => JsonSerializer.Deserialize<MessageEnvelope<TMessage>>(Payload, json) ?? throw new InvalidOperationException("Message capture failed");
 }

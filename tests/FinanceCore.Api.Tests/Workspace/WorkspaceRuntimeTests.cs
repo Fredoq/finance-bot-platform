@@ -141,9 +141,8 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(Envelope("actor-5", "room-5", string.Empty, "workspace-requested-5"));
         _ = await View(queue);
         _ = await Create(queue, "actor-5", "room-5", "Cash", "RUB", "10", "11");
-        MessageEnvelope<WorkspaceViewRequestedCommand>? view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
-        Assert.NotNull(view);
-        Assert.Equal("account.name", view!.Payload.Frame.State);
+        MessageEnvelope<WorkspaceViewRequestedCommand> view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
+        Assert.Equal("account.name", view.Payload.Frame.State);
         Assert.Contains("Account name already exists", Error(view.Payload.Frame.StateData), StringComparison.Ordinal);
         Assert.Equal("Cash", DraftName(view.Payload.Frame.StateData));
         Assert.Equal("USD", DraftCurrency(view.Payload.Frame.StateData));
@@ -210,18 +209,23 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         Assert.NotNull(data);
         Assert.Equal(0, await Number("select count(*) from finance.user_account"));
     }
-    private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>?> Create(string queue, string actor, string room, string name, string currency, string balance, string id)
+    private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Create(string queue, string actor, string room, string name, string currency, string balance, string id)
     {
         await Publish(Input(actor, room, "action", "account.add", $"workspace-input-{id}-1"));
-        _ = await View(queue);
+        _ = await Take(queue, $"workspace-input-{id}-1");
         await Publish(Input(actor, room, "text", name, $"workspace-input-{id}-2"));
-        _ = await View(queue);
+        _ = await Take(queue, $"workspace-input-{id}-2");
         await Publish(Input(actor, room, "text", currency, $"workspace-input-{id}-3"));
-        _ = await View(queue);
+        _ = await Take(queue, $"workspace-input-{id}-3");
         await Publish(Input(actor, room, "text", balance, $"workspace-input-{id}-4"));
-        _ = await View(queue);
+        _ = await Take(queue, $"workspace-input-{id}-4");
         await Publish(Input(actor, room, "action", "account.create", $"workspace-input-{id}-5"));
-        return await View(queue);
+        return await Take(queue, $"workspace-input-{id}-5");
+    }
+    private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Take(string queue, string step)
+    {
+        MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue);
+        return item ?? throw new InvalidOperationException($"Workspace view is missing after '{step}'");
     }
     private static int Count(string data, string key)
     {
