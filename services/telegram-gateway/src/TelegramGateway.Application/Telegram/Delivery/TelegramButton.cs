@@ -11,7 +11,7 @@ internal sealed record TelegramButton
         {
             throw new ArgumentException("Telegram button style is invalid", nameof(style));
         }
-        Style = style.Trim();
+        Style = style?.Trim() ?? string.Empty;
     }
     public string Text { get; }
     public string Data { get; }
