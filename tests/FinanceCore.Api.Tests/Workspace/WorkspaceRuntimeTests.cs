@@ -99,7 +99,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand>? home = await View(queue);
         Assert.NotNull(home);
         Assert.Equal("home", home!.Payload.Frame.State);
-        Assert.Contains("Account was cancelled", Notice(home.Payload.Frame.StateData), StringComparison.Ordinal);
+        Assert.Equal("Account creation was cancelled", Notice(home.Payload.Frame.StateData));
         Assert.Equal(0, await Number("select count(*) from finance.account"));
     }
     /// <summary>
