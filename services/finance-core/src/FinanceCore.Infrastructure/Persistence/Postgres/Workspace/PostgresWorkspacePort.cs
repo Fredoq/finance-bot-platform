@@ -12,6 +12,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 
 internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPort
 {
+    private const int RetryCount = 8;
     private const string HomeState = "home";
     private const string NameState = "account.name";
     private const string CurrencyState = "account.currency";
@@ -44,15 +45,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return;
         }
         (Guid userId, bool isNewUser) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
-        WorkspaceItem? item = await Read(link, lane, message.Payload.Identity.ConversationKey, token);
-        IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
-        WorkspaceData body = Home(list, string.Empty);
-        string note = Json(body);
-        var frame = new WorkspaceFrame(userId, message.Payload.Identity.ConversationKey, HomeState, note, message.Payload.Payload, message.Payload.Payload, when);
-        WorkspaceItem state = item is null
-            ? await Add(link, lane, frame, token)
-            : await Write(link, lane, new WorkspaceMark(item.Id, frame), token);
-        await Outbox(link, lane, message, state, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, item is null, when), token);
+        WorkspaceWrite state = await Start(link, lane, userId, message.Payload, when, token);
+        await Outbox(link, lane, message, state.State, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, state.IsNew, when), token);
         await Processed(link, lane, message, token);
         await lane.CommitAsync(token);
     }
@@ -70,32 +64,63 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return;
         }
         (Guid userId, bool isNewUser) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
-        WorkspaceItem? item = await Read(link, lane, message.Payload.Identity.ConversationKey, token);
-        IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
-        WorkspaceData body = item is null ? Home(list, string.Empty) : Data(item.Snapshot.Data);
-        string state = item?.Snapshot.State ?? HomeState;
-        WorkspaceMove move = Move(state, body, message.Payload);
-        if (move.Entry is not null)
-        {
-            bool freshAccount = await Account(link, lane, userId, move.Entry, when, token);
-            if (!freshAccount)
-            {
-                move = new WorkspaceMove(NameState, new WorkspaceData([], move.Body.Name, move.Body.Currency, move.Body.Amount, "Account name already exists", string.Empty, false), null);
-            }
-        }
-        if (string.Equals(move.Code, HomeState, StringComparison.Ordinal))
-        {
-            list = await Accounts(link, lane, userId, token);
-            move = new WorkspaceMove(HomeState, Home(list, move.Body.Notice), null);
-        }
-        string note = Json(move.Body);
-        var frame = new WorkspaceFrame(userId, message.Payload.Identity.ConversationKey, move.Code, note, string.Empty, message.Payload.Value, when);
-        WorkspaceItem next = item is null
-            ? await Add(link, lane, frame, token)
-            : await Write(link, lane, new WorkspaceMark(item.Id, frame), token);
-        await Outbox(link, lane, message, next, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, item is null, when), token);
+        WorkspaceWrite state = await Input(link, lane, userId, message.Payload, when, token);
+        await Outbox(link, lane, message, state.State, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, state.IsNew, when), token);
         await Processed(link, lane, message, token);
         await lane.CommitAsync(token);
+    }
+    private static async ValueTask<WorkspaceWrite> Start(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceRequestedCommand command, DateTimeOffset when, CancellationToken token)
+    {
+        for (int item = 0; item < RetryCount; item += 1)
+        {
+            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, token);
+            IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
+            WorkspaceData body = Home(list, string.Empty);
+            string note = Json(body);
+            var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, HomeState, note, command.Payload, command.Payload, when);
+            WorkspaceItem? next = current is null
+                ? await Add(link, lane, frame, token)
+                : await Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
+            if (next is not null)
+            {
+                return new WorkspaceWrite(next, current is null);
+            }
+        }
+        throw new InvalidOperationException($"Workspace save exceeded retry limit for conversation '{command.Identity.ConversationKey}'");
+    }
+    private static async ValueTask<WorkspaceWrite> Input(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceInputRequestedCommand command, DateTimeOffset when, CancellationToken token)
+    {
+        for (int item = 0; item < RetryCount; item += 1)
+        {
+            WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, token);
+            IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
+            WorkspaceData body = current is null ? Home(list, string.Empty) : Data(current.Snapshot.Data);
+            string state = current?.Snapshot.State ?? HomeState;
+            WorkspaceMove move = Move(state, body, command);
+            if (move.Entry is not null)
+            {
+                bool fresh = await Account(link, lane, userId, move.Entry, when, token);
+                if (!fresh)
+                {
+                    move = new WorkspaceMove(NameState, new WorkspaceData([], move.Body.Name, move.Body.Currency, move.Body.Amount, "Account name already exists", string.Empty, false), null);
+                }
+            }
+            if (string.Equals(move.Code, HomeState, StringComparison.Ordinal))
+            {
+                list = await Accounts(link, lane, userId, token);
+                move = new WorkspaceMove(HomeState, Home(list, move.Body.Notice), null);
+            }
+            string note = Json(move.Body);
+            var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, note, string.Empty, command.Value, when);
+            WorkspaceItem? next = current is null
+                ? await Add(link, lane, frame, token)
+                : await Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
+            if (next is not null)
+            {
+                return new WorkspaceWrite(next, current is null);
+            }
+        }
+        throw new InvalidOperationException($"Workspace input exceeded retry limit for conversation '{command.Identity.ConversationKey}'");
     }
     private static WorkspaceMove Move(string state, WorkspaceData body, WorkspaceInputRequestedCommand command)
     {
@@ -260,13 +285,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static async ValueTask<WorkspaceItem?> Read(NpgsqlConnection link, NpgsqlTransaction lane, string key, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("select id, state_code, state_data, revision from finance.workspace where conversation_key = @conversation_key", link, lane);
+        await using NpgsqlCommand note = new("select id, state_code, state_data, revision from finance.workspace where conversation_key = @conversation_key for update", link, lane);
         note.Parameters.AddWithValue("conversation_key", key);
         return await Item(note, false, token);
     }
-    private static async ValueTask<WorkspaceItem> Add(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceFrame frame, CancellationToken token)
+    private static async ValueTask<WorkspaceItem?> Add(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceFrame frame, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) returning id, state_code, state_data, revision", link, lane);
+        await using NpgsqlCommand note = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) on conflict (conversation_key) do nothing returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", Guid.CreateVersion7());
         note.Parameters.AddWithValue(UserId, frame.UserValue);
         note.Parameters.AddWithValue("conversation_key", frame.Room);
@@ -278,21 +303,20 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         note.Parameters.AddWithValue(CreatedUtc, frame.When);
         note.Parameters.AddWithValue("opened_utc", frame.When);
         note.Parameters.AddWithValue(UpdatedUtc, frame.When);
-        WorkspaceItem? item = await Item(note, true, token);
-        return item ?? throw new InvalidOperationException("Workspace insert failed");
+        return await Item(note, true, token);
     }
-    private static async ValueTask<WorkspaceItem> Write(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceMark mark, CancellationToken token)
+    private static async ValueTask<WorkspaceItem?> Write(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceMark mark, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, state_code = @state_code, state_data = @state_data, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where id = @id returning id, state_code, state_data, revision", link, lane);
+        await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, state_code = @state_code, state_data = @state_data, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where id = @id and revision = @revision returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", mark.IdValue);
+        note.Parameters.AddWithValue("revision", mark.Revision);
         note.Parameters.AddWithValue(UserId, mark.Frame.UserValue);
         note.Parameters.AddWithValue("state_code", mark.Frame.State);
         note.Parameters.AddWithValue("state_data", NpgsqlDbType.Jsonb, mark.Frame.Body);
         note.Parameters.AddWithValue("last_payload", mark.Frame.Last);
         note.Parameters.AddWithValue("opened_utc", mark.Frame.When);
         note.Parameters.AddWithValue(UpdatedUtc, mark.Frame.When);
-        WorkspaceItem? item = await Item(note, false, token);
-        return item ?? throw new InvalidOperationException("Workspace update failed");
+        return await Item(note, false, token);
     }
     private static async ValueTask<bool> Account(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, AccountDraft draft, DateTimeOffset when, CancellationToken token)
     {
@@ -412,13 +436,25 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private sealed record WorkspaceMark
     {
-        internal WorkspaceMark(Guid id, WorkspaceFrame frame)
+        internal WorkspaceMark(Guid id, long revision, WorkspaceFrame frame)
         {
             IdValue = id;
+            Revision = revision;
             Frame = frame ?? throw new ArgumentNullException(nameof(frame));
         }
         internal Guid IdValue { get; }
+        internal long Revision { get; }
         internal WorkspaceFrame Frame { get; }
+    }
+    private sealed record WorkspaceWrite
+    {
+        internal WorkspaceWrite(WorkspaceItem item, bool isNew)
+        {
+            State = item ?? throw new ArgumentNullException(nameof(item));
+            IsNew = isNew;
+        }
+        internal WorkspaceItem State { get; }
+        internal bool IsNew { get; }
     }
     private sealed record WorkspaceViewNote
     {
