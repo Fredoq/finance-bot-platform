@@ -17,7 +17,7 @@ internal sealed class OutboxViewPort : IViewPort
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(context);
-        var item = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, view.State.Code, view.State.Data, view.Actions, view.IsNewUser, view.IsNewWorkspace, view.OccurredUtc);
+        var item = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, new WorkspaceViewFrame(view.State.Code, view.State.Data, view.Actions), new WorkspaceViewFreshness(view.IsNewUser, view.IsNewWorkspace), view.OccurredUtc);
         var note = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), Contract, view.OccurredUtc, new MessageContext(context.CorrelationId, context.CausationId, context.IdempotencyKey), Source, item);
         return port.Save(note, RoutingKey, token);
     }

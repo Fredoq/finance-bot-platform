@@ -12,14 +12,18 @@ public sealed class WorkspaceActions : IWorkspaceActions
     /// <param name="state">The workspace state code.</param>
     /// <param name="custom">Indicates whether the state expects custom currency input.</param>
     /// <returns>The supported action codes.</returns>
-    public IReadOnlyList<string> Codes(string state, bool custom) => state switch
+    public IReadOnlyList<string> Codes(string state, bool custom)
     {
-        "home" => ["account.add"],
-        "account.name" => [Cancel],
-        "account.currency" when custom => [Cancel],
-        "account.currency" => ["account.currency.rub", "account.currency.usd", "account.currency.eur", "account.currency.other", Cancel],
-        "account.balance" => [Cancel],
-        "account.confirm" => ["account.create", Cancel],
-        _ => [Cancel]
-    };
+        ArgumentException.ThrowIfNullOrWhiteSpace(state);
+        return state switch
+        {
+            "home" => ["account.add"],
+            "account.name" => [Cancel],
+            "account.currency" when custom => [Cancel],
+            "account.currency" => ["account.currency.rub", "account.currency.usd", "account.currency.eur", "account.currency.other", Cancel],
+            "account.balance" => [Cancel],
+            "account.confirm" => ["account.create", Cancel],
+            _ => throw new InvalidOperationException($"WorkspaceActions.Codes does not support state '{state}' and cannot fall back to {Cancel}")
+        };
+    }
 }

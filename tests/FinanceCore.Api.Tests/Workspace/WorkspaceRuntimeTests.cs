@@ -28,12 +28,12 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(Envelope("actor-1", "room-1", "promo-42", "workspace-requested-1"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? view = await View(queue);
         Assert.NotNull(view);
-        Assert.True(view!.Payload.IsNewUser);
-        Assert.True(view.Payload.IsNewWorkspace);
-        Assert.Equal("home", view.Payload.State);
+        Assert.True(view!.Payload.Freshness.IsNewUser);
+        Assert.True(view.Payload.Freshness.IsNewWorkspace);
+        Assert.Equal("home", view.Payload.Frame.State);
         Assert.Equal("promo-42", await Scalar("select last_payload from finance.workspace where conversation_key = 'room-1'"));
-        Assert.Equal(0, Count(view.Payload.StateData, "accounts"));
-        Assert.Equal(["account.add"], view.Payload.Actions);
+        Assert.Equal(0, Count(view.Payload.Frame.StateData, "accounts"));
+        Assert.Equal(["account.add"], view.Payload.Frame.Actions);
         Assert.Equal(1, await Number("select count(*) from finance.user_account"));
         Assert.Equal(1, await Number("select count(*) from finance.workspace"));
         Assert.Equal(0, await Number("select count(*) from finance.account"));
@@ -56,25 +56,25 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(Input("actor-2", "room-2", "action", "account.add", "workspace-input-2"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? name = await View(queue);
         Assert.NotNull(name);
-        Assert.Equal("account.name", name!.Payload.State);
+        Assert.Equal("account.name", name!.Payload.Frame.State);
         await Publish(Input("actor-2", "room-2", "text", "Cash", "workspace-input-3"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? currency = await View(queue);
         Assert.NotNull(currency);
-        Assert.Equal("account.currency", currency!.Payload.State);
+        Assert.Equal("account.currency", currency!.Payload.Frame.State);
         await Publish(Input("actor-2", "room-2", "action", "account.currency.rub", "workspace-input-4"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? balance = await View(queue);
         Assert.NotNull(balance);
-        Assert.Equal("account.balance", balance!.Payload.State);
+        Assert.Equal("account.balance", balance!.Payload.Frame.State);
         await Publish(Input("actor-2", "room-2", "text", "1500,50", "workspace-input-5"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? confirm = await View(queue);
         Assert.NotNull(confirm);
-        Assert.Equal("account.confirm", confirm!.Payload.State);
-        Assert.Equal(1500.50m, Amount(confirm.Payload.StateData));
+        Assert.Equal("account.confirm", confirm!.Payload.Frame.State);
+        Assert.Equal(1500.50m, Amount(confirm.Payload.Frame.StateData));
         await Publish(Input("actor-2", "room-2", "action", "account.create", "workspace-input-6"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? home = await View(queue);
         Assert.NotNull(home);
-        Assert.Equal("home", home!.Payload.State);
-        Assert.Equal("Cash", Name(home.Payload.StateData));
+        Assert.Equal("home", home!.Payload.Frame.State);
+        Assert.Equal("Cash", Name(home.Payload.Frame.StateData));
         Assert.Equal(1, await Number("select count(*) from finance.account"));
         Assert.Equal("RUB", await Scalar("select currency_code from finance.account where user_id = (select id from finance.user_account where actor_key = 'actor-2')"));
     }
@@ -98,8 +98,8 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(Input("actor-3", "room-3", "action", "account.cancel", "workspace-input-8"));
         MessageEnvelope<WorkspaceViewRequestedCommand>? home = await View(queue);
         Assert.NotNull(home);
-        Assert.Equal("home", home!.Payload.State);
-        Assert.Contains("Account was cancelled", home.Payload.StateData.Replace("creation ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Equal("home", home!.Payload.Frame.State);
+        Assert.Contains("Account was cancelled", home.Payload.Frame.StateData.Replace("creation ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Equal(0, await Number("select count(*) from finance.account"));
     }
     /// <summary>
@@ -143,8 +143,8 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         _ = await Create(queue, "actor-5", "room-5", "Cash", "RUB", "10", "11");
         MessageEnvelope<WorkspaceViewRequestedCommand>? view = await Create(queue, "actor-5", "room-5", "Cash", "USD", "20", "21");
         Assert.NotNull(view);
-        Assert.Equal("account.name", view!.Payload.State);
-        Assert.Contains("Account name already exists", view.Payload.StateData, StringComparison.Ordinal);
+        Assert.Equal("account.name", view!.Payload.Frame.State);
+        Assert.Contains("Account name already exists", view.Payload.Frame.StateData, StringComparison.Ordinal);
         Assert.Equal(1, await Number("select count(*) from finance.account"));
     }
     /// <summary>

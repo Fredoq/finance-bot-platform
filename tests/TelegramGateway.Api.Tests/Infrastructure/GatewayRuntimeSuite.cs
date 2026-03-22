@@ -185,15 +185,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             DateTimeOffset.UtcNow,
             new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
             "finance-core",
-            new WorkspaceViewRequestedCommand(
-                new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)),
-                new WorkspaceProfile("Alex", "en"),
-                state,
-                data,
-                actions ?? ["account.add"],
-                false,
-                false,
-                DateTimeOffset.UtcNow));
+            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, data, actions ?? ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
     }
     private static TimeoutException Timeout(string name) => new($"Timed out waiting for message on queue '{name}'");
 }

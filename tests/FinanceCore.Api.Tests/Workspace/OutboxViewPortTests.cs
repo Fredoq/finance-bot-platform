@@ -28,9 +28,9 @@ public sealed class OutboxViewPortTests
         Assert.Equal("workspace.view.requested", note.Contract);
         Assert.Equal("workspace.view.requested", port.RoutingKey);
         Assert.Equal("finance-core", note.Source);
-        Assert.Equal("home", note.Payload.State);
-        Assert.Equal("{\"accounts\":[]}", note.Payload.StateData);
-        Assert.True(note.Payload.IsNewWorkspace);
+        Assert.Equal("home", note.Payload.Frame.State);
+        Assert.Equal("{\"accounts\":[]}", note.Payload.Frame.StateData);
+        Assert.True(note.Payload.Freshness.IsNewWorkspace);
     }
     private sealed class OutboxStub : IOutboxPort
     {

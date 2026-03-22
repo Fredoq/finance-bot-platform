@@ -15,8 +15,8 @@ internal static class WorkspaceScreen
     private static string Text(WorkspaceViewRequestedCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        WorkspaceData data = Data(command.StateData);
-        return command.State switch
+        WorkspaceData data = Data(command.Frame.StateData);
+        return command.Frame.State switch
         {
             "account.name" => Name(data),
             "account.currency" => Currency(data),
@@ -35,7 +35,7 @@ internal static class WorkspaceScreen
             {
                 text.AppendLine(Escape(data.Notice));
             }
-            text.Append(command.IsNewUser ? "Add your first account to start tracking your balance" : "Add an account to start tracking your balance");
+            text.Append(command.Freshness.IsNewUser ? "Add your first account to start tracking your balance" : "Add an account to start tracking your balance");
             return text.ToString().TrimEnd();
         }
         text.AppendLine("<b>Your accounts</b>");
@@ -102,7 +102,7 @@ internal static class WorkspaceScreen
     private static IReadOnlyList<TelegramRow> Keys(WorkspaceViewRequestedCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        TelegramButton[] item = [.. command.Actions.Select(Button)];
+        TelegramButton[] item = [.. command.Frame.Actions.Select(Button)];
         return [.. item.Chunk(2).Select(item => new TelegramRow([.. item]))];
     }
     private static TelegramButton Button(string code) => code switch

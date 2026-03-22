@@ -323,7 +323,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         var state = new WorkspaceState(item.Snapshot.State, item.Snapshot.Data, item.Snapshot.Revision);
         var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, Data(state.Data).Custom), note.IsNewUser, note.IsNewWorkspace, note.When);
-        var body = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, view.State.Code, view.State.Data, view.Actions, view.IsNewUser, view.IsNewWorkspace, view.OccurredUtc);
+        var body = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, new WorkspaceViewFrame(view.State.Code, view.State.Data, view.Actions), new WorkspaceViewFreshness(view.IsNewUser, view.IsNewWorkspace), view.OccurredUtc);
         var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), ViewContract, note.When, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), ViewSource, body);
         string raw = JsonSerializer.Serialize(envelope, json);
         await using NpgsqlCommand itemNote = new("insert into finance.outbox_message(message_id, contract, routing_key, source, correlation_id, causation_id, idempotency_key, payload, occurred_utc, created_utc, published_utc, attempt, error) values (@message_id, @contract, @routing_key, @source, @correlation_id, @causation_id, @idempotency_key, @payload, @occurred_utc, @created_utc, @published_utc, @attempt, @error) on conflict do nothing", link, lane);

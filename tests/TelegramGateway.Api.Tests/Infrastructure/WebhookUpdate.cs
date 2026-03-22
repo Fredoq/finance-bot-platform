@@ -10,9 +10,9 @@ internal static class WebhookUpdate
     }
     internal static object Body(string text, long date = 1_736_000_000)
     {
-        int length = text.IndexOf(" ", StringComparison.Ordinal);
+        int length = text.IndexOf(' ');
         length = length >= 0 ? length : text.Length;
-        object[]? entities = text.StartsWith("/", StringComparison.Ordinal)
+        object[]? entities = text.StartsWith('/')
             ? [new
             {
                 type = "bot_command",
