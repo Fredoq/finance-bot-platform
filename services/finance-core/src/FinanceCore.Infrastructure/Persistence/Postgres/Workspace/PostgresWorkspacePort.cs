@@ -109,35 +109,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, userId, token);
             IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
-            WorkspaceData body = current is null ? Home(list, string.Empty) : Data(current.Snapshot.Data);
+            WorkspaceData body = current is null ? Home(list, string.Empty) : Sync(Data(current.Snapshot.Data), list);
             string state = current?.Snapshot.State ?? HomeState;
-            WorkspaceMove move = Move(state, body, command);
-            if (!string.IsNullOrWhiteSpace(move.CategoryValue))
-            {
-                move = await CategoryPick(link, lane, userId, move, when, token);
-            }
-            if (move.AccountValue is not null)
-            {
-                bool fresh = await Account(link, lane, userId, move.AccountValue, when, token);
-                if (!fresh)
-                {
-                    move = new WorkspaceMove(NameState, new WorkspaceData(body.Accounts, new FinancialData(move.AccountValue.Title, move.AccountValue.Unit, move.AccountValue.Total), new ExpenseData(), new ChoicesData(), new StatusData("Account name already exists", string.Empty), false), null, string.Empty, null);
-                }
-            }
-            if (move.Code == ExpenseCategoryState && move.Body.Choices.Categories.Count == 0)
-            {
-                IReadOnlyList<OptionData> categories = await Categories(link, lane, userId, token);
-                move = new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(move.Body.Accounts, move.Body.Financial, move.Body.Expense, new ChoicesData([], categories), move.Body.Status, false), null, string.Empty, null);
-            }
-            if (move.ExpenseValue is not null)
-            {
-                await Expense(link, lane, userId, move.ExpenseValue, when, token);
-                move = new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), "Expense was recorded"), null, string.Empty, null);
-            }
-            if (move.Code == HomeState)
-            {
-                move = new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice), null, string.Empty, null);
-            }
+            WorkspaceMove move = await Flow(link, lane, userId, state, body, command, when, token);
             string note = Json(move.Body);
             var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, note, string.Empty, command.Value, when);
             WorkspaceItem? next = current is null ? await Add(link, lane, frame, token) : await Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
@@ -147,6 +121,15 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             }
         }
         throw new InvalidOperationException($"Workspace input exceeded retry limit for conversation '{command.Identity.ConversationKey}'");
+    }
+    private static async ValueTask<WorkspaceMove> Flow(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string state, WorkspaceData body, WorkspaceInputRequestedCommand command, DateTimeOffset when, CancellationToken token)
+    {
+        WorkspaceMove move = Move(state, body, command);
+        move = await Pick(link, lane, userId, move, when, token);
+        move = await Store(link, lane, userId, move, when, token);
+        move = await Fill(link, lane, userId, move, token);
+        move = await Track(link, lane, userId, move, when, token);
+        return await Finish(link, lane, userId, move, token);
     }
     private static WorkspaceMove Move(string state, WorkspaceData body, WorkspaceInputRequestedCommand command)
     {
@@ -325,7 +308,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static WorkspaceMove ExpenseCreate(WorkspaceData body)
     {
-        if (string.IsNullOrWhiteSpace(body.Expense.Account.Id))
+        string accountId = Resolve(body);
+        if (string.IsNullOrWhiteSpace(accountId))
         {
             return ExpenseStart(body);
         }
@@ -337,10 +321,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty), false), null, string.Empty, null);
         }
-        return new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, new ChoicesData(), new StatusData(), false), null, string.Empty, new ExpenseNote(body.Expense.Account.Id, body.Expense.Category.Id, body.Expense.Amount.Value));
+        ExpenseData item = new(new PickData(accountId, body.Expense.Account.Name, body.Expense.Account.Note), body.Expense.Category, body.Expense.Amount);
+        return new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), item, new ChoicesData(), new StatusData(), false), null, string.Empty, new ExpenseNote(accountId, body.Expense.Category.Id, body.Expense.Amount.Value));
     }
     private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
     private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice) => new(list, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
+    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Choices, body.Status, body.Custom);
     private static WorkspaceData Data(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -369,6 +355,44 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
     private static OptionData? Option(IReadOnlyList<OptionData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
     private static IReadOnlyList<OptionData> AccountChoices(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1, item.Id, item.Name, item.Currency))];
+    private static string Resolve(WorkspaceData body)
+    {
+        if (!string.IsNullOrWhiteSpace(body.Expense.Account.Id))
+        {
+            return body.Expense.Account.Id;
+        }
+        AccountData? item = body.Accounts.SingleOrDefault(candidate => candidate.Name == body.Expense.Account.Name && candidate.Currency == body.Expense.Account.Note);
+        return item?.Id ?? string.Empty;
+    }
+    private static async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.CategoryValue) ? move : await CategoryPick(link, lane, userId, move, when, token);
+    private static async ValueTask<WorkspaceMove> Store(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
+    {
+        if (move.AccountValue is null)
+        {
+            return move;
+        }
+        bool fresh = await Account(link, lane, userId, move.AccountValue, when, token);
+        return fresh ? move : new WorkspaceMove(NameState, new WorkspaceData(move.Body.Accounts, new FinancialData(move.AccountValue.Title, move.AccountValue.Unit, move.AccountValue.Total), new ExpenseData(), new ChoicesData(), new StatusData("Account name already exists", string.Empty), false), null, string.Empty, null);
+    }
+    private static async ValueTask<WorkspaceMove> Fill(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
+    {
+        if (move.Code != ExpenseCategoryState || move.Body.Choices.Categories.Count > 0)
+        {
+            return move;
+        }
+        IReadOnlyList<OptionData> list = await Categories(link, lane, userId, token);
+        return new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(move.Body.Accounts, move.Body.Financial, move.Body.Expense, new ChoicesData([], list), move.Body.Status, false), null, string.Empty, null);
+    }
+    private static async ValueTask<WorkspaceMove> Track(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
+    {
+        if (move.ExpenseValue is null)
+        {
+            return move;
+        }
+        await Expense(link, lane, userId, move.ExpenseValue, when, token);
+        return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), "Expense was recorded"), null, string.Empty, null);
+    }
+    private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token) => move.Code == HomeState ? new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice), null, string.Empty, null) : move;
     private static async ValueTask<WorkspaceMove> CategoryPick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
         PickData item = await Category(link, lane, userId, move.CategoryValue, when, token);
@@ -480,23 +504,23 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static async ValueTask<IReadOnlyList<OptionData>> Categories(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {
         List<OptionData> list = [];
-        await using (NpgsqlCommand note = new("select id::text, name from finance.category where kind = @kind and scope = 'system' order by case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end, name", link, lane))
+        await using (NpgsqlCommand note = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and scope = 'system' order by case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end, name", link, lane))
         {
             note.Parameters.AddWithValue("kind", ExpenseKind);
             await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
             while (await row.ReadAsync(token))
             {
-                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), string.Empty));
+                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), row.GetString(2)));
             }
         }
-        await using (NpgsqlCommand note = new("select c.id::text, c.name from finance.category c join (select category_id, max(occurred_utc) as occurred_utc from finance.transaction_entry where user_id = @user_id and kind = @kind group by category_id) t on t.category_id = c.id where c.user_id = @user_id and c.kind = @kind and c.scope = 'user' order by t.occurred_utc desc, c.name limit 6", link, lane))
+        await using (NpgsqlCommand note = new("select c.id::text, c.name, '' from finance.category c join (select category_id, max(occurred_utc) as occurred_utc from finance.transaction_entry where user_id = @user_id and kind = @kind group by category_id) t on t.category_id = c.id where c.user_id = @user_id and c.kind = @kind and c.scope = 'user' order by t.occurred_utc desc, c.name limit 6", link, lane))
         {
             note.Parameters.AddWithValue(UserId, userId);
             note.Parameters.AddWithValue("kind", ExpenseKind);
             await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
             while (await row.ReadAsync(token))
             {
-                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), string.Empty));
+                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), row.GetString(2)));
             }
         }
         return list;
@@ -504,7 +528,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, DateTimeOffset when, CancellationToken token)
     {
         string text = value.Trim();
-        await using (NpgsqlCommand find = new("select id::text, name from finance.category where kind = @kind and lower(name) = lower(@name) and (scope = 'system' or user_id = @user_id) order by case scope when 'system' then 0 else 1 end limit 1", link, lane))
+        await using (NpgsqlCommand find = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and lower(name) = lower(@name) and (scope = 'system' or user_id = @user_id) order by case scope when 'system' then 0 else 1 end limit 1", link, lane))
         {
             find.Parameters.AddWithValue("kind", ExpenseKind);
             find.Parameters.AddWithValue("name", text);
@@ -512,10 +536,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             await using NpgsqlDataReader row = await find.ExecuteReaderAsync(token);
             if (await row.ReadAsync(token))
             {
-                return new PickData(row.GetString(0), row.GetString(1), string.Empty);
+                return new PickData(row.GetString(0), row.GetString(1), row.GetString(2));
             }
         }
-        await using (NpgsqlCommand add = new("insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc) values (@id, @kind, @scope, @user_id, @code, @name, @created_utc, @updated_utc) on conflict do nothing returning id::text, name", link, lane))
+        await using (NpgsqlCommand add = new("insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc) values (@id, @kind, @scope, @user_id, @code, @name, @created_utc, @updated_utc) on conflict do nothing returning id::text, name, coalesce(code, '')", link, lane))
         {
             add.Parameters.AddWithValue("id", Guid.CreateVersion7());
             add.Parameters.AddWithValue("kind", ExpenseKind);
@@ -528,17 +552,17 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
             if (await row.ReadAsync(token))
             {
-                return new PickData(row.GetString(0), row.GetString(1), string.Empty);
+                return new PickData(row.GetString(0), row.GetString(1), row.GetString(2));
             }
         }
-        await using NpgsqlCommand note = new("select id::text, name from finance.category where kind = @kind and lower(name) = lower(@name) and user_id = @user_id limit 1", link, lane);
+        await using NpgsqlCommand note = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and lower(name) = lower(@name) and user_id = @user_id limit 1", link, lane);
         note.Parameters.AddWithValue("kind", ExpenseKind);
         note.Parameters.AddWithValue("name", text);
         note.Parameters.AddWithValue(UserId, userId);
         await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
         if (await data.ReadAsync(token))
         {
-            return new PickData(data.GetString(0), data.GetString(1), string.Empty);
+            return new PickData(data.GetString(0), data.GetString(1), data.GetString(2));
         }
         throw new InvalidOperationException("Category upsert failed");
     }

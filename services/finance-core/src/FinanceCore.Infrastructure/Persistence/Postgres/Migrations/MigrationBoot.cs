@@ -11,6 +11,71 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 internal sealed class MigrationBoot : IHostedService
 {
     private const long key = 5_832_147_011;
+    private const string SchemaSql = "create schema if not exists finance";
+    private const string RepairSql = """
+                                      create table if not exists finance.category
+                                      (
+                                          id uuid primary key,
+                                          kind text not null,
+                                          scope text not null,
+                                          user_id uuid null references finance.user_account(id) on delete cascade,
+                                          code text null,
+                                          name text not null,
+                                          created_utc timestamptz not null,
+                                          updated_utc timestamptz not null
+                                      );
+                                      
+                                      create table if not exists finance.transaction_entry
+                                      (
+                                          id uuid primary key,
+                                          user_id uuid not null references finance.user_account(id) on delete cascade,
+                                          account_id uuid not null references finance.account(id) on delete cascade,
+                                          category_id uuid not null references finance.category(id) on delete cascade,
+                                          kind text not null,
+                                          amount numeric(19, 4) not null,
+                                          occurred_utc timestamptz not null,
+                                          created_utc timestamptz not null,
+                                          updated_utc timestamptz not null
+                                      );
+                                      
+                                      drop index if exists finance.ux_category_system_code;
+                                      drop index if exists finance.ux_category_user_name;
+                                      create index if not exists idx_category_user on finance.category(user_id) where user_id is not null;
+                                      create unique index if not exists ux_category_system_code on finance.category(kind, code) where user_id is null;
+                                      create unique index if not exists ux_category_user_name on finance.category(user_id, kind, lower(name)) where user_id is not null;
+                                      create index if not exists idx_transaction_entry_user_occurred on finance.transaction_entry(user_id, occurred_utc desc);
+                                      
+                                      do $$
+                                      begin
+                                          if exists (select 1 from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry') then
+                                              alter table finance.transaction_entry drop constraint if exists transaction_entry_category_id_fkey;
+                                              alter table finance.transaction_entry add constraint transaction_entry_category_id_fkey foreign key (category_id) references finance.category(id) on delete cascade;
+                                          end if;
+                                      end;
+                                      $$;
+                                      
+                                      with seed(id, code, name) as
+                                      (
+                                          values
+                                              ('11111111-1111-1111-1111-111111111111', 'food', 'Food'),
+                                              ('22222222-2222-2222-2222-222222222222', 'transport', 'Transport'),
+                                              ('33333333-3333-3333-3333-333333333333', 'home', 'Home'),
+                                              ('44444444-4444-4444-4444-444444444444', 'health', 'Health'),
+                                              ('55555555-5555-5555-5555-555555555555', 'shopping', 'Shopping'),
+                                              ('66666666-6666-6666-6666-666666666666', 'fun', 'Fun'),
+                                              ('77777777-7777-7777-7777-777777777777', 'bills', 'Bills'),
+                                              ('88888888-8888-8888-8888-888888888888', 'travel', 'Travel')
+                                      ),
+                                      meta(kind, scope, created_utc) as
+                                      (
+                                          values ('expense', 'system', '2026-01-01 00:00:00+00'::timestamptz)
+                                      )
+                                      insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc)
+                                      select seed.id::uuid, meta.kind, meta.scope, null, seed.code, seed.name, meta.created_utc, meta.created_utc
+                                      from seed
+                                      cross join meta
+                                      on conflict do nothing;
+                                      """;
     private readonly IOptions<PostgresOptions> option;
     private readonly ILoggerFactory factory;
     private readonly ILogger<MigrationBoot> log;
@@ -27,8 +92,7 @@ internal sealed class MigrationBoot : IHostedService
         string text = option.Value.ConnectionString;
         await using NpgsqlConnection link = new(text);
         await link.OpenAsync(token);
-        await using NpgsqlCommand note = new("create schema if not exists finance", link);
-        _ = await note.ExecuteNonQueryAsync(token);
+        await Create(link, token);
         await Lock(link, token);
         UpgradeEngine item = DeployChanges.To.PostgresqlDatabase(text).JournalToPostgresqlTable("finance", "schema_journal").WithScriptsEmbeddedInAssembly(typeof(MigrationBoot).Assembly, Name).LogTo(new DbUpLog(factory.CreateLogger<DbUpLog>())).Build();
         try
@@ -38,13 +102,24 @@ internal sealed class MigrationBoot : IHostedService
             {
                 throw new InvalidOperationException("Postgres migration failed", data.Error);
             }
+            await Repair(link, token);
         }
         finally
         {
             await Unlock(link, CancellationToken.None);
         }
     }
+    private static async ValueTask Create(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new(SchemaSql, link);
+        _ = await note.ExecuteNonQueryAsync(token);
+    }
     private static bool Name(string text) => text.Contains(".Persistence.Postgres.Migrations.Scripts.", StringComparison.Ordinal) && text.EndsWith(".sql", StringComparison.Ordinal);
+    private static async ValueTask Repair(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new(RepairSql, link);
+        _ = await note.ExecuteNonQueryAsync(token);
+    }
     private static async ValueTask Lock(NpgsqlConnection link, CancellationToken token)
     {
         using var note = new CancellationTokenSource(TimeSpan.FromSeconds(30));

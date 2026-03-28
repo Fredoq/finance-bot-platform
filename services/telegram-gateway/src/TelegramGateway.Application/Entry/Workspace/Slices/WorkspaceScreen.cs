@@ -11,6 +11,17 @@ internal static class WorkspaceScreen
 {
     private const string AccountSlot = "transaction.expense.account.";
     private const string CategorySlot = "transaction.expense.category.";
+    private static readonly IReadOnlyDictionary<string, string> icon = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["food"] = "🍽",
+        ["transport"] = "🚌",
+        ["home"] = "🏠",
+        ["health"] = "❤️",
+        ["shopping"] = "🛍",
+        ["fun"] = "🎉",
+        ["bills"] = "🧾",
+        ["travel"] = "✈"
+    };
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private static readonly NumberFormatInfo money = Note();
     public static TelegramText Message(long chatId, WorkspaceViewRequestedCommand command)
@@ -151,7 +162,7 @@ internal static class WorkspaceScreen
         }
         text.AppendLine("<b>Confirm expense</b>");
         text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Category: <b>{Escape(Category(data.Expense.Category.Name))}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(data.Expense.Category.Name, data.Expense.Category.Note))}</b>");
         text.Append($"Amount: <b>{Amount(data.Expense.Amount, data.Expense.Account.Note)}</b>");
         return text.ToString().TrimEnd();
     }
@@ -191,7 +202,7 @@ internal static class WorkspaceScreen
     private static TelegramButton CategoryButton(string code, WorkspaceData data)
     {
         OptionData item = Option(data.Choices.Categories, code, CategorySlot);
-        return new TelegramButton(Category(item.Name), code);
+        return new TelegramButton(Category(item.Name, item.Note), code);
     }
     private static WorkspaceData Data(string state, string value)
     {
@@ -302,18 +313,7 @@ internal static class WorkspaceScreen
         "EUR" => "€",
         _ => string.Empty
     };
-    private static string Category(string value) => value switch
-    {
-        "Food" => "🍽 Food",
-        "Transport" => "🚌 Transport",
-        "Home" => "🏠 Home",
-        "Health" => "❤️ Health",
-        "Shopping" => "🛍 Shopping",
-        "Fun" => "🎉 Fun",
-        "Bills" => "🧾 Bills",
-        "Travel" => "✈ Travel",
-        _ => value
-    };
+    private static string Category(string name, string code) => icon.TryGetValue(code, out string? value) ? $"{value} {name}" : name;
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
     private static string Money(decimal value) => value.ToString("#,0.##", money);
     private static NumberFormatInfo Note()

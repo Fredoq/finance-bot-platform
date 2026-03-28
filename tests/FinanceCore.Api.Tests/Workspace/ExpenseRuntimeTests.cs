@@ -162,6 +162,34 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(1, await Number("select count(*) from finance.category where scope = 'user' and user_id = (select id from finance.user_account where actor_key = 'actor-expense-category')"));
         Assert.Equal(2, await Number("select count(*) from finance.transaction_entry"));
     }
+    /// <summary>
+    /// Verifies that a legacy home snapshot without account ids still records an expense.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Creates an expense from a legacy home snapshot without account ids")]
+    public async Task Creates_expense_from_legacy_home()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-expense-legacy"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-expense-legacy", "room-expense-legacy", "Cash", "USD", "100", "expense-legacy-account");
+        await Execute("update finance.workspace set state_data = '{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":100}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}'::jsonb where conversation_key = 'room-expense-legacy'");
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.add", "expense-legacy-1"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> amount = await Take(queue, "expense-legacy-1");
+        Assert.Equal("transaction.expense.amount", amount.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "text", "11", "expense-legacy-2"));
+        _ = await Take(queue, "expense-legacy-2");
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.category.1", "expense-legacy-3"));
+        _ = await Take(queue, "expense-legacy-3");
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.create", "expense-legacy-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-legacy-4");
+        Assert.Equal("home", home.Payload.Frame.State);
+        Assert.Equal(1, await Number("select count(*) from finance.transaction_entry"));
+        Assert.Equal(89m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
+    }
     private async Task Record(string queue, string actor, string room, string amount, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.expense.add", $"{id}-1"));
