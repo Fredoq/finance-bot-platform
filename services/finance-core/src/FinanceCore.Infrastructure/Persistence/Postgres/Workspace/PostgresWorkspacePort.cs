@@ -197,7 +197,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         Other => new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, string.Empty, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), true), null, string.Empty, null),
         _ => new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), body.Custom), null, string.Empty, null)
     };
-    private static WorkspaceMove AccountConfirm(WorkspaceData body, string code) => code == CreateAccountCode ? Create(body) : new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, body.Financial, new ExpenseData(), new ChoicesData(), new StatusData("Confirm the account or cancel", string.Empty), false), null, string.Empty, null);
+    private static WorkspaceMove AccountConfirm(WorkspaceData body, string code) => code == CreateAccountCode ? AccountCreate(body) : new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, body.Financial, new ExpenseData(), new ChoicesData(), new StatusData("Confirm the account or cancel", string.Empty), false), null, string.Empty, null);
     private static WorkspaceMove ExpenseStart(WorkspaceData body)
     {
         if (body.Accounts.Count == 0)
@@ -227,7 +227,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             ? new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Choose one category or send a new name", string.Empty), false), null, string.Empty, null)
             : new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(item.Id, item.Name, item.Note), body.Expense.Amount), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
     }
-    private static WorkspaceMove ExpenseConfirm(WorkspaceData body, string code) => code == CreateExpenseCode ? Create(body) : new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, new ChoicesData(), new StatusData("Confirm the expense or cancel", string.Empty), false), null, string.Empty, null);
+    private static WorkspaceMove ExpenseConfirm(WorkspaceData body, string code) => code == CreateExpenseCode ? ExpenseCreate(body) : new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, new ChoicesData(), new StatusData("Confirm the expense or cancel", string.Empty), false), null, string.Empty, null);
     private static WorkspaceMove Draft(WorkspaceData body, string value)
     {
         string text = value.Trim();
@@ -281,14 +281,6 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         return string.IsNullOrWhiteSpace(text)
             ? new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Category name is required", string.Empty), false), null, string.Empty, null)
             : new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData(), false), null, text, null);
-    }
-    private static WorkspaceMove Create(WorkspaceData body)
-    {
-        if (!string.IsNullOrWhiteSpace(body.Financial.Name) || !string.IsNullOrWhiteSpace(body.Financial.Currency) || body.Financial.Amount.HasValue)
-        {
-            return AccountCreate(body);
-        }
-        return ExpenseCreate(body);
     }
     private static WorkspaceMove AccountCreate(WorkspaceData body)
     {

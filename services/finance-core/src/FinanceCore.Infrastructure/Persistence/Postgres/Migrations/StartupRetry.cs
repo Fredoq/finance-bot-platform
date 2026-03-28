@@ -26,7 +26,7 @@ internal static class StartupRetry
             {
                 if (log.IsEnabled(LogLevel.Warning))
                 {
-                    log.LogWarning(note, error, item, Count);
+                    log.LogWarning(note, "{Message} Attempt {Attempt} of {MaxAttempts}", error, item, Count);
                 }
                 await Task.Delay(span, token);
                 span = TimeSpan.FromSeconds(Math.Min(span.TotalSeconds * 2, 15));
