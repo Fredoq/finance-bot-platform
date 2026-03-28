@@ -11,7 +11,7 @@ internal static class WorkspaceScreen
 {
     private const string AccountSlot = "transaction.expense.account.";
     private const string CategorySlot = "transaction.expense.category.";
-    private static readonly IReadOnlyDictionary<string, string> icon = new Dictionary<string, string>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> icon = new(StringComparer.Ordinal)
     {
         ["food"] = "🍽",
         ["transport"] = "🚌",

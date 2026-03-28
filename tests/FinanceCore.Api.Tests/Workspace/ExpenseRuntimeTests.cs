@@ -116,6 +116,31 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(0, await Number("select count(*) from finance.transaction_entry"));
     }
     /// <summary>
+    /// Verifies that invalid and non-positive expense amounts return different validation errors.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Returns distinct validation errors for invalid and non-positive expense amounts")]
+    public async Task Rejects_expense_amount()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-expense-amount"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-expense-amount", "room-expense-amount", "Cash", "USD", "100", "expense-amount-account");
+        await Publish(Input("actor-expense-amount", "room-expense-amount", "action", "transaction.expense.add", "expense-amount-1"));
+        _ = await Take(queue, "expense-amount-1");
+        await Publish(Input("actor-expense-amount", "room-expense-amount", "text", "abc", "expense-amount-2"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> invalid = await Take(queue, "expense-amount-2");
+        Assert.Equal("transaction.expense.amount", invalid.Payload.Frame.State);
+        Assert.Equal("Enter a valid numeric amount", Error(invalid.Payload.Frame.StateData));
+        await Publish(Input("actor-expense-amount", "room-expense-amount", "text", "0", "expense-amount-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "expense-amount-3");
+        Assert.Equal("transaction.expense.amount", zero.Payload.Frame.State);
+        Assert.Equal("Amount must be greater than zero", Error(zero.Payload.Frame.StateData));
+    }
+    /// <summary>
     /// Verifies that one idempotency key applies the expense exactly once.
     /// </summary>
     /// <returns>A task that completes when the assertions finish.</returns>
@@ -236,5 +261,10 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(data);
         return item.RootElement.GetProperty("status").GetProperty("notice").GetString() ?? string.Empty;
+    }
+    private static string Error(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("status").GetProperty("error").GetString() ?? string.Empty;
     }
 }

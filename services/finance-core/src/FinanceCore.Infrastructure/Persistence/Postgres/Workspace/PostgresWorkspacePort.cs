@@ -107,24 +107,27 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         for (int item = 0; item < RetryCount; item += 1)
         {
+            string mark = $"workspace_input_{item}";
+            await Save(link, lane, mark, token);
             WorkspaceItem? current = await Read(link, lane, command.Identity.ConversationKey, userId, token);
             IReadOnlyList<AccountData> list = await Accounts(link, lane, userId, token);
             WorkspaceData body = current is null ? Home(list, string.Empty) : Sync(Data(current.Snapshot.Data), list);
             string state = current?.Snapshot.State ?? HomeState;
-            WorkspaceMove move = await Flow(link, lane, userId, state, body, command, when, token);
+            WorkspaceMove move = await Flow(link, lane, userId, Move(state, body, command), when, token);
             string note = Json(move.Body);
             var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, note, string.Empty, command.Value, when);
             WorkspaceItem? next = current is null ? await Add(link, lane, frame, token) : await Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
             if (next is not null)
             {
+                await Release(link, lane, mark, token);
                 return new WorkspaceWrite(next, current is null);
             }
+            await Revert(link, lane, mark, token);
         }
         throw new InvalidOperationException($"Workspace input exceeded retry limit for conversation '{command.Identity.ConversationKey}'");
     }
-    private static async ValueTask<WorkspaceMove> Flow(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string state, WorkspaceData body, WorkspaceInputRequestedCommand command, DateTimeOffset when, CancellationToken token)
+    private static async ValueTask<WorkspaceMove> Flow(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
-        WorkspaceMove move = Move(state, body, command);
         move = await Pick(link, lane, userId, move, when, token);
         move = await Store(link, lane, userId, move, when, token);
         move = await Fill(link, lane, userId, move, token);
@@ -269,7 +272,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         string text = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("\u00A0", string.Empty, StringComparison.Ordinal).Replace(',', '.');
         bool ok = decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal amount);
-        if (!ok || amount <= 0m)
+        if (!ok)
+        {
+            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty), false), null, string.Empty, null);
+        }
+        if (amount <= 0m)
         {
             return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty), false), null, string.Empty, null);
         }
@@ -317,7 +324,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         return new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), item, new ChoicesData(), new StatusData(), false), null, string.Empty, new ExpenseNote(accountId, body.Expense.Category.Id, body.Expense.Amount.Value));
     }
     private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
-    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice) => new(list, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
+    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(error, notice), false);
     private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Choices, body.Status, body.Custom);
     private static WorkspaceData Data(string value)
     {
@@ -384,12 +391,27 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         await Expense(link, lane, userId, move.ExpenseValue, when, token);
         return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), "Expense was recorded"), null, string.Empty, null);
     }
-    private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token) => move.Code == HomeState ? new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice), null, string.Empty, null) : move;
+    private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token) => move.Code == HomeState ? new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice, move.Body.Status.Error), null, string.Empty, null) : move;
     private static async ValueTask<WorkspaceMove> CategoryPick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
         PickData item = await Category(link, lane, userId, move.CategoryValue, when, token);
         WorkspaceData body = new(move.Body.Accounts, new FinancialData(), new ExpenseData(move.Body.Expense.Account, item, move.Body.Expense.Amount), new ChoicesData(), new StatusData(), false);
         return new WorkspaceMove(ExpenseConfirmState, body, null, string.Empty, null);
+    }
+    private static async ValueTask Save(NpgsqlConnection link, NpgsqlTransaction lane, string mark, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new($"savepoint {mark}", link, lane);
+        _ = await note.ExecuteNonQueryAsync(token);
+    }
+    private static async ValueTask Revert(NpgsqlConnection link, NpgsqlTransaction lane, string mark, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new($"rollback to savepoint {mark}", link, lane);
+        _ = await note.ExecuteNonQueryAsync(token);
+    }
+    private static async ValueTask Release(NpgsqlConnection link, NpgsqlTransaction lane, string mark, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new($"release savepoint {mark}", link, lane);
+        _ = await note.ExecuteNonQueryAsync(token);
     }
     private static async ValueTask<bool> Inbox<TMessage>(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<TMessage> message, string payload, CancellationToken token) where TMessage : class
     {
