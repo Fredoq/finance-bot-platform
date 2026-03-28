@@ -361,7 +361,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return body.Expense.Account.Id;
         }
-        AccountData? item = body.Accounts.SingleOrDefault(candidate => candidate.Name == body.Expense.Account.Name && candidate.Currency == body.Expense.Account.Note);
+        AccountData? item = body.Accounts.FirstOrDefault(candidate => candidate.Name == body.Expense.Account.Name && candidate.Currency == body.Expense.Account.Note);
         return item?.Id ?? string.Empty;
     }
     private static async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.CategoryValue) ? move : await CategoryPick(link, lane, userId, move, when, token);
@@ -504,24 +504,41 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static async ValueTask<IReadOnlyList<OptionData>> Categories(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {
         List<OptionData> list = [];
-        await using (NpgsqlCommand note = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and scope = 'system' order by case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end, name", link, lane))
+        await using NpgsqlCommand note = new("""
+                                             with recent(category_id, occurred_utc) as
+                                             (
+                                                 select category_id, max(occurred_utc) as occurred_utc
+                                                 from finance.transaction_entry
+                                                 where user_id = @user_id and kind = @kind
+                                                 group by category_id
+                                             ),
+                                             custom(id, name, code, area, order_id, occurred_utc) as
+                                             (
+                                                 select c.id::text, c.name, '' as code, 1 as area, 999 as order_id, recent.occurred_utc
+                                                 from finance.category c
+                                                 join recent on recent.category_id = c.id
+                                                 where c.user_id = @user_id and c.kind = @kind and c.scope = 'user'
+                                                 order by recent.occurred_utc desc, c.name
+                                                 limit 6
+                                             )
+                                             select id, name, code
+                                             from
+                                             (
+                                                 select id::text, name, coalesce(code, '') as code, 0 as area, case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end as order_id, null::timestamptz as occurred_utc
+                                                 from finance.category
+                                                 where kind = @kind and scope = 'system'
+                                                 union all
+                                                 select id, name, code, area, order_id, occurred_utc
+                                                 from custom
+                                             ) item
+                                             order by area, order_id, occurred_utc desc nulls last, name
+                                             """, link, lane);
+        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue("kind", ExpenseKind);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        while (await row.ReadAsync(token))
         {
-            note.Parameters.AddWithValue("kind", ExpenseKind);
-            await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-            while (await row.ReadAsync(token))
-            {
-                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), row.GetString(2)));
-            }
-        }
-        await using (NpgsqlCommand note = new("select c.id::text, c.name, '' from finance.category c join (select category_id, max(occurred_utc) as occurred_utc from finance.transaction_entry where user_id = @user_id and kind = @kind group by category_id) t on t.category_id = c.id where c.user_id = @user_id and c.kind = @kind and c.scope = 'user' order by t.occurred_utc desc, c.name limit 6", link, lane))
-        {
-            note.Parameters.AddWithValue(UserId, userId);
-            note.Parameters.AddWithValue("kind", ExpenseKind);
-            await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-            while (await row.ReadAsync(token))
-            {
-                list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), row.GetString(2)));
-            }
+            list.Add(new OptionData(list.Count + 1, row.GetString(0), row.GetString(1), row.GetString(2)));
         }
         return list;
     }

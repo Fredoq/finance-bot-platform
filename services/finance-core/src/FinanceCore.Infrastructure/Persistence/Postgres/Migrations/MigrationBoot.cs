@@ -102,7 +102,10 @@ internal sealed class MigrationBoot : IHostedService
             {
                 throw new InvalidOperationException("Postgres migration failed", data.Error);
             }
-            await Repair(link, token);
+            if (await NeedsRepair(link, token))
+            {
+                await Repair(link, token);
+            }
         }
         finally
         {
@@ -115,6 +118,46 @@ internal sealed class MigrationBoot : IHostedService
         _ = await note.ExecuteNonQueryAsync(token);
     }
     private static bool Name(string text) => text.Contains(".Persistence.Postgres.Migrations.Scripts.", StringComparison.Ordinal) && text.EndsWith(".sql", StringComparison.Ordinal);
+    private static async ValueTask<bool> NeedsRepair(NpgsqlConnection link, CancellationToken token)
+    {
+        if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token))
+        {
+            return true;
+        }
+        if (!await Cascade(link, token))
+        {
+            return true;
+        }
+        return await Seed(link, token) < 8;
+    }
+    private static async ValueTask<bool> Exists(NpgsqlConnection link, string name, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("select exists (select 1 from information_schema.tables where table_schema = 'finance' and table_name = @table_name)", link);
+        note.Parameters.AddWithValue("table_name", name);
+        object? data = await note.ExecuteScalarAsync(token);
+        return data is bool state && state;
+    }
+    private static async ValueTask<bool> Cascade(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("""
+                                            select exists
+                                            (
+                                                select 1
+                                                from information_schema.referential_constraints
+                                                where constraint_schema = 'finance'
+                                                  and constraint_name = 'transaction_entry_category_id_fkey'
+                                                  and delete_rule = 'CASCADE'
+                                            )
+                                            """, link);
+        object? data = await note.ExecuteScalarAsync(token);
+        return data is bool state && state;
+    }
+    private static async ValueTask<long> Seed(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("select count(*) from finance.category where scope = 'system' and kind = 'expense'", link);
+        object? data = await note.ExecuteScalarAsync(token);
+        return data is long item ? item : 0L;
+    }
     private static async ValueTask Repair(NpgsqlConnection link, CancellationToken token)
     {
         await using NpgsqlCommand note = new(RepairSql, link);
