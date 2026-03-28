@@ -69,7 +69,7 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
     /// Clears the finance core tables.
     /// </summary>
     /// <returns>A task that completes when the reset finishes.</returns>
-    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message, finance.account, finance.workspace, finance.user_account restart identity cascade");
+    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message restart identity; delete from finance.user_account");
     /// <summary>
     /// Executes a SQL command.
     /// </summary>

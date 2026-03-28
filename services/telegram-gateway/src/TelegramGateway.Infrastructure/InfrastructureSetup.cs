@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TelegramGateway.Application.Keys;
-using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Messaging;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Infrastructure.Configuration;
 using TelegramGateway.Infrastructure.Messaging;
 using TelegramGateway.Infrastructure.Observability;

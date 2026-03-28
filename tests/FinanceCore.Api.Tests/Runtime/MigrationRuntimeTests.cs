@@ -20,6 +20,8 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         await Ready(client);
         Assert.Equal(1, await Number("select count(*) from finance.schema_journal"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'user_account'"));
+        Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
+        Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
     }
     /// <summary>
     /// Verifies that a repeated startup does not duplicate the baseline migration journal row.

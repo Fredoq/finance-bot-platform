@@ -1,6 +1,6 @@
+using FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 
 namespace FinanceCore.Infrastructure.Messaging.RabbitMq;
 

@@ -2,8 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using TelegramGateway.Application.Entry.Workspace.Slices;
 using TelegramGateway.Application.Entry.Workspace.Slices.Start;
 using TelegramGateway.Application.Keys;
-using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Messaging;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Telegram.Flow;
 
 namespace TelegramGateway.Application;
