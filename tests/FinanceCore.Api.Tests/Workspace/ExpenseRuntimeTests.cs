@@ -76,9 +76,10 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         await Create(queue, "actor-expense-multi", "room-expense-multi", "Card", "USD", "50", "expense-multi-b");
         await Publish(Input("actor-expense-multi", "room-expense-multi", "action", "transaction.expense.add", "expense-multi-1"));
         MessageEnvelope<WorkspaceViewRequestedCommand> account = await Take(queue, "expense-multi-1");
+        string card = Account(account.Payload.Frame.StateData, "Card");
         Assert.Equal("transaction.expense.account", account.Payload.Frame.State);
-        Assert.Contains("transaction.expense.account.2", account.Payload.Frame.Actions, StringComparer.Ordinal);
-        await Publish(Input("actor-expense-multi", "room-expense-multi", "action", "transaction.expense.account.2", "expense-multi-2"));
+        Assert.Contains(card, account.Payload.Frame.Actions, StringComparer.Ordinal);
+        await Publish(Input("actor-expense-multi", "room-expense-multi", "action", card, "expense-multi-2"));
         MessageEnvelope<WorkspaceViewRequestedCommand> amount = await Take(queue, "expense-multi-2");
         Assert.Equal("transaction.expense.amount", amount.Payload.Frame.State);
         await Publish(Input("actor-expense-multi", "room-expense-multi", "text", "7.5", "expense-multi-3"));
@@ -119,7 +120,7 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
     /// Verifies that invalid and non-positive expense amounts return different validation errors.
     /// </summary>
     /// <returns>A task that completes when the assertions finish.</returns>
-    [Fact(DisplayName = "Returns distinct validation errors for invalid and non-positive expense amounts")]
+    [Fact(DisplayName = "Returns distinct validation errors for invalid, precise, and non-positive expense amounts")]
     public async Task Rejects_expense_amount()
     {
         string queue = $"view-{Guid.CreateVersion7():N}";
@@ -135,8 +136,12 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> invalid = await Take(queue, "expense-amount-2");
         Assert.Equal("transaction.expense.amount", invalid.Payload.Frame.State);
         Assert.Equal("Enter a valid numeric amount", Error(invalid.Payload.Frame.StateData));
-        await Publish(Input("actor-expense-amount", "room-expense-amount", "text", "0", "expense-amount-3"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "expense-amount-3");
+        await Publish(Input("actor-expense-amount", "room-expense-amount", "text", "1.23456", "expense-amount-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> precise = await Take(queue, "expense-amount-3");
+        Assert.Equal("transaction.expense.amount", precise.Payload.Frame.State);
+        Assert.Equal("Enter up to 4 decimal places", Error(precise.Payload.Frame.StateData));
+        await Publish(Input("actor-expense-amount", "room-expense-amount", "text", "0", "expense-amount-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "expense-amount-4");
         Assert.Equal("transaction.expense.amount", zero.Payload.Frame.State);
         Assert.Equal("Amount must be greater than zero", Error(zero.Payload.Frame.StateData));
     }
@@ -266,5 +271,17 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(data);
         return item.RootElement.GetProperty("status").GetProperty("error").GetString() ?? string.Empty;
+    }
+    private static string Account(string data, string name)
+    {
+        using var item = JsonDocument.Parse(data);
+        foreach (JsonElement node in item.RootElement.GetProperty("choices").GetProperty("accounts").EnumerateArray())
+        {
+            if (string.Equals(node.GetProperty("name").GetString(), name, StringComparison.Ordinal))
+            {
+                return $"transaction.expense.account.{node.GetProperty("slot").GetInt32()}";
+            }
+        }
+        throw new InvalidOperationException($"Workspace state is missing account choice '{name}'");
     }
 }

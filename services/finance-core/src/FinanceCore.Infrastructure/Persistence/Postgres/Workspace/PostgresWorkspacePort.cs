@@ -276,6 +276,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty), false), null, string.Empty, null);
         }
+        if (Scale(amount) > 4)
+        {
+            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Enter up to 4 decimal places", string.Empty), false), null, string.Empty, null);
+        }
         if (amount <= 0m)
         {
             return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty), false), null, string.Empty, null);
@@ -350,6 +354,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         return int.TryParse(value[prefix.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out int slot) && slot > 0 ? slot : 0;
     }
+    private static int Scale(decimal value) => (decimal.GetBits(value)[3] >> 16) & 0xFF;
     private static bool AccountState(string state) => state is NameState or CurrencyState or BalanceState or ConfirmState;
     private static bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
     private static OptionData? Option(IReadOnlyList<OptionData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
