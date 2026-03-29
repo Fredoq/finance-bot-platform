@@ -26,7 +26,7 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         await Bind(queue, "workspace.view.requested");
         MessageEnvelope<WorkspaceViewRequestedCommand> home = await Create(queue, "actor-expense-home", "room-expense-home", "Cash", "USD", "100", "expense-home");
         Assert.Equal("home", home.Payload.Frame.State);
-        Assert.Equal(["transaction.expense.add", "account.add"], home.Payload.Frame.Actions);
+        Assert.Equal(["transaction.expense.add", "transaction.income.add", "account.add"], home.Payload.Frame.Actions);
     }
     /// <summary>
     /// Verifies that a single-account expense skips account selection and updates the balance.

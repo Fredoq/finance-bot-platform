@@ -13,6 +13,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPort
 {
     private const int RetryCount = 8;
+    private const NumberStyles AmountStyles = NumberStyles.Number;
     private const string HomeState = "home";
     private const string NameState = "account.name";
     private const string CurrencyState = "account.currency";
@@ -22,19 +23,29 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private const string ExpenseAmountState = "transaction.expense.amount";
     private const string ExpenseCategoryState = "transaction.expense.category";
     private const string ExpenseConfirmState = "transaction.expense.confirm";
+    private const string IncomeAccountState = "transaction.income.account";
+    private const string IncomeAmountState = "transaction.income.amount";
+    private const string IncomeCategoryState = "transaction.income.category";
+    private const string IncomeConfirmState = "transaction.income.confirm";
     private const string AddAccount = "account.add";
     private const string AddExpense = "transaction.expense.add";
+    private const string AddIncome = "transaction.income.add";
     private const string AccountCancel = "account.cancel";
     private const string ExpenseCancel = "transaction.expense.cancel";
+    private const string IncomeCancel = "transaction.income.cancel";
     private const string CreateAccountCode = "account.create";
     private const string CreateExpenseCode = "transaction.expense.create";
+    private const string CreateIncomeCode = "transaction.income.create";
     private const string Rub = "account.currency.rub";
     private const string Usd = "account.currency.usd";
     private const string Eur = "account.currency.eur";
     private const string Other = "account.currency.other";
-    private const string AccountSlot = "transaction.expense.account.";
-    private const string CategorySlot = "transaction.expense.category.";
+    private const string ExpenseAccountSlot = "transaction.expense.account.";
+    private const string ExpenseCategorySlot = "transaction.expense.category.";
+    private const string IncomeAccountSlot = "transaction.income.account.";
+    private const string IncomeCategorySlot = "transaction.income.category.";
     private const string ExpenseKind = "expense";
+    private const string IncomeKind = "income";
     private const string ViewContract = "workspace.view.requested";
     private const string ViewSource = "finance-core";
     private const string CreatedUtc = "created_utc";
@@ -141,7 +152,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             "action" => Act(state, body, command.Value),
             "text" => Text(state, body, command.Value),
-            _ => new WorkspaceMove(state, new WorkspaceData(body.Accounts, body.Financial, body.Expense, body.Choices, new StatusData("Input kind is not supported", body.Status.Notice), body.Custom), null, string.Empty, null)
+            _ => new WorkspaceMove(state, Model(body, status: new StatusData("Input kind is not supported", body.Status.Notice)), null, string.Empty, null)
         };
     }
     private static WorkspaceMove Act(string state, WorkspaceData body, string value)
@@ -155,15 +166,22 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return new WorkspaceMove(HomeState, Reset(body, "Expense creation was cancelled"), null, string.Empty, null);
         }
+        if (code == IncomeCancel && IncomeState(state))
+        {
+            return new WorkspaceMove(HomeState, Reset(body, "Income creation was cancelled"), null, string.Empty, null);
+        }
         return state switch
         {
             HomeState => HomeAction(body, code),
             CurrencyState => AccountCurrency(body, code),
             ConfirmState => AccountConfirm(body, code),
-            ExpenseAccountState => ExpenseAccount(body, code),
-            ExpenseCategoryState => CategoryAction(body, code),
-            ExpenseConfirmState => ExpenseConfirm(body, code),
-            _ => new WorkspaceMove(state, new WorkspaceData(body.Accounts, body.Financial, body.Expense, body.Choices, new StatusData("This action is not available", string.Empty), body.Custom), null, string.Empty, null)
+            ExpenseAccountState => TransactionAccount(body, code, false),
+            ExpenseCategoryState => CategoryAction(body, code, false),
+            ExpenseConfirmState => TransactionConfirm(body, code, false),
+            IncomeAccountState => TransactionAccount(body, code, true),
+            IncomeCategoryState => CategoryAction(body, code, true),
+            IncomeConfirmState => TransactionConfirm(body, code, true),
+            _ => new WorkspaceMove(state, Model(body, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
         };
     }
     private static WorkspaceMove Text(string state, WorkspaceData body, string value) => state switch
@@ -173,22 +191,30 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         NameState => Draft(body, value),
         CurrencyState => Currency(body, value),
         BalanceState => Amount(body, value),
-        ConfirmState => new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, body.Financial, new ExpenseData(), new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty), false), null, string.Empty, null),
-        ExpenseAccountState => new WorkspaceMove(ExpenseAccountState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Use the buttons to choose one account or cancel", string.Empty), false), null, string.Empty, null),
-        ExpenseAmountState => ExpenseAmount(body, value),
-        ExpenseCategoryState => CategoryText(body, value),
-        ExpenseConfirmState => new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty), false), null, string.Empty, null),
+        ConfirmState => new WorkspaceMove(ConfirmState, AccountBody(body, body.Financial, new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        ExpenseAccountState => new WorkspaceMove(ExpenseAccountState, Model(body, financial: new FinancialData(), status: new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
+        ExpenseAmountState => TransactionAmount(body, value, false),
+        ExpenseCategoryState => CategoryText(body, value, false),
+        ExpenseConfirmState => new WorkspaceMove(ExpenseConfirmState, TransactionBody(body, AccountPick(body, false), CategoryValue(body, false), TransactionTotal(body, false), false, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        IncomeAccountState => new WorkspaceMove(IncomeAccountState, Model(body, financial: new FinancialData(), status: new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
+        IncomeAmountState => TransactionAmount(body, value, true),
+        IncomeCategoryState => CategoryText(body, value, true),
+        IncomeConfirmState => new WorkspaceMove(IncomeConfirmState, TransactionBody(body, AccountPick(body, true), CategoryValue(body, true), TransactionTotal(body, true), true, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
         _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null)
     };
     private static WorkspaceMove HomeAction(WorkspaceData body, string code)
     {
         if (code == AddAccount)
         {
-            return new WorkspaceMove(NameState, new WorkspaceData(body.Accounts, new FinancialData(string.Empty, string.Empty, null), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            return new WorkspaceMove(NameState, AccountBody(body, new FinancialData(string.Empty, string.Empty, null)), null, string.Empty, null);
         }
         if (code == AddExpense)
         {
-            return ExpenseStart(body);
+            return TransactionStart(body, false);
+        }
+        if (code == AddIncome)
+        {
+            return TransactionStart(body, true);
         }
         return new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null);
     }
@@ -197,56 +223,64 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         Rub => Currency(body, "RUB"),
         Usd => Currency(body, "USD"),
         Eur => Currency(body, "EUR"),
-        Other => new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, string.Empty, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), true), null, string.Empty, null),
-        _ => new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), body.Custom), null, string.Empty, null)
+        Other => new WorkspaceMove(CurrencyState, AccountBody(body, new FinancialData(body.Financial.Name, string.Empty, body.Financial.Amount), custom: true), null, string.Empty, null),
+        _ => new WorkspaceMove(CurrencyState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), body.Custom), null, string.Empty, null)
     };
-    private static WorkspaceMove AccountConfirm(WorkspaceData body, string code) => code == CreateAccountCode ? AccountCreate(body) : new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, body.Financial, new ExpenseData(), new ChoicesData(), new StatusData("Confirm the account or cancel", string.Empty), false), null, string.Empty, null);
-    private static WorkspaceMove ExpenseStart(WorkspaceData body)
+    private static WorkspaceMove AccountConfirm(WorkspaceData body, string code) => code == CreateAccountCode ? AccountCreate(body) : new WorkspaceMove(ConfirmState, AccountBody(body, body.Financial, new StatusData("Confirm the account or cancel", string.Empty)), null, string.Empty, null);
+    private static WorkspaceMove TransactionStart(WorkspaceData body, bool income)
     {
         if (body.Accounts.Count == 0)
         {
-            return new WorkspaceMove(HomeState, Home(body.Accounts, "Add an account to record an expense"), null, string.Empty, null);
+            return new WorkspaceMove(HomeState, Home(body.Accounts, income ? "Add an account to record an income" : "Add an account to record an expense"), null, string.Empty, null);
         }
         if (body.Accounts.Count == 1)
         {
             AccountData item = body.Accounts[0];
-            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(new PickData(item.Id, item.Name, item.Currency), new PickData(), null), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, new PickData(item.Id, item.Name, item.Currency), new PickData(), null, income), null, string.Empty, null);
         }
-        return new WorkspaceMove(ExpenseAccountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(), new ChoicesData(AccountChoices(body.Accounts), []), new StatusData(), false), null, string.Empty, null);
+        return new WorkspaceMove(TransactionAccountCode(income), TransactionBody(body, new PickData(), new PickData(), null, income, new ChoicesData(AccountChoices(body.Accounts), [])), null, string.Empty, null);
     }
-    private static WorkspaceMove ExpenseAccount(WorkspaceData body, string code)
+    private static WorkspaceMove TransactionAccount(WorkspaceData body, string code, bool income)
     {
-        int slot = Slot(code, AccountSlot);
+        int slot = Slot(code, TransactionAccountSlot(income));
         OptionData? item = Option(body.Choices.Accounts, slot);
         return item is null
-            ? new WorkspaceMove(ExpenseAccountState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Choose one account", string.Empty), false), null, string.Empty, null)
-            : new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(new PickData(item.Id, item.Name, item.Note), new PickData(), null), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            ? new WorkspaceMove(TransactionAccountCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Choose one account", string.Empty)), null, string.Empty, null)
+            : new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income), null, string.Empty, null);
     }
-    private static WorkspaceMove CategoryAction(WorkspaceData body, string code)
+    private static WorkspaceMove CategoryAction(WorkspaceData body, string code, bool income)
     {
-        int slot = Slot(code, CategorySlot);
+        int slot = Slot(code, TransactionCategorySlot(income));
         OptionData? item = Option(body.Choices.Categories, slot);
         return item is null
-            ? new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Choose one category or send a new name", string.Empty), false), null, string.Empty, null)
-            : new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(item.Id, item.Name, item.Note), body.Expense.Amount), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null)
+            : new WorkspaceMove(TransactionConfirmCode(income), TransactionBody(body, AccountPick(body, income), new PickData(item.Id, item.Name, item.Note), TransactionTotal(body, income), income), null, string.Empty, null);
     }
-    private static WorkspaceMove ExpenseConfirm(WorkspaceData body, string code) => code == CreateExpenseCode ? ExpenseCreate(body) : new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, new ChoicesData(), new StatusData("Confirm the expense or cancel", string.Empty), false), null, string.Empty, null);
+    private static WorkspaceMove TransactionConfirm(WorkspaceData body, string code, bool income)
+    {
+        if (code == TransactionCreateCode(income))
+        {
+            return TransactionCreate(body, income);
+        }
+        string text = income ? "Confirm the income or cancel" : "Confirm the expense or cancel";
+        return new WorkspaceMove(TransactionConfirmCode(income), TransactionBody(body, AccountPick(body, income), CategoryValue(body, income), TransactionTotal(body, income), income, new ChoicesData(), new StatusData(text, string.Empty)), null, string.Empty, null);
+    }
     private static WorkspaceMove Draft(WorkspaceData body, string value)
     {
         string text = value.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new WorkspaceMove(NameState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Account name is required", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(NameState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Account name is required", string.Empty)), null, string.Empty, null);
         }
         if (body.Financial.Amount.HasValue && !string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, new FinancialData(text, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            return new WorkspaceMove(ConfirmState, AccountBody(body, new FinancialData(text, body.Financial.Currency, body.Financial.Amount)), null, string.Empty, null);
         }
         if (!string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(BalanceState, new WorkspaceData(body.Accounts, new FinancialData(text, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            return new WorkspaceMove(BalanceState, AccountBody(body, new FinancialData(text, body.Financial.Currency, body.Financial.Amount)), null, string.Empty, null);
         }
-        return new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(text, string.Empty, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+        return new WorkspaceMove(CurrencyState, AccountBody(body, new FinancialData(text, string.Empty, body.Financial.Amount)), null, string.Empty, null);
     }
     private static WorkspaceMove Currency(WorkspaceData body, string value)
     {
@@ -254,82 +288,83 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         bool valid = text.Length == 3 && text.All(char.IsLetter);
         if (!valid)
         {
-            return new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
+            return new WorkspaceMove(CurrencyState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
         }
         return body.Financial.Amount.HasValue
-            ? new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, text, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null)
-            : new WorkspaceMove(BalanceState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, text, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+            ? new WorkspaceMove(ConfirmState, AccountBody(body, new FinancialData(body.Financial.Name, text, body.Financial.Amount)), null, string.Empty, null)
+            : new WorkspaceMove(BalanceState, AccountBody(body, new FinancialData(body.Financial.Name, text, body.Financial.Amount)), null, string.Empty, null);
     }
     private static WorkspaceMove Amount(WorkspaceData body, string value)
     {
-        string text = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("\u00A0", string.Empty, StringComparison.Ordinal).Replace(',', '.');
-        bool ok = decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal amount);
+        bool ok = TryAmount(value, out decimal amount);
         return ok
-            ? new WorkspaceMove(ConfirmState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, amount), new ExpenseData(), new ChoicesData(), new StatusData(), false), null, string.Empty, null)
-            : new WorkspaceMove(BalanceState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Balance must be a number", string.Empty), false), null, string.Empty, null);
+            ? new WorkspaceMove(ConfirmState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, amount)), null, string.Empty, null)
+            : new WorkspaceMove(BalanceState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Balance must be a number", string.Empty)), null, string.Empty, null);
     }
-    private static WorkspaceMove ExpenseAmount(WorkspaceData body, string value)
+    private static WorkspaceMove TransactionAmount(WorkspaceData body, string value, bool income)
     {
-        string text = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("\u00A0", string.Empty, StringComparison.Ordinal).Replace(',', '.');
-        bool ok = decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal amount);
+        bool ok = TryAmount(value, out decimal amount);
         if (!ok)
         {
-            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), TransactionTotal(body, income), income, new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty)), null, string.Empty, null);
         }
         if (Scale(amount) > 4)
         {
-            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Enter up to 4 decimal places", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), TransactionTotal(body, income), income, new ChoicesData(), new StatusData("Enter up to 4 decimal places", string.Empty)), null, string.Empty, null);
         }
         if (amount <= 0m)
         {
-            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), TransactionTotal(body, income), income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)), null, string.Empty, null);
         }
-        return new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), amount), new ChoicesData(), new StatusData(), false), null, string.Empty, null);
+        return new WorkspaceMove(TransactionCategoryCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), amount, income), null, string.Empty, null);
     }
-    private static WorkspaceMove CategoryText(WorkspaceData body, string value)
+    private static WorkspaceMove CategoryText(WorkspaceData body, string value, bool income)
     {
         string text = value.Trim();
         return string.IsNullOrWhiteSpace(text)
-            ? new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData("Category name is required", string.Empty), false), null, string.Empty, null)
-            : new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), body.Expense, body.Choices, new StatusData(), false), null, text, null);
+            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Category name is required", string.Empty)), null, string.Empty, null)
+            : new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData()), null, text, null);
     }
     private static WorkspaceMove AccountCreate(WorkspaceData body)
     {
         if (string.IsNullOrWhiteSpace(body.Financial.Name))
         {
-            return new WorkspaceMove(NameState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Account name is required", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(NameState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Account name is required", string.Empty)), null, string.Empty, null);
         }
         if (string.IsNullOrWhiteSpace(body.Financial.Currency))
         {
-            return new WorkspaceMove(CurrencyState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
+            return new WorkspaceMove(CurrencyState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
         }
         if (!body.Financial.Amount.HasValue)
         {
-            return new WorkspaceMove(BalanceState, new WorkspaceData(body.Accounts, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new ExpenseData(), new ChoicesData(), new StatusData("Balance must be a number", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(BalanceState, AccountBody(body, new FinancialData(body.Financial.Name, body.Financial.Currency, body.Financial.Amount), new StatusData("Balance must be a number", string.Empty)), null, string.Empty, null);
         }
         return new WorkspaceMove(HomeState, Reset(body, "Account was created"), new AccountDraft(body.Financial.Name, body.Financial.Currency, body.Financial.Amount.Value), string.Empty, null);
     }
-    private static WorkspaceMove ExpenseCreate(WorkspaceData body)
+    private static WorkspaceMove TransactionCreate(WorkspaceData body, bool income)
     {
-        string accountId = Resolve(body);
+        string accountId = Resolve(body, income);
         if (string.IsNullOrWhiteSpace(accountId))
         {
-            return ExpenseStart(body);
+            return TransactionStart(body, income);
         }
-        if (!body.Expense.Amount.HasValue || body.Expense.Amount.Value <= 0m)
+        decimal? total = TransactionTotal(body, income);
+        if (!total.HasValue || total.Value <= 0m)
         {
-            return new WorkspaceMove(ExpenseAmountState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), total, income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)), null, string.Empty, null);
         }
-        if (string.IsNullOrWhiteSpace(body.Expense.Category.Id))
+        PickData category = CategoryValue(body, income);
+        if (string.IsNullOrWhiteSpace(category.Id))
         {
-            return new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(body.Accounts, new FinancialData(), new ExpenseData(body.Expense.Account, new PickData(), body.Expense.Amount), new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty), false), null, string.Empty, null);
+            return new WorkspaceMove(TransactionCategoryCode(income), TransactionBody(body, AccountPick(body, income), new PickData(), total, income, new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
         }
-        ExpenseData item = new(new PickData(accountId, body.Expense.Account.Name, body.Expense.Account.Note), body.Expense.Category, body.Expense.Amount);
-        return new WorkspaceMove(ExpenseConfirmState, new WorkspaceData(body.Accounts, new FinancialData(), item, new ChoicesData(), new StatusData(), false), null, string.Empty, new ExpenseNote(accountId, body.Expense.Category.Id, body.Expense.Amount.Value));
+        PickData account = AccountPick(body, income);
+        WorkspaceData item = TransactionBody(body, new PickData(accountId, account.Name, account.Note), category, total, income);
+        return new WorkspaceMove(TransactionConfirmCode(income), item, null, string.Empty, new TransactionNote(accountId, category.Id, total.Value, Kind(income)));
     }
-    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
-    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new ChoicesData(), new StatusData(error, notice), false);
-    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Choices, body.Status, body.Custom);
+    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
+    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new IncomeData(), new ChoicesData(), new StatusData(error, notice), false);
+    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Income, body.Choices, body.Status, body.Custom);
     private static WorkspaceData Data(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -337,7 +372,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new WorkspaceData();
         }
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
+        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
     }
     private static string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
     private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Custom);
@@ -354,21 +389,71 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         return int.TryParse(value[prefix.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out int slot) && slot > 0 ? slot : 0;
     }
+    private static bool TryAmount(string value, out decimal amount)
+    {
+        string text = value.Trim();
+        if (Decimal(text, ',', out amount) && Candidate(text, ','))
+        {
+            return true;
+        }
+        if (Decimal(text, '.', out amount) && Candidate(text, '.'))
+        {
+            return true;
+        }
+        bool current = decimal.TryParse(text, AmountStyles, CultureInfo.CurrentCulture, out decimal local);
+        bool invariant = decimal.TryParse(text, AmountStyles, CultureInfo.InvariantCulture, out decimal global);
+        if (string.IsNullOrWhiteSpace(text) || text.Contains('.') && text.Contains(',') || Delimiter(text) && current && invariant && local != global)
+        {
+            amount = 0m;
+            return false;
+        }
+        if (current)
+        {
+            amount = local;
+            return true;
+        }
+        amount = global;
+        return invariant;
+    }
     private static int Scale(decimal value) => (decimal.GetBits(value)[3] >> 16) & 0xFF;
+    private static bool Candidate(string value, char sign)
+    {
+        int slot = value.LastIndexOf(sign);
+        return slot > 0 && slot < value.Length - 1 && Numeric(value[..slot], true) && Numeric(value[(slot + 1)..], false) && value[(slot + 1)..].Length <= 4 && !Grouped(value, sign);
+    }
+    private static bool Grouped(string value, char sign)
+    {
+        string text = value[0] is '+' or '-' ? value[1..] : value;
+        string[] list = text.Split(sign);
+        return list.Length > 1 && list[0].Length is > 0 and <= 3 && list[^1].Length == 3 && list.All(Numeric) && list.Skip(1).All(item => item.Length == 3);
+    }
+    private static bool Numeric(string value) => value.Length > 0 && value.All(char.IsDigit);
+    private static bool Numeric(string value, bool signed) => signed && value[0] is '+' or '-' ? Numeric(value[1..]) : Numeric(value);
+    private static bool Decimal(string value, char sign, out decimal amount)
+    {
+        var item = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
+        item.NumberDecimalSeparator = sign.ToString();
+        item.NumberGroupSeparator = sign == ',' ? "." : ",";
+        return decimal.TryParse(value, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, item, out amount);
+    }
+    private static bool Delimiter(string value) => value.Contains('.') || value.Contains(',') || value.Contains(' ') || value.Contains('\u00A0');
     private static bool AccountState(string state) => state is NameState or CurrencyState or BalanceState or ConfirmState;
     private static bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
+    private static bool IncomeState(string state) => state is IncomeAccountState or IncomeAmountState or IncomeCategoryState or IncomeConfirmState;
+    private static bool TransactionCategoryState(string state) => state is ExpenseCategoryState or IncomeCategoryState;
     private static OptionData? Option(IReadOnlyList<OptionData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
     private static IReadOnlyList<OptionData> AccountChoices(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1, item.Id, item.Name, item.Currency))];
-    private static string Resolve(WorkspaceData body)
+    private static string Resolve(WorkspaceData body, bool income)
     {
-        if (!string.IsNullOrWhiteSpace(body.Expense.Account.Id))
+        PickData account = AccountPick(body, income);
+        if (!string.IsNullOrWhiteSpace(account.Id))
         {
-            return body.Expense.Account.Id;
+            return account.Id;
         }
-        AccountData? item = body.Accounts.FirstOrDefault(candidate => candidate.Name == body.Expense.Account.Name && candidate.Currency == body.Expense.Account.Note);
+        AccountData? item = body.Accounts.FirstOrDefault(candidate => candidate.Name == account.Name && candidate.Currency == account.Note);
         return item?.Id ?? string.Empty;
     }
-    private static async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.CategoryValue) ? move : await CategoryPick(link, lane, userId, move, when, token);
+    private static async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.CategoryEntry) ? move : await CategoryPick(link, lane, userId, move, when, token);
     private static async ValueTask<WorkspaceMove> Store(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
         if (move.AccountValue is null)
@@ -376,33 +461,61 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return move;
         }
         bool fresh = await Account(link, lane, userId, move.AccountValue, when, token);
-        return fresh ? move : new WorkspaceMove(NameState, new WorkspaceData(move.Body.Accounts, new FinancialData(move.AccountValue.Title, move.AccountValue.Unit, move.AccountValue.Total), new ExpenseData(), new ChoicesData(), new StatusData("Account name already exists", string.Empty), false), null, string.Empty, null);
+        return fresh ? move : new WorkspaceMove(NameState, AccountBody(move.Body, new FinancialData(move.AccountValue.Title, move.AccountValue.Unit, move.AccountValue.Total), new StatusData("Account name already exists", string.Empty)), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Fill(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
     {
-        if (move.Code != ExpenseCategoryState || move.Body.Choices.Categories.Count > 0)
+        if (!TransactionCategoryState(move.Code) || move.Body.Choices.Categories.Count > 0)
         {
             return move;
         }
-        IReadOnlyList<OptionData> list = await Categories(link, lane, userId, token);
-        return new WorkspaceMove(ExpenseCategoryState, new WorkspaceData(move.Body.Accounts, move.Body.Financial, move.Body.Expense, new ChoicesData([], list), move.Body.Status, false), null, string.Empty, null);
+        IReadOnlyList<OptionData> list = await Categories(link, lane, userId, Kind(move.Code), token);
+        return new WorkspaceMove(move.Code, Model(move.Body, choices: new ChoicesData([], list)), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Track(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
-        if (move.ExpenseValue is null)
+        if (move.RecordValue is null)
         {
             return move;
         }
-        await Expense(link, lane, userId, move.ExpenseValue, when, token);
-        return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), "Expense was recorded"), null, string.Empty, null);
+        await Transaction(link, lane, userId, move.RecordValue, when, token);
+        return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.RecordValue.TransactionKind == IncomeKind ? "Income was recorded" : "Expense was recorded"), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token) => move.Code == HomeState ? new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice, move.Body.Status.Error), null, string.Empty, null) : move;
     private static async ValueTask<WorkspaceMove> CategoryPick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
-        PickData item = await Category(link, lane, userId, move.CategoryValue, when, token);
-        WorkspaceData body = new(move.Body.Accounts, new FinancialData(), new ExpenseData(move.Body.Expense.Account, item, move.Body.Expense.Amount), new ChoicesData(), new StatusData(), false);
-        return new WorkspaceMove(ExpenseConfirmState, body, null, string.Empty, null);
+        bool income = Kind(move.Code) == IncomeKind;
+        PickData item = await Category(link, lane, userId, move.CategoryEntry, Kind(income), when, token);
+        WorkspaceData body = TransactionBody(move.Body, AccountPick(move.Body, income), item, TransactionTotal(move.Body, income), income);
+        return new WorkspaceMove(TransactionConfirmCode(income), body, null, string.Empty, null);
     }
+    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom);
+    private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, financial, new ExpenseData(), new IncomeData(), new ChoicesData(), status ?? new StatusData(), custom);
+    private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), choices ?? new ChoicesData(), status ?? new StatusData(), false);
+    private static PickData AccountPick(WorkspaceData body, bool income) => income ? body.Income.Account : body.Expense.Account;
+    private static PickData CategoryValue(WorkspaceData body, bool income) => income ? body.Income.Category : body.Expense.Category;
+    private static decimal? TransactionTotal(WorkspaceData body, bool income) => income ? body.Income.Amount : body.Expense.Amount;
+    private static string Kind(string state) => state.StartsWith("transaction.income.", StringComparison.Ordinal) ? IncomeKind : ExpenseKind;
+    private static string Kind(bool income) => income ? IncomeKind : ExpenseKind;
+    private static string Supported(string kind) => kind switch
+    {
+        IncomeKind => IncomeKind,
+        ExpenseKind => ExpenseKind,
+        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
+    };
+    private static string Change(string kind) => Supported(kind) switch
+    {
+        IncomeKind => "+",
+        ExpenseKind => "-",
+        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
+    };
+    private static string TransactionAccountCode(bool income) => income ? IncomeAccountState : ExpenseAccountState;
+    private static string TransactionAmountCode(bool income) => income ? IncomeAmountState : ExpenseAmountState;
+    private static string TransactionCategoryCode(bool income) => income ? IncomeCategoryState : ExpenseCategoryState;
+    private static string TransactionConfirmCode(bool income) => income ? IncomeConfirmState : ExpenseConfirmState;
+    private static string TransactionCreateCode(bool income) => income ? CreateIncomeCode : CreateExpenseCode;
+    private static string TransactionAccountSlot(bool income) => income ? IncomeAccountSlot : ExpenseAccountSlot;
+    private static string TransactionCategorySlot(bool income) => income ? IncomeCategorySlot : ExpenseCategorySlot;
     private static async ValueTask Save(NpgsqlConnection link, NpgsqlTransaction lane, string mark, CancellationToken token)
     {
         await using NpgsqlCommand note = new($"savepoint {mark}", link, lane);
@@ -520,7 +633,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         return list;
     }
-    private static async ValueTask<IReadOnlyList<OptionData>> Categories(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
+    private static async ValueTask<IReadOnlyList<OptionData>> Categories(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string kind, CancellationToken token)
     {
         List<OptionData> list = [];
         await using NpgsqlCommand note = new("""
@@ -543,7 +656,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                                              select id, name, code
                                              from
                                              (
-                                                 select id::text, name, coalesce(code, '') as code, 0 as area, case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end as order_id, null::timestamptz as occurred_utc
+                                                 select id::text, name, coalesce(code, '') as code, 0 as area,
+                                                        case
+                                                            when @kind = 'expense' then case code when 'food' then 1 when 'transport' then 2 when 'home' then 3 when 'health' then 4 when 'shopping' then 5 when 'fun' then 6 when 'bills' then 7 when 'travel' then 8 else 999 end
+                                                            else case code when 'salary' then 1 when 'bonus' then 2 when 'gift' then 3 when 'cashback' then 4 when 'sale' then 5 when 'interest' then 6 when 'refund' then 7 when 'other' then 8 else 999 end
+                                                        end as order_id,
+                                                        null::timestamptz as occurred_utc
                                                  from finance.category
                                                  where kind = @kind and scope = 'system'
                                                  union all
@@ -553,7 +671,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                                              order by area, order_id, occurred_utc desc nulls last, name
                                              """, link, lane);
         note.Parameters.AddWithValue(UserId, userId);
-        note.Parameters.AddWithValue("kind", ExpenseKind);
+        note.Parameters.AddWithValue("kind", kind);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         while (await row.ReadAsync(token))
         {
@@ -561,12 +679,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         return list;
     }
-    private static async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, DateTimeOffset when, CancellationToken token)
+    private static async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, DateTimeOffset when, CancellationToken token)
     {
         string text = value.Trim();
         await using (NpgsqlCommand find = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and lower(name) = lower(@name) and (scope = 'system' or user_id = @user_id) order by case scope when 'system' then 0 else 1 end limit 1", link, lane))
         {
-            find.Parameters.AddWithValue("kind", ExpenseKind);
+            find.Parameters.AddWithValue("kind", kind);
             find.Parameters.AddWithValue("name", text);
             find.Parameters.AddWithValue(UserId, userId);
             await using NpgsqlDataReader row = await find.ExecuteReaderAsync(token);
@@ -578,7 +696,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         await using (NpgsqlCommand add = new("insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc) values (@id, @kind, @scope, @user_id, @code, @name, @created_utc, @updated_utc) on conflict do nothing returning id::text, name, coalesce(code, '')", link, lane))
         {
             add.Parameters.AddWithValue("id", Guid.CreateVersion7());
-            add.Parameters.AddWithValue("kind", ExpenseKind);
+            add.Parameters.AddWithValue("kind", kind);
             add.Parameters.AddWithValue("scope", "user");
             add.Parameters.AddWithValue(UserId, userId);
             add.Parameters.Add("code", NpgsqlDbType.Text).Value = DBNull.Value;
@@ -592,7 +710,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             }
         }
         await using NpgsqlCommand note = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and lower(name) = lower(@name) and user_id = @user_id limit 1", link, lane);
-        note.Parameters.AddWithValue("kind", ExpenseKind);
+        note.Parameters.AddWithValue("kind", kind);
         note.Parameters.AddWithValue("name", text);
         note.Parameters.AddWithValue(UserId, userId);
         await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
@@ -602,27 +720,29 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         throw new InvalidOperationException("Category upsert failed");
     }
-    private static async ValueTask Expense(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, ExpenseNote note, DateTimeOffset when, CancellationToken token)
+    private static async ValueTask Transaction(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TransactionNote note, DateTimeOffset when, CancellationToken token)
     {
         Guid accountId = Parse(note.AccountId, nameof(note.AccountId));
         Guid categoryId = Parse(note.CategoryId, nameof(note.CategoryId));
+        string kind = Supported(note.TransactionKind);
+        string sign = Change(kind);
         await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
         {
             item.Parameters.AddWithValue("id", Guid.CreateVersion7());
             item.Parameters.AddWithValue(UserId, userId);
             item.Parameters.AddWithValue("account_id", accountId);
             item.Parameters.AddWithValue("category_id", categoryId);
-            item.Parameters.AddWithValue("kind", ExpenseKind);
+            item.Parameters.AddWithValue("kind", kind);
             item.Parameters.AddWithValue("amount", note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
             item.Parameters.AddWithValue(CreatedUtc, when);
             item.Parameters.AddWithValue(UpdatedUtc, when);
             if (await item.ExecuteNonQueryAsync(token) != 1)
             {
-                throw new InvalidOperationException("Expense insert failed");
+                throw new InvalidOperationException("Transaction insert failed");
             }
         }
-        await using NpgsqlCommand data = new("update finance.account set current_amount = current_amount - @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
+        await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {sign} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
         data.Parameters.AddWithValue("amount", note.Total);
         data.Parameters.AddWithValue(UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
@@ -682,19 +802,19 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private sealed record WorkspaceMove
     {
-        internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, ExpenseNote? expense)
+        internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, TransactionNote? transaction)
         {
             Code = code ?? throw new ArgumentNullException(nameof(code));
             Body = body ?? throw new ArgumentNullException(nameof(body));
             AccountValue = account;
-            CategoryValue = category ?? throw new ArgumentNullException(nameof(category));
-            ExpenseValue = expense;
+            CategoryEntry = category ?? throw new ArgumentNullException(nameof(category));
+            RecordValue = transaction;
         }
         internal string Code { get; }
         internal WorkspaceData Body { get; }
         internal AccountDraft? AccountValue { get; }
-        internal string CategoryValue { get; }
-        internal ExpenseNote? ExpenseValue { get; }
+        internal string CategoryEntry { get; }
+        internal TransactionNote? RecordValue { get; }
     }
     private sealed record AccountDraft
     {
@@ -708,17 +828,19 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         internal string Unit { get; }
         internal decimal Total { get; }
     }
-    private sealed record ExpenseNote
+    private sealed record TransactionNote
     {
-        internal ExpenseNote(string accountId, string categoryId, decimal total)
+        internal TransactionNote(string accountId, string categoryId, decimal total, string kind)
         {
             AccountId = accountId ?? throw new ArgumentNullException(nameof(accountId));
             CategoryId = categoryId ?? throw new ArgumentNullException(nameof(categoryId));
             Total = total;
+            TransactionKind = Supported(kind ?? throw new ArgumentNullException(nameof(kind)));
         }
         internal string AccountId { get; }
         internal string CategoryId { get; }
         internal decimal Total { get; }
+        internal string TransactionKind { get; }
     }
     private sealed record WorkspaceFrame
     {

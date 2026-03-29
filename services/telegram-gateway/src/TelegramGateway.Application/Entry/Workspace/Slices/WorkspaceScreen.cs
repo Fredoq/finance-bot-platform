@@ -9,8 +9,10 @@ namespace TelegramGateway.Application.Entry.Workspace.Slices;
 
 internal static class WorkspaceScreen
 {
-    private const string AccountSlot = "transaction.expense.account.";
-    private const string CategorySlot = "transaction.expense.category.";
+    private const string ExpenseAccountSlot = "transaction.expense.account.";
+    private const string ExpenseCategorySlot = "transaction.expense.category.";
+    private const string IncomeAccountSlot = "transaction.income.account.";
+    private const string IncomeCategorySlot = "transaction.income.category.";
     private static readonly Dictionary<string, string> icon = new(StringComparer.Ordinal)
     {
         ["food"] = "🍽",
@@ -20,7 +22,15 @@ internal static class WorkspaceScreen
         ["shopping"] = "🛍",
         ["fun"] = "🎉",
         ["bills"] = "🧾",
-        ["travel"] = "✈"
+        ["travel"] = "✈",
+        ["salary"] = "💼",
+        ["bonus"] = "🏅",
+        ["gift"] = "🎁",
+        ["cashback"] = "💳",
+        ["sale"] = "🏷",
+        ["interest"] = "📈",
+        ["refund"] = "↩",
+        ["other"] = "➕"
     };
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private static readonly NumberFormatInfo money = Note();
@@ -40,6 +50,10 @@ internal static class WorkspaceScreen
         "transaction.expense.amount" => ExpenseAmount(data),
         "transaction.expense.category" => ExpenseCategory(data),
         "transaction.expense.confirm" => ExpenseConfirm(data),
+        "transaction.income.account" => IncomeAccount(data),
+        "transaction.income.amount" => IncomeAmount(data),
+        "transaction.income.category" => IncomeCategory(data),
+        "transaction.income.confirm" => IncomeConfirm(data),
         _ => Home(fresh, data)
     };
     private static string Home(bool fresh, WorkspaceData data)
@@ -116,56 +130,44 @@ internal static class WorkspaceScreen
         text.Append($"Balance: <b>{Amount(data.Financial.Amount, data.Financial.Currency)}</b>");
         return text.ToString().TrimEnd();
     }
-    private static string ExpenseAccount(WorkspaceData data)
+    private static string ExpenseAccount(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, _) => text.Append("Choose the account"));
+    private static string ExpenseAmount(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.Append("Choose the account");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseAmount(WorkspaceData data)
-    {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Currency: {Code(data.Expense.Account.Note)}");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Currency: {Code(item.Account.Note)}");
         text.Append("Send the amount");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseCategory(WorkspaceData data)
+    });
+    private static string ExpenseCategory(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Amount: <b>{Amount(data.Expense.Amount, data.Expense.Account.Note)}</b>");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
         text.Append("Choose the category or send a new name");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseConfirm(WorkspaceData data)
+    });
+    private static string ExpenseConfirm(WorkspaceData data) => Transaction("Confirm expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Confirm expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Category: <b>{Escape(Category(data.Expense.Category.Name, data.Expense.Category.Note))}</b>");
-        text.Append($"Amount: <b>{Amount(data.Expense.Amount, data.Expense.Account.Note)}</b>");
-        return text.ToString().TrimEnd();
-    }
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
+    });
+    private static string IncomeAccount(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, _) => text.Append("Choose the account"));
+    private static string IncomeAmount(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Currency: {Code(item.Account.Note)}");
+        text.Append("Send the amount");
+    });
+    private static string IncomeCategory(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
+        text.Append("Choose the category or send a new name");
+    });
+    private static string IncomeConfirm(WorkspaceData data) => Transaction("Confirm income", data, data.Income, static (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
+    });
     private static IReadOnlyList<TelegramRow> Keys(IReadOnlyList<string> actions, WorkspaceData data)
     {
         ArgumentNullException.ThrowIfNull(actions);
@@ -186,23 +188,39 @@ internal static class WorkspaceScreen
             "account.create" => new TelegramButton("✅ Create account", code, "success"),
             "account.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
             "transaction.expense.add" => new TelegramButton("➖ Add expense", code, "primary"),
+            "transaction.income.add" => new TelegramButton("➕ Add income", code, "primary"),
             "transaction.expense.create" => new TelegramButton("✅ Save expense", code, "success"),
             "transaction.expense.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
-            _ when code.StartsWith(AccountSlot, StringComparison.Ordinal) => AccountButton(code, data),
-            _ when code.StartsWith(CategorySlot, StringComparison.Ordinal) => CategoryButton(code, data),
+            "transaction.income.create" => new TelegramButton("✅ Save income", code, "success"),
+            "transaction.income.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
+            _ when code.StartsWith(ExpenseAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, ExpenseAccountSlot),
+            _ when code.StartsWith(IncomeAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, IncomeAccountSlot),
+            _ when code.StartsWith(ExpenseCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, ExpenseCategorySlot),
+            _ when code.StartsWith(IncomeCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, IncomeCategorySlot),
             _ => new TelegramButton(code, code)
         };
     }
-    private static TelegramButton AccountButton(string code, WorkspaceData data)
+    private static TelegramButton AccountButton(string code, WorkspaceData data, string prefix)
     {
-        OptionData item = Option(data.Choices.Accounts, code, AccountSlot);
+        OptionData item = Option(data.Choices.Accounts, code, prefix);
         string text = string.IsNullOrWhiteSpace(item.Note) ? item.Name : $"{item.Name} · {item.Note}";
         return new TelegramButton(text, code);
     }
-    private static TelegramButton CategoryButton(string code, WorkspaceData data)
+    private static TelegramButton CategoryButton(string code, WorkspaceData data, string prefix)
     {
-        OptionData item = Option(data.Choices.Categories, code, CategorySlot);
+        OptionData item = Option(data.Choices.Categories, code, prefix);
         return new TelegramButton(Category(item.Name, item.Note), code);
+    }
+    private static string Transaction(string title, WorkspaceData data, TransactionData item, Action<StringBuilder, TransactionData> write)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine($"<b>{title}</b>");
+        write(text, item);
+        return text.ToString().TrimEnd();
     }
     private static WorkspaceData Data(string state, string value)
     {
@@ -235,6 +253,10 @@ internal static class WorkspaceScreen
             "transaction.expense.amount" => ExpenseAmountData(item),
             "transaction.expense.category" => ExpenseCategoryData(item),
             "transaction.expense.confirm" => ExpenseConfirmData(item),
+            "transaction.income.account" => IncomeAccountData(item),
+            "transaction.income.amount" => IncomeAmountData(item),
+            "transaction.income.category" => IncomeCategoryData(item),
+            "transaction.income.confirm" => IncomeConfirmData(item),
             _ => item
         };
     }
@@ -277,6 +299,25 @@ internal static class WorkspaceScreen
     {
         ExpenseCategoryData(item);
         return !string.IsNullOrWhiteSpace(item.Expense.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.confirm' requires category");
+    }
+    private static WorkspaceData IncomeAccountData(WorkspaceData item) => item.Choices.Accounts.Count > 0 ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.account' requires account choices");
+    private static WorkspaceData IncomeAmountData(WorkspaceData item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Income.Account.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.income.amount' requires account");
+        }
+        return !string.IsNullOrWhiteSpace(item.Income.Account.Note) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.amount' requires currency");
+    }
+    private static WorkspaceData IncomeCategoryData(WorkspaceData item)
+    {
+        IncomeAmountData(item);
+        return item.Income.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires amount");
+    }
+    private static WorkspaceData IncomeConfirmData(WorkspaceData item)
+    {
+        IncomeCategoryData(item);
+        return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
     }
     private static OptionData Option(IReadOnlyList<OptionData> list, string code, string prefix)
     {

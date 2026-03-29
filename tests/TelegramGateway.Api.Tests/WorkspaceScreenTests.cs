@@ -24,15 +24,15 @@ public sealed class WorkspaceScreenTests
         Assert.Equal("➕ Add account", data.Keys.SelectMany(item => item.Cells).Single().Text);
     }
     /// <summary>
-    /// Verifies that the home screen includes the expense action when accounts exist.
+    /// Verifies that the home screen includes transaction actions when accounts exist.
     /// </summary>
-    [Fact(DisplayName = "Builds the home workspace screen with the expense action")]
+    [Fact(DisplayName = "Builds the home workspace screen with transaction actions")]
     public void Builds_home_screen_with_expense()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("<b>Your accounts</b>", data.Text, StringComparison.Ordinal);
-        Assert.Equal(["➖ Add expense", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        Assert.Equal(["➖ Add expense", "➕ Add income", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that the confirmation screen includes the account draft summary.
@@ -80,6 +80,41 @@ public sealed class WorkspaceScreenTests
         Assert.Contains("Category: <b>&#127869; Food</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Amount: <b>12.5 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["✅ Save expense", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
+    /// Verifies that the income account screen renders dynamic account buttons.
+    /// </summary>
+    [Fact(DisplayName = "Builds the income account screen for Telegram delivery")]
+    public void Builds_income_account_screen()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.account", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200},{\"id\":\"a2\",\"name\":\"Card\",\"currency\":\"USD\",\"amount\":800}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[{\"slot\":1,\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},{\"slot\":2,\"id\":\"a2\",\"name\":\"Card\",\"note\":\"USD\"}],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("<b>New income</b>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["Cash · USD", "Card · USD", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
+    /// Verifies that the income category screen renders dynamic category buttons.
+    /// </summary>
+    [Fact(DisplayName = "Builds the income category screen for Telegram delivery")]
+    public void Builds_income_category_screen()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.category", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":25.5},\"choices\":{\"accounts\":[],\"categories\":[{\"slot\":1,\"id\":\"c1\",\"name\":\"Salary\",\"note\":\"salary\"},{\"slot\":2,\"id\":\"c2\",\"name\":\"Freelance\",\"note\":\"\"}]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.category.1", "transaction.income.category.2", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("Choose the category or send a new name", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["💼 Salary", "Freelance", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
+    /// Verifies that the income confirm screen includes the draft summary.
+    /// </summary>
+    [Fact(DisplayName = "Builds the income confirm screen for Telegram delivery")]
+    public void Builds_income_confirm_screen()
+    {
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Salary\",\"note\":\"salary\"},\"amount\":25.5},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.create", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("<b>Confirm income</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Category: <b>&#128188; Salary</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Amount: <b>25.5 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["✅ Save income", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that unknown currencies keep the code without a symbol.
