@@ -79,13 +79,20 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
             using HttpClient client = host.CreateClient();
             await Ready(client);
         }
-        await Execute("update finance.category set code = 'salary-drift', name = 'Salary Drift' where id = '99999999-9999-9999-9999-999999999991'::uuid");
+        await Execute("""
+                      update finance.category
+                      set code = 'salary-drift', name = 'Salary Drift'
+                      where id = '99999999-9999-9999-9999-999999999991'::uuid;
+                      insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc)
+                      values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'income', 'system', null, 'salary', 'Salary Copy', '2026-01-01 00:00:00+00'::timestamptz, '2026-01-01 00:00:00+00'::timestamptz);
+                      """);
         await using (var host = new CoreApiFactory(Settings("finance-core-migration-catalog-b")))
         {
             using HttpClient client = host.CreateClient();
             await Ready(client);
         }
         Assert.Equal(1, await Number("select count(*) from finance.category where id = '99999999-9999-9999-9999-999999999991'::uuid and kind = 'income' and code = 'salary' and name = 'Salary'"));
+        Assert.Equal(0, await Number("select count(*) from finance.category where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid"));
         Assert.Equal(0, await Number("select count(*) from finance.category where code = 'salary-drift'"));
     }
     /// <summary>

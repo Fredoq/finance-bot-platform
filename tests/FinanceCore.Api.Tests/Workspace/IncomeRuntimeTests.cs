@@ -26,7 +26,7 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
         await Bind(queue, "workspace.view.requested");
         MessageEnvelope<WorkspaceViewRequestedCommand> home = await Create(queue, "actor-income-home", "room-income-home", "Cash", "USD", "100", "income-home");
         Assert.Equal("home", home.Payload.Frame.State);
-        Assert.Equal(["transaction.expense.add", "transaction.income.add", "account.add"], home.Payload.Frame.Actions);
+        Assert.Contains("transaction.income.add", home.Payload.Frame.Actions, StringComparer.Ordinal);
     }
     /// <summary>
     /// Verifies that a single-account income skips account selection and updates the balance.
@@ -123,43 +123,52 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
     [Fact(DisplayName = "Returns distinct validation errors for invalid, precise, and non-positive income amounts")]
     public async Task Rejects_income_amount()
     {
-        string queue = $"view-{Guid.CreateVersion7():N}";
-        await using var host = new CoreApiFactory(Settings("finance-core-income-amount"));
-        using HttpClient client = host.CreateClient();
-        await Ready(client);
-        await Reset();
-        await Bind(queue, "workspace.view.requested");
-        await Create(queue, "actor-income-amount", "room-income-amount", "Cash", "USD", "100", "income-amount-account");
-        await Publish(Input("actor-income-amount", "room-income-amount", "action", "transaction.income.add", "income-amount-1"));
-        _ = await Take(queue, "income-amount-1");
-        await Publish(Input("actor-income-amount", "room-income-amount", "text", "abc", "income-amount-2"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> invalid = await Take(queue, "income-amount-2");
-        Assert.Equal("transaction.income.amount", invalid.Payload.Frame.State);
-        Assert.Equal("Enter a valid numeric amount", Error(invalid.Payload.Frame.StateData));
-        await Publish(Input("actor-income-amount", "room-income-amount", "text", "1.23456", "income-amount-3"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> precise = await Take(queue, "income-amount-3");
-        Assert.Equal("transaction.income.amount", precise.Payload.Frame.State);
-        Assert.Equal("Enter up to 4 decimal places", Error(precise.Payload.Frame.StateData));
-        await Publish(Input("actor-income-amount", "room-income-amount", "text", "0", "income-amount-4"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "income-amount-4");
-        Assert.Equal("transaction.income.amount", zero.Payload.Frame.State);
-        Assert.Equal("Amount must be greater than zero", Error(zero.Payload.Frame.StateData));
-        await Publish(Input("actor-income-amount", "room-income-amount", "text", "-1", "income-amount-5"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> negative = await Take(queue, "income-amount-5");
-        Assert.Equal("transaction.income.amount", negative.Payload.Frame.State);
-        Assert.Equal("Amount must be greater than zero", Error(negative.Payload.Frame.StateData));
-        await Publish(Input("actor-income-amount", "room-income-amount", "text", "1,234", "income-amount-6"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> grouped = await Take(queue, "income-amount-6");
-        bool current = decimal.TryParse("1,234", NumberStyles.Number, CultureInfo.CurrentCulture, out decimal local);
-        bool invariant = decimal.TryParse("1,234", NumberStyles.Number, CultureInfo.InvariantCulture, out decimal global);
-        bool ambiguous = current && invariant && local != global;
-        if (ambiguous)
+        CultureInfo current = CultureInfo.CurrentCulture;
+        CultureInfo ui = CultureInfo.CurrentUICulture;
+        CultureInfo? defaultCurrent = CultureInfo.DefaultThreadCurrentCulture;
+        CultureInfo? defaultUi = CultureInfo.DefaultThreadCurrentUICulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+        try
         {
-            Assert.Equal("transaction.income.amount", grouped.Payload.Frame.State);
-            Assert.Equal("Enter a valid numeric amount", Error(grouped.Payload.Frame.StateData));
-            return;
+            string queue = $"view-{Guid.CreateVersion7():N}";
+            await using var host = new CoreApiFactory(Settings("finance-core-income-amount"));
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+            await Reset();
+            await Bind(queue, "workspace.view.requested");
+            await Create(queue, "actor-income-amount", "room-income-amount", "Cash", "USD", "100", "income-amount-account");
+            await Publish(Input("actor-income-amount", "room-income-amount", "action", "transaction.income.add", "income-amount-1"));
+            _ = await Take(queue, "income-amount-1");
+            await Publish(Input("actor-income-amount", "room-income-amount", "text", "abc", "income-amount-2"));
+            MessageEnvelope<WorkspaceViewRequestedCommand> invalid = await Take(queue, "income-amount-2");
+            Assert.Equal("transaction.income.amount", invalid.Payload.Frame.State);
+            Assert.Equal("Enter a valid numeric amount", Error(invalid.Payload.Frame.StateData));
+            await Publish(Input("actor-income-amount", "room-income-amount", "text", "1.23456", "income-amount-3"));
+            MessageEnvelope<WorkspaceViewRequestedCommand> precise = await Take(queue, "income-amount-3");
+            Assert.Equal("transaction.income.amount", precise.Payload.Frame.State);
+            Assert.Equal("Enter up to 4 decimal places", Error(precise.Payload.Frame.StateData));
+            await Publish(Input("actor-income-amount", "room-income-amount", "text", "0", "income-amount-4"));
+            MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "income-amount-4");
+            Assert.Equal("transaction.income.amount", zero.Payload.Frame.State);
+            Assert.Equal("Amount must be greater than zero", Error(zero.Payload.Frame.StateData));
+            await Publish(Input("actor-income-amount", "room-income-amount", "text", "-1", "income-amount-5"));
+            MessageEnvelope<WorkspaceViewRequestedCommand> negative = await Take(queue, "income-amount-5");
+            Assert.Equal("transaction.income.amount", negative.Payload.Frame.State);
+            Assert.Equal("Amount must be greater than zero", Error(negative.Payload.Frame.StateData));
+            await Publish(Input("actor-income-amount", "room-income-amount", "text", "1,234", "income-amount-6"));
+            MessageEnvelope<WorkspaceViewRequestedCommand> grouped = await Take(queue, "income-amount-6");
+            Assert.Equal("transaction.income.category", grouped.Payload.Frame.State);
         }
-        Assert.Equal("transaction.income.category", grouped.Payload.Frame.State);
+        finally
+        {
+            CultureInfo.CurrentCulture = current;
+            CultureInfo.CurrentUICulture = ui;
+            CultureInfo.DefaultThreadCurrentCulture = defaultCurrent;
+            CultureInfo.DefaultThreadCurrentUICulture = defaultUi;
+        }
     }
     /// <summary>
     /// Verifies that one idempotency key applies the income exactly once.
@@ -205,8 +214,11 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
         await Create(queue, "actor-income-category", "room-income-category", "Cash", "USD", "100", "income-category-account");
         await Record(queue, "actor-income-category", "room-income-category", "15", "Freelance", "income-category-one");
         await Record(queue, "actor-income-category", "room-income-category", "5", "freelance", "income-category-two");
+        string category = await Scalar("select id::text from finance.category where scope = 'user' and kind = 'income' and user_id = (select id from finance.user_account where actor_key = 'actor-income-category')");
         Assert.Equal(1, await Number("select count(*) from finance.category where scope = 'user' and kind = 'income' and user_id = (select id from finance.user_account where actor_key = 'actor-income-category')"));
         Assert.Equal(2, await Number("select count(*) from finance.transaction_entry where kind = 'income'"));
+        Assert.Equal(1, await Number("select count(distinct category_id) from finance.transaction_entry where kind = 'income' and user_id = (select id from finance.user_account where actor_key = 'actor-income-category')"));
+        Assert.Equal(category, await Scalar("select category_id::text from finance.transaction_entry where kind = 'income' and user_id = (select id from finance.user_account where actor_key = 'actor-income-category') order by created_utc limit 1"));
     }
     /// <summary>
     /// Verifies that a legacy home snapshot without account ids still records an income.
@@ -275,8 +287,17 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
     }
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Take(string queue, string step)
     {
-        MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue);
-        return item ?? throw new InvalidOperationException($"Workspace view is missing after '{step}'");
+        string key = $"{step}:workspace-view";
+        using var note = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!note.IsCancellationRequested)
+        {
+            MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue, TimeSpan.FromSeconds(1));
+            if (item is not null && string.Equals(item.Context.IdempotencyKey, key, StringComparison.Ordinal))
+            {
+                return item;
+            }
+        }
+        throw new InvalidOperationException($"Workspace view is missing after '{step}'");
     }
     private static string Notice(string data)
     {

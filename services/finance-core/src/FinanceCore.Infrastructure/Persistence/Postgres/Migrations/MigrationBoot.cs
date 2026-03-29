@@ -75,6 +75,61 @@ internal sealed class MigrationBoot : IHostedService
                                               ('99999999-9999-9999-9999-999999999996', 'income', 'interest', 'Interest'),
                                               ('99999999-9999-9999-9999-999999999997', 'income', 'refund', 'Refund'),
                                               ('99999999-9999-9999-9999-999999999998', 'income', 'other', 'Other')
+                                      )
+                                      update finance.transaction_entry item
+                                      set category_id = seed.id::uuid
+                                      from finance.category current
+                                      join seed on seed.kind = current.kind and seed.code = current.code
+                                      where current.scope = 'system'
+                                        and current.id <> seed.id::uuid
+                                        and item.category_id = current.id;
+                                      
+                                      with seed(id, kind, code) as
+                                      (
+                                          values
+                                              ('11111111-1111-1111-1111-111111111111', 'expense', 'food'),
+                                              ('22222222-2222-2222-2222-222222222222', 'expense', 'transport'),
+                                              ('33333333-3333-3333-3333-333333333333', 'expense', 'home'),
+                                              ('44444444-4444-4444-4444-444444444444', 'expense', 'health'),
+                                              ('55555555-5555-5555-5555-555555555555', 'expense', 'shopping'),
+                                              ('66666666-6666-6666-6666-666666666666', 'expense', 'fun'),
+                                              ('77777777-7777-7777-7777-777777777777', 'expense', 'bills'),
+                                              ('88888888-8888-8888-8888-888888888888', 'expense', 'travel'),
+                                              ('99999999-9999-9999-9999-999999999991', 'income', 'salary'),
+                                              ('99999999-9999-9999-9999-999999999992', 'income', 'bonus'),
+                                              ('99999999-9999-9999-9999-999999999993', 'income', 'gift'),
+                                              ('99999999-9999-9999-9999-999999999994', 'income', 'cashback'),
+                                              ('99999999-9999-9999-9999-999999999995', 'income', 'sale'),
+                                              ('99999999-9999-9999-9999-999999999996', 'income', 'interest'),
+                                              ('99999999-9999-9999-9999-999999999997', 'income', 'refund'),
+                                              ('99999999-9999-9999-9999-999999999998', 'income', 'other')
+                                      )
+                                      delete from finance.category current
+                                      using seed
+                                      where current.scope = 'system'
+                                        and current.kind = seed.kind
+                                        and current.code = seed.code
+                                        and current.id <> seed.id::uuid;
+                                      
+                                      with seed(id, kind, code, name) as
+                                      (
+                                          values
+                                              ('11111111-1111-1111-1111-111111111111', 'expense', 'food', 'Food'),
+                                              ('22222222-2222-2222-2222-222222222222', 'expense', 'transport', 'Transport'),
+                                              ('33333333-3333-3333-3333-333333333333', 'expense', 'home', 'Home'),
+                                              ('44444444-4444-4444-4444-444444444444', 'expense', 'health', 'Health'),
+                                              ('55555555-5555-5555-5555-555555555555', 'expense', 'shopping', 'Shopping'),
+                                              ('66666666-6666-6666-6666-666666666666', 'expense', 'fun', 'Fun'),
+                                              ('77777777-7777-7777-7777-777777777777', 'expense', 'bills', 'Bills'),
+                                              ('88888888-8888-8888-8888-888888888888', 'expense', 'travel', 'Travel'),
+                                              ('99999999-9999-9999-9999-999999999991', 'income', 'salary', 'Salary'),
+                                              ('99999999-9999-9999-9999-999999999992', 'income', 'bonus', 'Bonus'),
+                                              ('99999999-9999-9999-9999-999999999993', 'income', 'gift', 'Gift'),
+                                              ('99999999-9999-9999-9999-999999999994', 'income', 'cashback', 'Cashback'),
+                                              ('99999999-9999-9999-9999-999999999995', 'income', 'sale', 'Sale'),
+                                              ('99999999-9999-9999-9999-999999999996', 'income', 'interest', 'Interest'),
+                                              ('99999999-9999-9999-9999-999999999997', 'income', 'refund', 'Refund'),
+                                              ('99999999-9999-9999-9999-999999999998', 'income', 'other', 'Other')
                                       ),
                                       meta(scope, created_utc) as
                                       (
