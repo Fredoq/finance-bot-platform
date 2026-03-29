@@ -20,6 +20,8 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         await Ready(client);
         Assert.Equal(1, await Number("select count(*) from finance.schema_journal"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'user_account'"));
+        Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
+        Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
     }
     /// <summary>
     /// Verifies that a repeated startup does not duplicate the baseline migration journal row.
@@ -39,6 +41,29 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
             await Ready(client);
         }
         Assert.Equal(1, await Number("select count(*) from finance.schema_journal"));
+    }
+    /// <summary>
+    /// Verifies that startup repairs the expense schema when the baseline script is already journaled.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Repairs the expense schema after a journaled baseline startup")]
+    public async Task Repairs_migration()
+    {
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-repair-a")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        await Execute("drop table if exists finance.transaction_entry cascade; drop table if exists finance.category cascade");
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-repair-b")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        Assert.Equal(1, await Number("select count(*) from finance.schema_journal"));
+        Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'category'"));
+        Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
+        Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
     }
     /// <summary>
     /// Verifies that the readiness endpoint reports healthy dependencies.

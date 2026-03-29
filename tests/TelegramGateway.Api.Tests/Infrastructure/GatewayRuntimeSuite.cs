@@ -3,8 +3,8 @@ using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using RabbitMQ.Client;
-using Testcontainers.RabbitMq;
 using TelegramGateway.Application.Keys;
+using Testcontainers.RabbitMq;
 
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
@@ -176,8 +176,8 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
         var key = new OpaqueKey("test-current-secret", []);
         string data = state switch
         {
-            "account.confirm" => "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}",
-            _ => "{\"accounts\":[{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"
+            "account.confirm" => "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}",
+            _ => "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"
         };
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),
@@ -185,7 +185,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             DateTimeOffset.UtcNow,
             new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
             "finance-core",
-            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, data, actions ?? ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
+            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, data, actions ?? ["transaction.expense.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
     }
     private static TimeoutException Timeout(string name) => new($"Timed out waiting for message on queue '{name}'");
 }
