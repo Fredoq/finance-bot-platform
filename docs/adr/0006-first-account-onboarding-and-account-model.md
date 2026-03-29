@@ -23,6 +23,14 @@ The v1 workspace states are:
 - `account.currency`
 - `account.balance`
 - `account.confirm`
+- `transaction.expense.account`
+- `transaction.expense.amount`
+- `transaction.expense.category`
+- `transaction.expense.confirm`
+- `transaction.income.account`
+- `transaction.income.amount`
+- `transaction.income.category`
+- `transaction.income.confirm`
 
 The v1 account model is:
 
@@ -43,6 +51,8 @@ Insufficient funds validation and overdraft protection are intentionally out of 
 
 The initial `home` screen shows only `account.add` when the user has no accounts.
 
+The current `home` screen shows `transaction.expense.add`, `transaction.income.add`, and `account.add` when the user already has at least one account.
+
 Workspace user input is carried through a new application contract named `WorkspaceInputRequestedCommand` with `Kind` values `action` and `text`.
 
 `WorkspaceViewRequestedCommand` includes serialized `StateData` so that `telegram-gateway` can render state-specific screens without reading business persistence.
@@ -55,6 +65,7 @@ Workspace user input is carried through a new application contract named `Worksp
 - the account model is explicit in PostgreSQL instead of being hidden in workspace state
 - the bot can render multi-step onboarding while keeping Telegram concerns inside `telegram-gateway`
 - future transaction flows can apply balance mutations without adding account-type-specific rules in v1
+- expense and income now follow the same state-machine shape and balance projection model
 
 ### Negative
 
