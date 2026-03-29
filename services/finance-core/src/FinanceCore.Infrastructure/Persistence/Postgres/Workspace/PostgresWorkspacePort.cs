@@ -13,6 +13,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPort
 {
     private const int RetryCount = 8;
+    private const NumberStyles AmountStyles = NumberStyles.Number;
     private const string HomeState = "home";
     private const string NameState = "account.name";
     private const string CurrencyState = "account.currency";
@@ -390,10 +391,52 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static bool TryAmount(string value, out decimal amount)
     {
-        string text = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("\u00A0", string.Empty, StringComparison.Ordinal).Replace(',', '.');
-        return decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out amount);
+        string text = value.Trim();
+        if (Decimal(text, ',', out amount) && Candidate(text, ','))
+        {
+            return true;
+        }
+        if (Decimal(text, '.', out amount) && Candidate(text, '.'))
+        {
+            return true;
+        }
+        bool current = decimal.TryParse(text, AmountStyles, CultureInfo.CurrentCulture, out decimal local);
+        bool invariant = decimal.TryParse(text, AmountStyles, CultureInfo.InvariantCulture, out decimal global);
+        if (string.IsNullOrWhiteSpace(text) || text.Contains('.') && text.Contains(',') || Delimiter(text) && current && invariant && local != global)
+        {
+            amount = 0m;
+            return false;
+        }
+        if (current)
+        {
+            amount = local;
+            return true;
+        }
+        amount = global;
+        return invariant;
     }
     private static int Scale(decimal value) => (decimal.GetBits(value)[3] >> 16) & 0xFF;
+    private static bool Candidate(string value, char sign)
+    {
+        int slot = value.LastIndexOf(sign);
+        return slot > 0 && slot < value.Length - 1 && Numeric(value[..slot], true) && Numeric(value[(slot + 1)..], false) && value[(slot + 1)..].Length <= 4 && !Grouped(value, sign);
+    }
+    private static bool Grouped(string value, char sign)
+    {
+        string text = value[0] is '+' or '-' ? value[1..] : value;
+        string[] list = text.Split(sign);
+        return list.Length > 1 && list[0].Length is > 0 and <= 3 && list[^1].Length == 3 && list.All(Numeric) && list.Skip(1).All(item => item.Length == 3);
+    }
+    private static bool Numeric(string value) => value.Length > 0 && value.All(char.IsDigit);
+    private static bool Numeric(string value, bool signed) => signed && value[0] is '+' or '-' ? Numeric(value[1..]) : Numeric(value);
+    private static bool Decimal(string value, char sign, out decimal amount)
+    {
+        var item = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
+        item.NumberDecimalSeparator = sign.ToString();
+        item.NumberGroupSeparator = sign == ',' ? "." : ",";
+        return decimal.TryParse(value, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, item, out amount);
+    }
+    private static bool Delimiter(string value) => value.Contains('.') || value.Contains(',') || value.Contains(' ') || value.Contains('\u00A0');
     private static bool AccountState(string state) => state is NameState or CurrencyState or BalanceState or ConfirmState;
     private static bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
     private static bool IncomeState(string state) => state is IncomeAccountState or IncomeAmountState or IncomeCategoryState or IncomeConfirmState;
@@ -454,6 +497,18 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static decimal? TransactionTotal(WorkspaceData body, bool income) => income ? body.Income.Amount : body.Expense.Amount;
     private static string Kind(string state) => state.StartsWith("transaction.income.", StringComparison.Ordinal) ? IncomeKind : ExpenseKind;
     private static string Kind(bool income) => income ? IncomeKind : ExpenseKind;
+    private static string Supported(string kind) => kind switch
+    {
+        IncomeKind => IncomeKind,
+        ExpenseKind => ExpenseKind,
+        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
+    };
+    private static string Change(string kind) => Supported(kind) switch
+    {
+        IncomeKind => "+",
+        ExpenseKind => "-",
+        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
+    };
     private static string TransactionAccountCode(bool income) => income ? IncomeAccountState : ExpenseAccountState;
     private static string TransactionAmountCode(bool income) => income ? IncomeAmountState : ExpenseAmountState;
     private static string TransactionCategoryCode(bool income) => income ? IncomeCategoryState : ExpenseCategoryState;
@@ -669,13 +724,15 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         Guid accountId = Parse(note.AccountId, nameof(note.AccountId));
         Guid categoryId = Parse(note.CategoryId, nameof(note.CategoryId));
+        string kind = Supported(note.TransactionKind);
+        string sign = Change(kind);
         await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
         {
             item.Parameters.AddWithValue("id", Guid.CreateVersion7());
             item.Parameters.AddWithValue(UserId, userId);
             item.Parameters.AddWithValue("account_id", accountId);
             item.Parameters.AddWithValue("category_id", categoryId);
-            item.Parameters.AddWithValue("kind", note.TransactionKind);
+            item.Parameters.AddWithValue("kind", kind);
             item.Parameters.AddWithValue("amount", note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
             item.Parameters.AddWithValue(CreatedUtc, when);
@@ -685,7 +742,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 throw new InvalidOperationException("Transaction insert failed");
             }
         }
-        await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {(note.TransactionKind == IncomeKind ? "+" : "-")} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
+        await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {sign} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
         data.Parameters.AddWithValue("amount", note.Total);
         data.Parameters.AddWithValue(UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
@@ -778,7 +835,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             AccountId = accountId ?? throw new ArgumentNullException(nameof(accountId));
             CategoryId = categoryId ?? throw new ArgumentNullException(nameof(categoryId));
             Total = total;
-            TransactionKind = kind ?? throw new ArgumentNullException(nameof(kind));
+            TransactionKind = Supported(kind ?? throw new ArgumentNullException(nameof(kind)));
         }
         internal string AccountId { get; }
         internal string CategoryId { get; }

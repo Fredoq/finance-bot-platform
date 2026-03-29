@@ -144,6 +144,22 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> zero = await Take(queue, "income-amount-4");
         Assert.Equal("transaction.income.amount", zero.Payload.Frame.State);
         Assert.Equal("Amount must be greater than zero", Error(zero.Payload.Frame.StateData));
+        await Publish(Input("actor-income-amount", "room-income-amount", "text", "-1", "income-amount-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> negative = await Take(queue, "income-amount-5");
+        Assert.Equal("transaction.income.amount", negative.Payload.Frame.State);
+        Assert.Equal("Amount must be greater than zero", Error(negative.Payload.Frame.StateData));
+        await Publish(Input("actor-income-amount", "room-income-amount", "text", "1,234", "income-amount-6"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> grouped = await Take(queue, "income-amount-6");
+        bool current = decimal.TryParse("1,234", NumberStyles.Number, CultureInfo.CurrentCulture, out decimal local);
+        bool invariant = decimal.TryParse("1,234", NumberStyles.Number, CultureInfo.InvariantCulture, out decimal global);
+        bool ambiguous = current && invariant && local != global;
+        if (ambiguous)
+        {
+            Assert.Equal("transaction.income.amount", grouped.Payload.Frame.State);
+            Assert.Equal("Enter a valid numeric amount", Error(grouped.Payload.Frame.StateData));
+            return;
+        }
+        Assert.Equal("transaction.income.category", grouped.Payload.Frame.State);
     }
     /// <summary>
     /// Verifies that one idempotency key applies the income exactly once.

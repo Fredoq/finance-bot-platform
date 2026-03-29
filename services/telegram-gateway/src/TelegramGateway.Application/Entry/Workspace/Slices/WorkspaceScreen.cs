@@ -130,106 +130,44 @@ internal static class WorkspaceScreen
         text.Append($"Balance: <b>{Amount(data.Financial.Amount, data.Financial.Currency)}</b>");
         return text.ToString().TrimEnd();
     }
-    private static string ExpenseAccount(WorkspaceData data)
+    private static string ExpenseAccount(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, _) => text.Append("Choose the account"));
+    private static string ExpenseAmount(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.Append("Choose the account");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseAmount(WorkspaceData data)
-    {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Currency: {Code(data.Expense.Account.Note)}");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Currency: {Code(item.Account.Note)}");
         text.Append("Send the amount");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseCategory(WorkspaceData data)
+    });
+    private static string ExpenseCategory(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Amount: <b>{Amount(data.Expense.Amount, data.Expense.Account.Note)}</b>");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
         text.Append("Choose the category or send a new name");
-        return text.ToString().TrimEnd();
-    }
-    private static string ExpenseConfirm(WorkspaceData data)
+    });
+    private static string ExpenseConfirm(WorkspaceData data) => Transaction("Confirm expense", data, data.Expense, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Confirm expense</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Expense.Account.Name)}</b>");
-        text.AppendLine($"Category: <b>{Escape(Category(data.Expense.Category.Name, data.Expense.Category.Note))}</b>");
-        text.Append($"Amount: <b>{Amount(data.Expense.Amount, data.Expense.Account.Note)}</b>");
-        return text.ToString().TrimEnd();
-    }
-    private static string IncomeAccount(WorkspaceData data)
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
+    });
+    private static string IncomeAccount(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, _) => text.Append("Choose the account"));
+    private static string IncomeAmount(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New income</b>");
-        text.Append("Choose the account");
-        return text.ToString().TrimEnd();
-    }
-    private static string IncomeAmount(WorkspaceData data)
-    {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New income</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Income.Account.Name)}</b>");
-        text.AppendLine($"Currency: {Code(data.Income.Account.Note)}");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Currency: {Code(item.Account.Note)}");
         text.Append("Send the amount");
-        return text.ToString().TrimEnd();
-    }
-    private static string IncomeCategory(WorkspaceData data)
+    });
+    private static string IncomeCategory(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>New income</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Income.Account.Name)}</b>");
-        text.AppendLine($"Amount: <b>{Amount(data.Income.Amount, data.Income.Account.Note)}</b>");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
         text.Append("Choose the category or send a new name");
-        return text.ToString().TrimEnd();
-    }
-    private static string IncomeConfirm(WorkspaceData data)
+    });
+    private static string IncomeConfirm(WorkspaceData data) => Transaction("Confirm income", data, data.Income, static (text, item) =>
     {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Confirm income</b>");
-        text.AppendLine($"Account: <b>{Escape(data.Income.Account.Name)}</b>");
-        text.AppendLine($"Category: <b>{Escape(Category(data.Income.Category.Name, data.Income.Category.Note))}</b>");
-        text.Append($"Amount: <b>{Amount(data.Income.Amount, data.Income.Account.Note)}</b>");
-        return text.ToString().TrimEnd();
-    }
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Account.Note)}</b>");
+    });
     private static IReadOnlyList<TelegramRow> Keys(IReadOnlyList<string> actions, WorkspaceData data)
     {
         ArgumentNullException.ThrowIfNull(actions);
@@ -272,6 +210,17 @@ internal static class WorkspaceScreen
     {
         OptionData item = Option(data.Choices.Categories, code, prefix);
         return new TelegramButton(Category(item.Name, item.Note), code);
+    }
+    private static string Transaction(string title, WorkspaceData data, TransactionData item, Action<StringBuilder, TransactionData> write)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine($"<b>{title}</b>");
+        write(text, item);
+        return text.ToString().TrimEnd();
     }
     private static WorkspaceData Data(string state, string value)
     {

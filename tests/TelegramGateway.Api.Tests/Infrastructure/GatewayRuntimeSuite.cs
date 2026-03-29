@@ -3,6 +3,7 @@ using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using RabbitMQ.Client;
+using TelegramGateway.Application.Entry.Workspace.Slices;
 using TelegramGateway.Application.Keys;
 using Testcontainers.RabbitMq;
 
@@ -174,18 +175,39 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
     protected static MessageEnvelope<WorkspaceViewRequestedCommand> Envelope(long chatId, string state = "home", IReadOnlyList<string>? actions = null)
     {
         var key = new OpaqueKey("test-current-secret", []);
-        string data = state switch
-        {
-            "account.confirm" => "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}",
-            _ => "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1500}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"
-        };
         return new MessageEnvelope<WorkspaceViewRequestedCommand>(
             Guid.CreateVersion7(),
             "workspace.view.requested",
             DateTimeOffset.UtcNow,
             new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
             "finance-core",
-            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, data, actions ?? ["transaction.expense.add", "transaction.income.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
+            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, Data(state), actions ?? ["transaction.expense.add", "transaction.income.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
     }
+    private static string Data(string state) => JsonSerializer.Serialize(state switch
+    {
+        "account.confirm" => new WorkspaceData
+        {
+            Accounts = [],
+            Financial = new FinancialData
+            {
+                Name = "Cash",
+                Currency = "RUB",
+                Amount = 1500m
+            }
+        },
+        _ => new WorkspaceData
+        {
+            Accounts =
+            [
+                new AccountData
+                {
+                    Id = "a1",
+                    Name = "Cash",
+                    Currency = "RUB",
+                    Amount = 1500m
+                }
+            ]
+        }
+    }, json);
     private static TimeoutException Timeout(string name) => new($"Timed out waiting for message on queue '{name}'");
 }

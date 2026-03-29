@@ -68,6 +68,27 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
     }
     /// <summary>
+    /// Verifies that startup restores a drifted system category code after the baseline was already journaled.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Repairs a drifted income category after a journaled baseline startup")]
+    public async Task Repairs_catalog()
+    {
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-catalog-a")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        await Execute("update finance.category set code = 'salary-drift', name = 'Salary Drift' where id = '99999999-9999-9999-9999-999999999991'::uuid");
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-catalog-b")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        Assert.Equal(1, await Number("select count(*) from finance.category where id = '99999999-9999-9999-9999-999999999991'::uuid and kind = 'income' and code = 'salary' and name = 'Salary'"));
+        Assert.Equal(0, await Number("select count(*) from finance.category where code = 'salary-drift'"));
+    }
+    /// <summary>
     /// Verifies that the readiness endpoint reports healthy dependencies.
     /// </summary>
     /// <returns>A task that completes when the operation finishes.</returns>
