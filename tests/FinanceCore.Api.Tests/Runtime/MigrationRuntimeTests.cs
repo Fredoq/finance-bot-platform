@@ -22,6 +22,7 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'user_account'"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
+        Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
     }
     /// <summary>
     /// Verifies that a repeated startup does not duplicate the baseline migration journal row.
@@ -64,6 +65,7 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'category'"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
+        Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
     }
     /// <summary>
     /// Verifies that the readiness endpoint reports healthy dependencies.

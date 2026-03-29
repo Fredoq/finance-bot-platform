@@ -22,12 +22,14 @@ internal sealed record WorkspaceData
         Accounts = Array.AsReadOnly<AccountData>([]);
         Financial = new FinancialData();
         Expense = new ExpenseData();
+        Income = new IncomeData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
     public IReadOnlyList<AccountData> Accounts { get; init; }
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
+    public IncomeData Income { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -48,6 +50,18 @@ internal sealed record FinancialData
 internal sealed record ExpenseData
 {
     public ExpenseData()
+    {
+        Account = new PickData();
+        Category = new PickData();
+    }
+    public PickData Account { get; init; }
+    public PickData Category { get; init; }
+    public decimal? Amount { get; init; }
+}
+
+internal sealed record IncomeData
+{
+    public IncomeData()
     {
         Account = new PickData();
         Category = new PickData();

@@ -38,7 +38,7 @@ public sealed class WorkspaceActionsTests
     {
         var item = new WorkspaceActions();
         IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(1, 0, 0, false));
-        Assert.Equal(["transaction.expense.add", "account.add"], code);
+        Assert.Equal(["transaction.expense.add", "transaction.income.add", "account.add"], code);
     }
     /// <summary>
     /// Verifies that expense selection states return dynamic slot actions.
@@ -49,8 +49,12 @@ public sealed class WorkspaceActionsTests
         var item = new WorkspaceActions();
         IReadOnlyList<string> account = item.Codes("transaction.expense.account", new WorkspaceActionContext(2, 2, 0, false));
         IReadOnlyList<string> category = item.Codes("transaction.expense.category", new WorkspaceActionContext(2, 0, 3, false));
+        IReadOnlyList<string> incomeAccount = item.Codes("transaction.income.account", new WorkspaceActionContext(2, 2, 0, false));
+        IReadOnlyList<string> incomeCategory = item.Codes("transaction.income.category", new WorkspaceActionContext(2, 0, 3, false));
         Assert.Equal(["transaction.expense.account.1", "transaction.expense.account.2", "transaction.expense.cancel"], account);
         Assert.Equal(["transaction.expense.category.1", "transaction.expense.category.2", "transaction.expense.category.3", "transaction.expense.cancel"], category);
+        Assert.Equal(["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"], incomeAccount);
+        Assert.Equal(["transaction.income.category.1", "transaction.income.category.2", "transaction.income.category.3", "transaction.income.cancel"], incomeCategory);
     }
     /// <summary>
     /// Verifies that empty states are rejected.

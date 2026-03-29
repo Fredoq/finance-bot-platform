@@ -9,6 +9,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
 {
     private const string Cancel = "account.cancel";
     private const string ExpenseCancel = "transaction.expense.cancel";
+    private const string IncomeCancel = "transaction.income.cancel";
     /// <summary>
     /// Gets the supported action codes for the workspace state.
     /// </summary>
@@ -21,7 +22,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
         ArgumentNullException.ThrowIfNull(context);
         return state switch
         {
-            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "account.add"],
+            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "account.add"],
             "home" => ["account.add"],
             "account.name" => [Cancel],
             "account.currency" when context.Custom => [Cancel],
@@ -32,6 +33,10 @@ public sealed class WorkspaceActions : IWorkspaceActions
             "transaction.expense.amount" => [ExpenseCancel],
             "transaction.expense.category" => [.. Enumerable.Range(1, context.CategoryChoiceCount).Select(item => $"transaction.expense.category.{item}"), ExpenseCancel],
             "transaction.expense.confirm" => ["transaction.expense.create", ExpenseCancel],
+            "transaction.income.account" => [.. Enumerable.Range(1, context.AccountChoiceCount).Select(item => $"transaction.income.account.{item}"), IncomeCancel],
+            "transaction.income.amount" => [IncomeCancel],
+            "transaction.income.category" => [.. Enumerable.Range(1, context.CategoryChoiceCount).Select(item => $"transaction.income.category.{item}"), IncomeCancel],
+            "transaction.income.confirm" => ["transaction.income.create", IncomeCancel],
             _ => throw new InvalidOperationException($"WorkspaceActions.Codes does not support state '{state}' and cannot fall back to {Cancel}")
         };
     }

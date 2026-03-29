@@ -54,24 +54,32 @@ internal sealed class MigrationBoot : IHostedService
                                       end;
                                       $$;
                                       
-                                      with seed(id, code, name) as
+                                      with seed(id, kind, code, name) as
                                       (
                                           values
-                                              ('11111111-1111-1111-1111-111111111111', 'food', 'Food'),
-                                              ('22222222-2222-2222-2222-222222222222', 'transport', 'Transport'),
-                                              ('33333333-3333-3333-3333-333333333333', 'home', 'Home'),
-                                              ('44444444-4444-4444-4444-444444444444', 'health', 'Health'),
-                                              ('55555555-5555-5555-5555-555555555555', 'shopping', 'Shopping'),
-                                              ('66666666-6666-6666-6666-666666666666', 'fun', 'Fun'),
-                                              ('77777777-7777-7777-7777-777777777777', 'bills', 'Bills'),
-                                              ('88888888-8888-8888-8888-888888888888', 'travel', 'Travel')
+                                              ('11111111-1111-1111-1111-111111111111', 'expense', 'food', 'Food'),
+                                              ('22222222-2222-2222-2222-222222222222', 'expense', 'transport', 'Transport'),
+                                              ('33333333-3333-3333-3333-333333333333', 'expense', 'home', 'Home'),
+                                              ('44444444-4444-4444-4444-444444444444', 'expense', 'health', 'Health'),
+                                              ('55555555-5555-5555-5555-555555555555', 'expense', 'shopping', 'Shopping'),
+                                              ('66666666-6666-6666-6666-666666666666', 'expense', 'fun', 'Fun'),
+                                              ('77777777-7777-7777-7777-777777777777', 'expense', 'bills', 'Bills'),
+                                              ('88888888-8888-8888-8888-888888888888', 'expense', 'travel', 'Travel'),
+                                              ('99999999-9999-9999-9999-999999999991', 'income', 'salary', 'Salary'),
+                                              ('99999999-9999-9999-9999-999999999992', 'income', 'bonus', 'Bonus'),
+                                              ('99999999-9999-9999-9999-999999999993', 'income', 'gift', 'Gift'),
+                                              ('99999999-9999-9999-9999-999999999994', 'income', 'cashback', 'Cashback'),
+                                              ('99999999-9999-9999-9999-999999999995', 'income', 'sale', 'Sale'),
+                                              ('99999999-9999-9999-9999-999999999996', 'income', 'interest', 'Interest'),
+                                              ('99999999-9999-9999-9999-999999999997', 'income', 'refund', 'Refund'),
+                                              ('99999999-9999-9999-9999-999999999998', 'income', 'other', 'Other')
                                       ),
-                                      meta(kind, scope, created_utc) as
+                                      meta(scope, created_utc) as
                                       (
-                                          values ('expense', 'system', '2026-01-01 00:00:00+00'::timestamptz)
+                                          values ('system', '2026-01-01 00:00:00+00'::timestamptz)
                                       )
                                       insert into finance.category(id, kind, scope, user_id, code, name, created_utc, updated_utc)
-                                      select seed.id::uuid, meta.kind, meta.scope, null, seed.code, seed.name, meta.created_utc, meta.created_utc
+                                      select seed.id::uuid, seed.kind, meta.scope, null, seed.code, seed.name, meta.created_utc, meta.created_utc
                                       from seed
                                       cross join meta
                                       on conflict do nothing;
@@ -128,7 +136,7 @@ internal sealed class MigrationBoot : IHostedService
         {
             return true;
         }
-        return await Seed(link, token) < 8;
+        return await Seed(link, "expense", token) < 8 || await Seed(link, "income", token) < 8;
     }
     private static async ValueTask<bool> Exists(NpgsqlConnection link, string name, CancellationToken token)
     {
@@ -152,9 +160,10 @@ internal sealed class MigrationBoot : IHostedService
         object? data = await note.ExecuteScalarAsync(token);
         return data is bool state && state;
     }
-    private static async ValueTask<long> Seed(NpgsqlConnection link, CancellationToken token)
+    private static async ValueTask<long> Seed(NpgsqlConnection link, string kind, CancellationToken token)
     {
-        await using NpgsqlCommand note = new("select count(*) from finance.category where scope = 'system' and kind = 'expense'", link);
+        await using NpgsqlCommand note = new("select count(*) from finance.category where scope = 'system' and kind = @kind", link);
+        note.Parameters.AddWithValue("kind", kind);
         object? data = await note.ExecuteScalarAsync(token);
         return data is long item ? item : 0L;
     }

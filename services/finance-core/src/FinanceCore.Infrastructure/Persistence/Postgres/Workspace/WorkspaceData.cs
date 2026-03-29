@@ -29,10 +29,11 @@ internal sealed record WorkspaceData
         Accounts = Array.AsReadOnly<AccountData>([]);
         Financial = new FinancialData();
         Expense = new ExpenseData();
+        Income = new IncomeData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
-    internal WorkspaceData(IReadOnlyList<AccountData> accounts, FinancialData financial, ExpenseData expense, ChoicesData choices, StatusData status, bool custom)
+    internal WorkspaceData(IReadOnlyList<AccountData> accounts, FinancialData financial, ExpenseData expense, IncomeData income, ChoicesData choices, StatusData status, bool custom)
     {
         ArgumentNullException.ThrowIfNull(accounts);
         if (accounts.Any(item => item is null))
@@ -42,6 +43,7 @@ internal sealed record WorkspaceData
         Accounts = Array.AsReadOnly(accounts.ToArray());
         Financial = financial ?? throw new ArgumentNullException(nameof(financial));
         Expense = expense ?? throw new ArgumentNullException(nameof(expense));
+        Income = income ?? throw new ArgumentNullException(nameof(income));
         Choices = choices ?? throw new ArgumentNullException(nameof(choices));
         Status = status ?? throw new ArgumentNullException(nameof(status));
         Custom = custom;
@@ -49,6 +51,7 @@ internal sealed record WorkspaceData
     public IReadOnlyList<AccountData> Accounts { get; init; }
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
+    public IncomeData Income { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -80,6 +83,24 @@ internal sealed record ExpenseData
         Category = new PickData();
     }
     internal ExpenseData(PickData account, PickData category, decimal? amount)
+    {
+        Account = account ?? throw new ArgumentNullException(nameof(account));
+        Category = category ?? throw new ArgumentNullException(nameof(category));
+        Amount = amount;
+    }
+    public PickData Account { get; init; }
+    public PickData Category { get; init; }
+    public decimal? Amount { get; init; }
+}
+
+internal sealed record IncomeData
+{
+    public IncomeData()
+    {
+        Account = new PickData();
+        Category = new PickData();
+    }
+    internal IncomeData(PickData account, PickData category, decimal? amount)
     {
         Account = account ?? throw new ArgumentNullException(nameof(account));
         Category = category ?? throw new ArgumentNullException(nameof(category));
