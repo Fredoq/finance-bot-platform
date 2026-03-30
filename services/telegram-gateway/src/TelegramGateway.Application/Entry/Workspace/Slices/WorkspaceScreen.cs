@@ -274,51 +274,33 @@ internal static class WorkspaceScreen
         text.Append($"Page {data.Recent.Page + 1}");
         return text.ToString().TrimEnd();
     }
-    private static string RecentDetail(WorkspaceData data)
+    private static string RecentDetail(WorkspaceData data) => RecentText("Transaction", data, static (text, item) =>
     {
-        RecentItemData item = Selected(data);
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Transaction</b>");
         text.AppendLine($"Kind: <b>{Escape(Title(item.Kind))}</b>");
         text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
         text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
         text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
         text.Append($"Recorded: <code>{Escape(When(item.OccurredUtc))}</code>");
-        return text.ToString().TrimEnd();
-    }
-    private static string RecentDelete(WorkspaceData data)
+    });
+    private static string RecentDelete(WorkspaceData data) => RecentText("Delete transaction", data, static (text, item) =>
     {
-        RecentItemData item = Selected(data);
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Delete transaction</b>");
         text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
         text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
         text.Append("Delete this transaction");
-        return text.ToString().TrimEnd();
-    }
-    private static string RecentCategory(WorkspaceData data)
+    });
+    private static string RecentCategory(WorkspaceData data) => RecentText("Change category", data, static (text, item) =>
     {
-        RecentItemData item = Selected(data);
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(data.Status.Error))
-        {
-            text.AppendLine(Escape(data.Status.Error));
-        }
-        text.AppendLine("<b>Change category</b>");
         text.AppendLine($"Current: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
         text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
         text.Append("Choose the category or send a new name");
-        return text.ToString().TrimEnd();
-    }
-    private static string RecentRecategorize(WorkspaceData data)
+    });
+    private static string RecentRecategorize(WorkspaceData data) => RecentText("Confirm category", data, static (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
+    });
+    private static string RecentText(string title, WorkspaceData data, Action<StringBuilder, RecentItemData> write)
     {
         RecentItemData item = Selected(data);
         var text = new StringBuilder();
@@ -326,10 +308,8 @@ internal static class WorkspaceScreen
         {
             text.AppendLine(Escape(data.Status.Error));
         }
-        text.AppendLine("<b>Confirm category</b>");
-        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
-        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
-        text.Append($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
+        text.AppendLine($"<b>{title}</b>");
+        write(text, item);
         return text.ToString().TrimEnd();
     }
     private static WorkspaceData Data(string state, string value)

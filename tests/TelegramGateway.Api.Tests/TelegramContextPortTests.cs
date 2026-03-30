@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Memory;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Infrastructure.Telegram;
 
 namespace TelegramGateway.Api.Tests;
@@ -12,28 +13,31 @@ public sealed class TelegramContextPortTests
     /// Verifies that save stores both envelope and conversation lookups.
     /// </summary>
     [Fact(DisplayName = "Stores envelope and conversation notes")]
-    public void Stores_notes()
+    public void Store()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var item = new TelegramContextPort(cache);
         var id = Guid.CreateVersion7();
         item.Save(id, "room", 100, 7, "callback-1");
-        Assert.Equal(100, item.Envelope(id.ToString())?.ChatId);
-        Assert.Equal(7, item.Envelope(id.ToString())?.MessageId);
-        Assert.Equal("callback-1", item.Envelope(id.ToString())?.QueryId);
-        Assert.Equal(100, item.Conversation("room")?.ChatId);
-        Assert.Equal(7, item.Conversation("room")?.MessageId);
+        TelegramContextNote? envelope = item.Envelope(id.ToString());
+        TelegramContextNote? conversation = item.Conversation("room");
+        Assert.Equal(100, envelope?.ChatId);
+        Assert.Equal(7, envelope?.MessageId);
+        Assert.Equal("callback-1", envelope?.QueryId);
+        Assert.Equal(100, conversation?.ChatId);
+        Assert.Equal(7, conversation?.MessageId);
     }
     /// <summary>
     /// Verifies that update replaces the conversation note and clear removes it.
     /// </summary>
     [Fact(DisplayName = "Updates and clears the conversation note")]
-    public void Clears_notes()
+    public void Clear()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var item = new TelegramContextPort(cache);
         item.Update("room", 100, 7);
-        Assert.Equal(7, item.Conversation("room")?.MessageId);
+        TelegramContextNote? conversation = item.Conversation("room");
+        Assert.Equal(7, conversation?.MessageId);
         item.Clear("room");
         Assert.Null(item.Conversation("room"));
     }
