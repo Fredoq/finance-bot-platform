@@ -122,10 +122,21 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the recent transaction list screen for Telegram delivery")]
     public void Builds_recent_list_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.recent.list", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":true,\"items\":[{\"slot\":1,\"id\":\"t1\",\"kind\":\"expense\",\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},\"amount\":12.5,\"currency\":\"USD\",\"occurredUtc\":\"2026-03-29T20:28:00+00:00\"}],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.recent.item.1", "transaction.recent.page.next", "transaction.recent.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.list", WorkspaceStateNote.RecentList(0, false, true, [WorkspaceStateNote.RecentItem(1, "t1", "expense", "Food", "food", 12.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))]), "transaction.recent.item.1", "transaction.recent.page.next", "transaction.recent.back");
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("<b>Recent transactions</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["- 🍽 Food · 12.5 $", "Next ▶", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
+    /// Verifies that an empty recent list is rendered without requiring a notice.
+    /// </summary>
+    [Fact(DisplayName = "Builds the empty recent transaction list screen for Telegram delivery")]
+    public void Builds_empty_recent_list_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.list", WorkspaceStateNote.RecentList(0, false, false, []), "transaction.recent.back");
+        TelegramText data = WorkspaceScreen.Message(100, note);
+        Assert.Contains("No transactions yet", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that the recent detail screen renders corrective actions.
@@ -133,7 +144,7 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the recent transaction detail screen for Telegram delivery")]
     public void Builds_recent_detail_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.recent.detail", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"slot\":1,\"id\":\"t1\",\"kind\":\"income\",\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Salary\",\"note\":\"salary\"},\"amount\":25.5,\"currency\":\"USD\",\"occurredUtc\":\"2026-03-29T20:28:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.recent.delete", "transaction.recent.recategorize", "transaction.recent.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.detail", WorkspaceStateNote.RecentDetail(WorkspaceStateNote.RecentItem(1, "t1", "income", "Salary", "salary", 25.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))), "transaction.recent.delete", "transaction.recent.recategorize", "transaction.recent.back");
         TelegramText data = WorkspaceScreen.Message(100, note);
         Assert.Contains("<b>Transaction</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["🗑 Delete", "✏ Change category", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());

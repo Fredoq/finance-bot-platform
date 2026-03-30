@@ -44,6 +44,10 @@ Telegram-specific editable delivery stays inside `telegram-gateway`.
 
 If the transient context is missing, delivery falls back to `sendMessage`.
 
+The first implementation keeps this transient context in the gateway process memory.
+
+This makes editable delivery a best-effort single-node optimization until the gateway runtime adds a shared cache for multi-replica or restart-safe delivery.
+
 ## Consequences
 
 ### Positive
@@ -55,5 +59,6 @@ If the transient context is missing, delivery falls back to `sendMessage`.
 ### Negative
 
 - `telegram-gateway` now owns a short-lived transport context in addition to rendering logic
+- editable delivery context is lost on gateway restart and is not shared across replicas in v1
 - delete remains destructive in v1 because the baseline schema does not include a soft-delete or audit model
 - recent correction adds more workspace states and dynamic action resolution rules

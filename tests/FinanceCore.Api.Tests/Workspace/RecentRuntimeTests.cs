@@ -52,6 +52,42 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Contains("transaction.recent.page.next", list.Payload.Frame.Actions, StringComparer.Ordinal);
         Assert.DoesNotContain("transaction.recent.page.prev", list.Payload.Frame.Actions, StringComparer.Ordinal);
         Assert.Equal(5, Count(list.Payload.Frame.StateData, "items"));
+        Assert.Equal("Coffee 5", CategoryName(list.Payload.Frame.StateData, 0));
+        Assert.Equal("Coffee 1", CategoryName(list.Payload.Frame.StateData, 4));
+    }
+    /// <summary>
+    /// Verifies that deleting on a non-empty page keeps the current page selected.
+    /// </summary>
+    [Fact(DisplayName = "Keeps the current recent page after deleting from a non-empty page")]
+    public async Task Keeps_recent_page_after_delete()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-recent-delete-page"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-recent-delete-page", "room-recent-delete-page", "Cash", "USD", "100", "recent-delete-page");
+        for (int item = 0; item < 10; item += 1)
+        {
+            await Record(queue, "actor-recent-delete-page", "room-recent-delete-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Coffee {item}", $"recent-delete-page-{item}");
+        }
+        await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.show", "recent-delete-page-open"));
+        _ = await Take(queue, "recent-delete-page-open");
+        await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.page.next", "recent-delete-page-next"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> page = await Take(queue, "recent-delete-page-next");
+        Assert.Equal(1, Page(page.Payload.Frame.StateData));
+        await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.item.1", "recent-delete-page-item"));
+        _ = await Take(queue, "recent-delete-page-item");
+        await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.delete", "recent-delete-page-confirm"));
+        _ = await Take(queue, "recent-delete-page-confirm");
+        await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.delete.apply", "recent-delete-page-apply"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> list = await Take(queue, "recent-delete-page-apply");
+        Assert.Equal("transaction.recent.list", list.Payload.Frame.State);
+        Assert.Equal("Transaction was deleted", Notice(list.Payload.Frame.StateData));
+        Assert.Equal(1, Page(list.Payload.Frame.StateData));
+        Assert.Equal(4, Count(list.Payload.Frame.StateData, "items"));
+        Assert.Equal("Coffee 3", CategoryName(list.Payload.Frame.StateData, 0));
     }
     /// <summary>
     /// Verifies that deleting a recent transaction restores the account balance.
@@ -135,6 +171,37 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("transaction.recent.list", list.Payload.Frame.State);
         Assert.Equal("Transaction was not found", Notice(list.Payload.Frame.StateData));
     }
+    /// <summary>
+    /// Verifies that stale detail selection returns the last non-empty page.
+    /// </summary>
+    [Fact(DisplayName = "Returns the last non-empty recent page when a stale selection comes from the last page")]
+    public async Task Handles_stale_recent_page()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-recent-stale-page"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-recent-stale-page", "room-recent-stale-page", "Cash", "USD", "100", "recent-stale-page");
+        for (int item = 0; item < 6; item += 1)
+        {
+            await Record(queue, "actor-recent-stale-page", "room-recent-stale-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Coffee {item}", $"recent-stale-page-{item}");
+        }
+        await Publish(Input("actor-recent-stale-page", "room-recent-stale-page", "action", "transaction.recent.show", "recent-stale-page-open"));
+        _ = await Take(queue, "recent-stale-page-open");
+        await Publish(Input("actor-recent-stale-page", "room-recent-stale-page", "action", "transaction.recent.page.next", "recent-stale-page-next"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> page = await Take(queue, "recent-stale-page-next");
+        Assert.Equal(1, Page(page.Payload.Frame.StateData));
+        await Execute("delete from finance.transaction_entry where amount = 1");
+        await Publish(Input("actor-recent-stale-page", "room-recent-stale-page", "action", "transaction.recent.item.1", "recent-stale-page-item"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> list = await Take(queue, "recent-stale-page-item");
+        Assert.Equal("transaction.recent.list", list.Payload.Frame.State);
+        Assert.Equal("Transaction was not found", Notice(list.Payload.Frame.StateData));
+        Assert.Equal(0, Page(list.Payload.Frame.StateData));
+        Assert.Equal(5, Count(list.Payload.Frame.StateData, "items"));
+        Assert.Equal("Coffee 5", CategoryName(list.Payload.Frame.StateData, 0));
+    }
     private async Task Record(string queue, string actor, string room, string amount, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.expense.add", $"{id}-1"));
@@ -183,5 +250,15 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(state);
         return item.RootElement.GetProperty("recent").GetProperty(name).GetArrayLength();
+    }
+    private static string CategoryName(string state, int index)
+    {
+        using var item = JsonDocument.Parse(state);
+        return item.RootElement.GetProperty("recent").GetProperty("items")[index].GetProperty("category").GetProperty("name").GetString() ?? string.Empty;
+    }
+    private static int Page(string state)
+    {
+        using var item = JsonDocument.Parse(state);
+        return item.RootElement.GetProperty("recent").GetProperty("page").GetInt32();
     }
 }

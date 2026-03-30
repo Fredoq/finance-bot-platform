@@ -434,7 +434,7 @@ internal static class WorkspaceScreen
         IncomeCategoryData(item);
         return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
     }
-    private static WorkspaceData RecentListData(WorkspaceData item) => item.Recent.Items.Count > 0 || !string.IsNullOrWhiteSpace(item.Status.Notice) ? item : throw new InvalidOperationException("Workspace screen 'transaction.recent.list' requires items");
+    private static WorkspaceData RecentListData(WorkspaceData item) => item;
     private static WorkspaceData RecentCategoryData(WorkspaceData item)
     {
         RecentSelectedData(item, "transaction.recent.category");

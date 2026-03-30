@@ -8,6 +8,7 @@ namespace FinanceCore.Api.Tests.Workspace;
 /// </summary>
 public sealed class WorkspaceActionsTests
 {
+    private static readonly RecentPaging page = new(false, false);
     /// <summary>
     /// Verifies that home state returns the add-account action.
     /// </summary>
@@ -15,7 +16,7 @@ public sealed class WorkspaceActionsTests
     public void Returns_codes_for_home()
     {
         var item = new WorkspaceActions();
-        IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(0, 0, 0, 0, false, false, false));
+        IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(0, 0, 0, 0, page, false));
         Assert.Equal(["account.add"], code);
     }
     /// <summary>
@@ -25,8 +26,8 @@ public sealed class WorkspaceActionsTests
     public void Returns_codes_for_currency()
     {
         var item = new WorkspaceActions();
-        IReadOnlyList<string> code = item.Codes("account.currency", new WorkspaceActionContext(0, 0, 0, 0, false, false, false));
-        IReadOnlyList<string> custom = item.Codes("account.currency", new WorkspaceActionContext(0, 0, 0, 0, false, false, true));
+        IReadOnlyList<string> code = item.Codes("account.currency", new WorkspaceActionContext(0, 0, 0, 0, page, false));
+        IReadOnlyList<string> custom = item.Codes("account.currency", new WorkspaceActionContext(0, 0, 0, 0, page, true));
         Assert.Equal(["account.currency.rub", "account.currency.usd", "account.currency.eur", "account.currency.other", "account.cancel"], code);
         Assert.Equal(["account.cancel"], custom);
     }
@@ -37,7 +38,7 @@ public sealed class WorkspaceActionsTests
     public void Returns_codes_for_expense_home()
     {
         var item = new WorkspaceActions();
-        IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(1, 0, 0, 0, false, false, false));
+        IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(1, 0, 0, 0, page, false));
         Assert.Equal(["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "account.add"], code);
     }
     /// <summary>
@@ -47,10 +48,10 @@ public sealed class WorkspaceActionsTests
     public void Returns_codes_for_expense_states()
     {
         var item = new WorkspaceActions();
-        IReadOnlyList<string> account = item.Codes("transaction.expense.account", new WorkspaceActionContext(2, 2, 0, 0, false, false, false));
-        IReadOnlyList<string> category = item.Codes("transaction.expense.category", new WorkspaceActionContext(2, 0, 3, 0, false, false, false));
-        IReadOnlyList<string> incomeAccount = item.Codes("transaction.income.account", new WorkspaceActionContext(2, 2, 0, 0, false, false, false));
-        IReadOnlyList<string> incomeCategory = item.Codes("transaction.income.category", new WorkspaceActionContext(2, 0, 3, 0, false, false, false));
+        IReadOnlyList<string> account = item.Codes("transaction.expense.account", new WorkspaceActionContext(2, 2, 0, 0, page, false));
+        IReadOnlyList<string> category = item.Codes("transaction.expense.category", new WorkspaceActionContext(2, 0, 3, 0, page, false));
+        IReadOnlyList<string> incomeAccount = item.Codes("transaction.income.account", new WorkspaceActionContext(2, 2, 0, 0, page, false));
+        IReadOnlyList<string> incomeCategory = item.Codes("transaction.income.category", new WorkspaceActionContext(2, 0, 3, 0, page, false));
         Assert.Equal(["transaction.expense.account.1", "transaction.expense.account.2", "transaction.expense.cancel"], account);
         Assert.Equal(["transaction.expense.category.1", "transaction.expense.category.2", "transaction.expense.category.3", "transaction.expense.cancel"], category);
         Assert.Equal(["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"], incomeAccount);
@@ -63,7 +64,7 @@ public sealed class WorkspaceActionsTests
     public void Rejects_empty_state()
     {
         var item = new WorkspaceActions();
-        Assert.Throws<ArgumentException>(() => item.Codes(string.Empty, new WorkspaceActionContext(0, 0, 0, 0, false, false, false)));
+        Assert.Throws<ArgumentException>(() => item.Codes(string.Empty, new WorkspaceActionContext(0, 0, 0, 0, page, false)));
     }
     /// <summary>
     /// Verifies that unsupported states are rejected.
@@ -72,7 +73,7 @@ public sealed class WorkspaceActionsTests
     public void Rejects_unknown_state()
     {
         var item = new WorkspaceActions();
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => item.Codes("account.unknown", new WorkspaceActionContext(0, 0, 0, 0, false, false, false)));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => item.Codes("account.unknown", new WorkspaceActionContext(0, 0, 0, 0, page, false)));
         Assert.Contains("WorkspaceActions.Codes", error.Message, StringComparison.Ordinal);
     }
 }

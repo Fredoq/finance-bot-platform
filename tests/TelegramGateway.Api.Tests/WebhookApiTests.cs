@@ -7,6 +7,7 @@ using Finance.Application.Contracts.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TelegramGateway.Api.Tests.Infrastructure;
+using TelegramGateway.Application.Entry.Workspace.Slices;
 using TelegramGateway.Application.Messaging;
 using TelegramGateway.Application.Telegram.Delivery;
 
@@ -159,7 +160,9 @@ public sealed class WebhookApiTests
         MessageEnvelope<WorkspaceInputRequestedCommand> item = bus.Items.Single().Note<WorkspaceInputRequestedCommand>();
         ITelegramDeliveryFlow flow = host.Services.GetRequiredService<ITelegramDeliveryFlow>();
         var key = new TelegramGateway.Application.Keys.OpaqueKey("test-current-secret", []);
-        var note = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), "workspace.view.requested", DateTimeOffset.UtcNow, new MessageContext($"trace-{Guid.CreateVersion7():N}", item.MessageId.ToString(), $"view-{Guid.CreateVersion7():N}"), "finance-core", new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", 100)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.recent.list", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[{\"slot\":1,\"id\":\"t1\",\"kind\":\"expense\",\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},\"amount\":12.5,\"currency\":\"USD\",\"occurredUtc\":\"2026-03-29T20:28:00+00:00\"}],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.recent.item.1", "transaction.recent.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
+        WorkspaceData data = WorkspaceStateNote.RecentList(0, false, false, [WorkspaceStateNote.RecentItem(1, "t1", "expense", "Food", "food", 12.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))]);
+        var body = new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", 100)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.recent.list", JsonSerializer.Serialize(data), ["transaction.recent.item.1", "transaction.recent.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), "workspace.view.requested", DateTimeOffset.UtcNow, new MessageContext($"trace-{Guid.CreateVersion7():N}", item.MessageId.ToString(), $"view-{Guid.CreateVersion7():N}"), "finance-core", body);
         await flow.Run("workspace.view.requested", JsonSerializer.SerializeToUtf8Bytes(note), default);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(2, gate.Items.Count);

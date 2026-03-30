@@ -50,13 +50,10 @@ internal sealed class TextSlice : ITelegramSlice
         string cause = $"edge-update-{update.UpdateId}";
         string stamp = $"workspace-input-{update.UpdateId}";
         var note = new MessageEnvelope<WorkspaceInputRequestedCommand>(Guid.CreateVersion7(), Contract, body.OccurredUtc, new MessageContext(trace, cause, stamp), Source, body);
-        if (!string.IsNullOrWhiteSpace(item.Chat!.Type) && item.Chat.Type == "private")
+        TelegramContextNote? current = context.Conversation(room.Value);
+        if (current is not null)
         {
-            TelegramContextNote? current = context.Conversation(room.Value);
-            if (current is not null)
-            {
-                context.Save(note.MessageId, room.Value, current.ChatId, current.MessageId, string.Empty);
-            }
+            context.Save(note.MessageId, room.Value, current.ChatId, current.MessageId, string.Empty);
         }
         await port.Publish(note, token);
     }

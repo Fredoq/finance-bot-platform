@@ -498,7 +498,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
     }
     private static string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
-    private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, body.Recent.HasPrevious, body.Recent.HasNext, body.Custom);
+    private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), body.Custom);
     private static DateTimeOffset Utc(DateTimeOffset value, string name)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(value, default);
@@ -621,7 +621,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         if (move.CorrectValue.Mode == DeleteMode)
         {
             bool ok = await Delete(link, lane, userId, move.CorrectValue.TransactionId, move.CorrectValue.TransactionKind, when, token);
-            RecentData page = await Recent(link, lane, userId, Page(move.Body.Recent.Page, ok ? -1 : 0), token);
+            RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
             return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, ok ? "Transaction was deleted" : "Transaction was not found")), null, string.Empty, null);
         }
         bool fresh = await Recategorize(link, lane, userId, move.CorrectValue, when, token);
@@ -639,7 +639,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             RecentItemData? item = await Recent(link, lane, userId, move.Body.Recent.Selected.Id, token);
             if (item is null)
             {
-                RecentData page = await Recent(link, lane, userId, move.Body.Recent.Page, token);
+                RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
                 return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null);
             }
             return new WorkspaceMove(RecentDetailState, RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, item), move.Body.Choices, move.Body.Status), null, string.Empty, null);
@@ -933,6 +933,15 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return null;
         }
         return new RecentItemData(0, row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token));
+    }
+    private static async ValueTask<RecentData> Current(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int page, CancellationToken token)
+    {
+        RecentData item = await Recent(link, lane, userId, Page(page, 0), token);
+        while (item.Items.Count == 0 && item.Page > 0)
+        {
+            item = await Recent(link, lane, userId, Page(item.Page, -1), token);
+        }
+        return item;
     }
     private static int Page(int page, int shift)
     {
