@@ -13,6 +13,8 @@ internal static class WorkspaceScreen
     private const string ExpenseCategorySlot = "transaction.expense.category.";
     private const string IncomeAccountSlot = "transaction.income.account.";
     private const string IncomeCategorySlot = "transaction.income.category.";
+    private const string RecentItemSlot = "transaction.recent.item.";
+    private const string RecentCategorySlot = "transaction.recent.category.";
     private static readonly Dictionary<string, string> icon = new(StringComparer.Ordinal)
     {
         ["food"] = "🍽",
@@ -54,6 +56,11 @@ internal static class WorkspaceScreen
         "transaction.income.amount" => IncomeAmount(data),
         "transaction.income.category" => IncomeCategory(data),
         "transaction.income.confirm" => IncomeConfirm(data),
+        "transaction.recent.list" => RecentList(data),
+        "transaction.recent.detail" => RecentDetail(data),
+        "transaction.recent.delete.confirm" => RecentDelete(data),
+        "transaction.recent.category" => RecentCategory(data),
+        "transaction.recent.recategorize.confirm" => RecentRecategorize(data),
         _ => Home(fresh, data)
     };
     private static string Home(bool fresh, WorkspaceData data)
@@ -193,10 +200,20 @@ internal static class WorkspaceScreen
             "transaction.expense.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
             "transaction.income.create" => new TelegramButton("✅ Save income", code, "success"),
             "transaction.income.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
+            "transaction.recent.show" => new TelegramButton("🧾 Recent transactions", code, "primary"),
+            "transaction.recent.page.prev" => new TelegramButton("◀ Previous", code),
+            "transaction.recent.page.next" => new TelegramButton("Next ▶", code),
+            "transaction.recent.back" => new TelegramButton("↩ Back", code),
+            "transaction.recent.delete" => new TelegramButton("🗑 Delete", code, "danger"),
+            "transaction.recent.delete.apply" => new TelegramButton("✅ Delete transaction", code, "danger"),
+            "transaction.recent.recategorize" => new TelegramButton("✏ Change category", code, "primary"),
+            "transaction.recent.recategorize.apply" => new TelegramButton("✅ Save category", code, "success"),
             _ when code.StartsWith(ExpenseAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, ExpenseAccountSlot),
             _ when code.StartsWith(IncomeAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, IncomeAccountSlot),
             _ when code.StartsWith(ExpenseCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, ExpenseCategorySlot),
             _ when code.StartsWith(IncomeCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, IncomeCategorySlot),
+            _ when code.StartsWith(RecentItemSlot, StringComparison.Ordinal) => RecentButton(code, data),
+            _ when code.StartsWith(RecentCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, RecentCategorySlot),
             _ => new TelegramButton(code, code)
         };
     }
@@ -211,6 +228,12 @@ internal static class WorkspaceScreen
         OptionData item = Option(data.Choices.Categories, code, prefix);
         return new TelegramButton(Category(item.Name, item.Note), code);
     }
+    private static TelegramButton RecentButton(string code, WorkspaceData data)
+    {
+        RecentItemData item = Recent(data.Recent.Items, code, RecentItemSlot);
+        string text = $"{Flow(item.Kind)} {Category(item.Category.Name, item.Category.Note)} · {Label(item.Amount, item.Currency)}";
+        return new TelegramButton(text, code);
+    }
     private static string Transaction(string title, WorkspaceData data, TransactionData item, Action<StringBuilder, TransactionData> write)
     {
         var text = new StringBuilder();
@@ -220,6 +243,93 @@ internal static class WorkspaceScreen
         }
         text.AppendLine($"<b>{title}</b>");
         write(text, item);
+        return text.ToString().TrimEnd();
+    }
+    private static string RecentList(WorkspaceData data)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Recent transactions</b>");
+        if (data.Recent.Items.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+            {
+                text.AppendLine(Escape(data.Status.Notice));
+            }
+            text.Append("No transactions yet");
+            return text.ToString().TrimEnd();
+        }
+        foreach (RecentItemData item in data.Recent.Items)
+        {
+            text.AppendLine($"{item.Slot}. {Escape(Category(item.Category.Name, item.Category.Note))} · {Amount(item.Amount, item.Currency)}");
+            text.AppendLine($"   {Escape(item.Account.Name)} · {Escape(When(item.OccurredUtc))}");
+        }
+        if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+        {
+            text.AppendLine(Escape(data.Status.Notice));
+        }
+        text.Append($"Page {data.Recent.Page + 1}");
+        return text.ToString().TrimEnd();
+    }
+    private static string RecentDetail(WorkspaceData data)
+    {
+        RecentItemData item = Selected(data);
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Transaction</b>");
+        text.AppendLine($"Kind: <b>{Escape(Title(item.Kind))}</b>");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
+        text.Append($"Recorded: <code>{Escape(When(item.OccurredUtc))}</code>");
+        return text.ToString().TrimEnd();
+    }
+    private static string RecentDelete(WorkspaceData data)
+    {
+        RecentItemData item = Selected(data);
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Delete transaction</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
+        text.Append("Delete this transaction");
+        return text.ToString().TrimEnd();
+    }
+    private static string RecentCategory(WorkspaceData data)
+    {
+        RecentItemData item = Selected(data);
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Change category</b>");
+        text.AppendLine($"Current: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.AppendLine($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
+        text.Append("Choose the category or send a new name");
+        return text.ToString().TrimEnd();
+    }
+    private static string RecentRecategorize(WorkspaceData data)
+    {
+        RecentItemData item = Selected(data);
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Confirm category</b>");
+        text.AppendLine($"Account: <b>{Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Category: <b>{Escape(Category(item.Category.Name, item.Category.Note))}</b>");
+        text.Append($"Amount: <b>{Amount(item.Amount, item.Currency)}</b>");
         return text.ToString().TrimEnd();
     }
     private static WorkspaceData Data(string state, string value)
@@ -257,6 +367,11 @@ internal static class WorkspaceScreen
             "transaction.income.amount" => IncomeAmountData(item),
             "transaction.income.category" => IncomeCategoryData(item),
             "transaction.income.confirm" => IncomeConfirmData(item),
+            "transaction.recent.list" => RecentListData(item),
+            "transaction.recent.detail" => RecentSelectedData(item, "transaction.recent.detail"),
+            "transaction.recent.delete.confirm" => RecentSelectedData(item, "transaction.recent.delete.confirm"),
+            "transaction.recent.category" => RecentCategoryData(item),
+            "transaction.recent.recategorize.confirm" => RecentSelectedData(item, "transaction.recent.recategorize.confirm"),
             _ => item
         };
     }
@@ -319,12 +434,26 @@ internal static class WorkspaceScreen
         IncomeCategoryData(item);
         return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
     }
+    private static WorkspaceData RecentListData(WorkspaceData item) => item.Recent.Items.Count > 0 || !string.IsNullOrWhiteSpace(item.Status.Notice) ? item : throw new InvalidOperationException("Workspace screen 'transaction.recent.list' requires items");
+    private static WorkspaceData RecentCategoryData(WorkspaceData item)
+    {
+        RecentSelectedData(item, "transaction.recent.category");
+        return item.Choices.Categories.Count > 0 ? item : throw new InvalidOperationException("Workspace screen 'transaction.recent.category' requires category choices");
+    }
+    private static WorkspaceData RecentSelectedData(WorkspaceData item, string state) => !string.IsNullOrWhiteSpace(item.Recent.Selected.Id) ? item : throw new InvalidOperationException($"Workspace screen '{state}' requires selected transaction");
     private static OptionData Option(IReadOnlyList<OptionData> list, string code, string prefix)
     {
         int slot = Slot(code, prefix);
         OptionData? item = list.SingleOrDefault(candidate => candidate.Slot == slot);
         return item ?? throw new InvalidOperationException($"Workspace button '{code}' is missing from StateData");
     }
+    private static RecentItemData Recent(IReadOnlyList<RecentItemData> list, string code, string prefix)
+    {
+        int slot = Slot(code, prefix);
+        RecentItemData? item = list.SingleOrDefault(candidate => candidate.Slot == slot);
+        return item ?? throw new InvalidOperationException($"Workspace button '{code}' is missing from StateData");
+    }
+    private static RecentItemData Selected(WorkspaceData data) => !string.IsNullOrWhiteSpace(data.Recent.Selected.Id) ? data.Recent.Selected : throw new InvalidOperationException("Workspace screen requires selected transaction");
     private static int Slot(string value, string prefix)
     {
         if (!value.StartsWith(prefix, StringComparison.Ordinal))
@@ -347,6 +476,11 @@ internal static class WorkspaceScreen
         string sign = Sign(code);
         return string.IsNullOrWhiteSpace(sign) ? $"<code>{Escape(code)}</code>" : $"{sign} <code>{Escape(code)}</code>";
     }
+    private static string Label(decimal value, string code)
+    {
+        string sign = Sign(code);
+        return string.IsNullOrWhiteSpace(sign) ? $"{Money(value)} {code}" : $"{Money(value)} {sign}";
+    }
     private static string Sign(string code) => code.ToUpperInvariant() switch
     {
         "RUB" => "₽",
@@ -354,6 +488,9 @@ internal static class WorkspaceScreen
         "EUR" => "€",
         _ => string.Empty
     };
+    private static string Flow(string kind) => string.Equals(kind, "income", StringComparison.Ordinal) ? "+" : "-";
+    private static string Title(string kind) => string.Equals(kind, "income", StringComparison.Ordinal) ? "Income" : "Expense";
+    private static string When(DateTimeOffset value) => value == default ? "unknown" : $"{value:yyyy-MM-dd HH:mm} UTC";
     private static string Category(string name, string code) => icon.TryGetValue(code, out string? value) ? $"{value} {name}" : name;
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
     private static string Money(decimal value) => value.ToString("#,0.##", money);

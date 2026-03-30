@@ -23,6 +23,7 @@ internal sealed record WorkspaceData
         Financial = new FinancialData();
         Expense = new TransactionData();
         Income = new TransactionData();
+        Recent = new RecentData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -30,6 +31,7 @@ internal sealed record WorkspaceData
     public FinancialData Financial { get; init; }
     public TransactionData Expense { get; init; }
     public TransactionData Income { get; init; }
+    public RecentData Recent { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -70,6 +72,40 @@ internal sealed record PickData
     public string Id { get; init; }
     public string Name { get; init; }
     public string Note { get; init; }
+}
+
+internal sealed record RecentData
+{
+    public RecentData()
+    {
+        Items = Array.AsReadOnly<RecentItemData>([]);
+        Selected = new RecentItemData();
+    }
+    public int Page { get; init; }
+    public bool HasPrevious { get; init; }
+    public bool HasNext { get; init; }
+    public IReadOnlyList<RecentItemData> Items { get; init; }
+    public RecentItemData Selected { get; init; }
+}
+
+internal sealed record RecentItemData
+{
+    public RecentItemData()
+    {
+        Id = string.Empty;
+        Kind = string.Empty;
+        Account = new PickData();
+        Category = new PickData();
+        Currency = string.Empty;
+    }
+    public int Slot { get; init; }
+    public string Id { get; init; }
+    public string Kind { get; init; }
+    public PickData Account { get; init; }
+    public PickData Category { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; }
+    public DateTimeOffset OccurredUtc { get; init; }
 }
 
 internal sealed record ChoicesData

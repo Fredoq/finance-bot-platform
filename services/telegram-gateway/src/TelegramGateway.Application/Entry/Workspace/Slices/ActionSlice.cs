@@ -17,11 +17,13 @@ internal sealed class ActionSlice : ITelegramSlice
     private readonly IOpaqueKey key;
     private readonly IBusPort port;
     private readonly ITelegramPort gate;
-    internal ActionSlice(IOpaqueKey key, IBusPort port, ITelegramPort gate)
+    private readonly ITelegramContextPort context;
+    internal ActionSlice(IOpaqueKey key, IBusPort port, ITelegramPort gate, ITelegramContextPort context)
     {
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
         this.gate = gate ?? throw new ArgumentNullException(nameof(gate));
+        this.context = context ?? throw new ArgumentNullException(nameof(context));
     }
     public bool Match(TelegramUpdate update)
     {
@@ -44,6 +46,7 @@ internal sealed class ActionSlice : ITelegramSlice
         string cause = $"edge-update-{update.UpdateId}";
         string stamp = $"workspace-input-{update.UpdateId}";
         var note = new MessageEnvelope<WorkspaceInputRequestedCommand>(Guid.CreateVersion7(), Contract, body.OccurredUtc, new MessageContext(trace, cause, stamp), Source, body);
+        context.Save(note.MessageId, room.Value, item.Message.Chat!.Id, item.Message.MessageId, item.Id!);
         await port.Publish(note, token);
         await gate.Send(new TelegramCallbackAck(item.Id!), token);
     }

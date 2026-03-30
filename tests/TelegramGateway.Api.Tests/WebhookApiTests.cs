@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -139,6 +140,30 @@ public sealed class WebhookApiTests
         Assert.Equal("text", item.Payload.Kind);
         Assert.Equal("Cash", item.Payload.Value);
         Assert.Equal("workspace-input-7", item.Context.IdempotencyKey);
+    }
+    /// <summary>
+    /// Verifies that recent delivery edits the callback message when a transport context exists.
+    /// </summary>
+    [Fact(DisplayName = "Edits the recent panel after a callback-driven workspace view")]
+    public async Task Edits_recent_panel()
+    {
+        var bus = new RecordingWorkspacePort();
+        var gate = new RecordingTelegramPort();
+        await using var host = new GatewayApiFactory(Note(), bus, new ReadyBrokerState(), data =>
+        {
+            data.RemoveAll<ITelegramPort>();
+            data.AddSingleton<ITelegramPort>(gate);
+        }, false);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Callback("transaction.recent.show"));
+        MessageEnvelope<WorkspaceInputRequestedCommand> item = bus.Items.Single().Note<WorkspaceInputRequestedCommand>();
+        ITelegramDeliveryFlow flow = host.Services.GetRequiredService<ITelegramDeliveryFlow>();
+        var key = new TelegramGateway.Application.Keys.OpaqueKey("test-current-secret", []);
+        var note = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), "workspace.view.requested", DateTimeOffset.UtcNow, new MessageContext($"trace-{Guid.CreateVersion7():N}", item.MessageId.ToString(), $"view-{Guid.CreateVersion7():N}"), "finance-core", new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", 100)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.recent.list", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[{\"slot\":1,\"id\":\"t1\",\"kind\":\"expense\",\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},\"amount\":12.5,\"currency\":\"USD\",\"occurredUtc\":\"2026-03-29T20:28:00+00:00\"}],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.recent.item.1", "transaction.recent.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
+        await flow.Run("workspace.view.requested", JsonSerializer.SerializeToUtf8Bytes(note), default);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, gate.Items.Count);
+        Assert.IsType<TelegramEditText>(gate.Items.Last());
     }
     /// <summary>
     /// Verifies that publish faults become service unavailable responses.

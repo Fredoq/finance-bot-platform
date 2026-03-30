@@ -43,6 +43,20 @@ public sealed class TelegramBotPortTests
         Assert.Equal("callback-1", body.RootElement.GetProperty("callback_query_id").GetString());
     }
     /// <summary>
+    /// Verifies that the bot client posts an editMessageText request.
+    /// </summary>
+    [Fact(DisplayName = "Posts an editMessageText request to the Telegram Bot API")]
+    public async Task Edits_message()
+    {
+        var lane = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { ok = true, result = new { } }) });
+        using var client = new HttpClient(lane) { BaseAddress = new Uri("https://api.telegram.org/") };
+        var item = new TelegramBotPort(client, Options.Create(new TelegramBotOptions { Token = "token", BaseUrl = "https://api.telegram.org", TimeoutSeconds = 10 }));
+        await item.Send(new TelegramEditText(100, 8, "hello", [new TelegramRow([new TelegramButton("↩ Back", "transaction.recent.back")])]), default);
+        Assert.Equal("/bottoken/editMessageText", lane.Path);
+        using var body = JsonDocument.Parse(lane.Body);
+        Assert.Equal(8, body.RootElement.GetProperty("message_id").GetInt64());
+    }
+    /// <summary>
     /// Verifies that throttling errors are marked retryable.
     /// </summary>
     [Fact(DisplayName = "Marks Telegram throttling responses as retryable")]

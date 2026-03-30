@@ -12,11 +12,13 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
     private const string Name = "workspace.view.requested";
     private readonly IOpaqueKey key;
     private readonly ITelegramPort port;
-    internal WorkspaceViewSlice(IOpaqueKey key, ITelegramPort port)
+    private readonly ITelegramContextPort context;
+    internal WorkspaceViewSlice(IOpaqueKey key, ITelegramPort port, ITelegramContextPort context)
     {
         Contract = Name;
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
+        this.context = context ?? throw new ArgumentNullException(nameof(context));
     }
     public string Contract { get; }
     public async ValueTask Run(ReadOnlyMemory<byte> body, CancellationToken token)
@@ -47,6 +49,22 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
         {
             throw new DeliveryException("Telegram conversation key is invalid", false, error);
         }
-        await port.Send(WorkspaceScreen.Message(chatId, item.Payload), token);
+        string room = item.Payload.Identity.ConversationKey;
+        TelegramText note = WorkspaceScreen.Message(chatId, item.Payload);
+        if (item.Payload.Frame.State.StartsWith("transaction.recent.", StringComparison.Ordinal))
+        {
+            TelegramContextNote? edit = context.Envelope(item.Context.CausationId) ?? context.Conversation(room);
+            if (edit is not null)
+            {
+                await port.Send(new TelegramEditText(edit.ChatId, edit.MessageId, note.Text, note.Keys), token);
+                context.Update(room, edit.ChatId, edit.MessageId);
+                return;
+            }
+        }
+        else
+        {
+            context.Clear(room);
+        }
+        await port.Send(note, token);
     }
 }

@@ -27,15 +27,28 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private const string IncomeAmountState = "transaction.income.amount";
     private const string IncomeCategoryState = "transaction.income.category";
     private const string IncomeConfirmState = "transaction.income.confirm";
+    private const string RecentListState = "transaction.recent.list";
+    private const string RecentDetailState = "transaction.recent.detail";
+    private const string RecentDeleteState = "transaction.recent.delete.confirm";
+    private const string RecentCategoryState = "transaction.recent.category";
+    private const string RecentRecategorizeState = "transaction.recent.recategorize.confirm";
     private const string AddAccount = "account.add";
     private const string AddExpense = "transaction.expense.add";
     private const string AddIncome = "transaction.income.add";
+    private const string ShowRecent = "transaction.recent.show";
     private const string AccountCancel = "account.cancel";
     private const string ExpenseCancel = "transaction.expense.cancel";
     private const string IncomeCancel = "transaction.income.cancel";
     private const string CreateAccountCode = "account.create";
     private const string CreateExpenseCode = "transaction.expense.create";
     private const string CreateIncomeCode = "transaction.income.create";
+    private const string RecentBack = "transaction.recent.back";
+    private const string RecentDelete = "transaction.recent.delete";
+    private const string RecentDeleteApply = "transaction.recent.delete.apply";
+    private const string RecentRecategorize = "transaction.recent.recategorize";
+    private const string RecentRecategorizeApply = "transaction.recent.recategorize.apply";
+    private const string RecentPrevious = "transaction.recent.page.prev";
+    private const string RecentNext = "transaction.recent.page.next";
     private const string Rub = "account.currency.rub";
     private const string Usd = "account.currency.usd";
     private const string Eur = "account.currency.eur";
@@ -44,8 +57,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private const string ExpenseCategorySlot = "transaction.expense.category.";
     private const string IncomeAccountSlot = "transaction.income.account.";
     private const string IncomeCategorySlot = "transaction.income.category.";
+    private const string RecentItemSlot = "transaction.recent.item.";
+    private const string RecentCategorySlot = "transaction.recent.category.";
+    private const int RecentPageSize = 5;
     private const string ExpenseKind = "expense";
     private const string IncomeKind = "income";
+    private const string DeleteMode = "delete";
+    private const string RecategorizeMode = "recategorize";
     private const string ViewContract = "workspace.view.requested";
     private const string ViewSource = "finance-core";
     private const string CreatedUtc = "created_utc";
@@ -143,6 +161,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         move = await Store(link, lane, userId, move, when, token);
         move = await Fill(link, lane, userId, move, token);
         move = await Track(link, lane, userId, move, when, token);
+        move = await Correct(link, lane, userId, move, when, token);
         return await Finish(link, lane, userId, move, token);
     }
     private static WorkspaceMove Move(string state, WorkspaceData body, WorkspaceInputRequestedCommand command)
@@ -170,6 +189,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return new WorkspaceMove(HomeState, Reset(body, "Income creation was cancelled"), null, string.Empty, null);
         }
+        if (code == RecentBack && RecentState(state))
+        {
+            return RecentReturn(body, state);
+        }
         return state switch
         {
             HomeState => HomeAction(body, code),
@@ -181,6 +204,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             IncomeAccountState => TransactionAccount(body, code, true),
             IncomeCategoryState => CategoryAction(body, code, true),
             IncomeConfirmState => TransactionConfirm(body, code, true),
+            RecentListState => RecentListAction(body, code),
+            RecentDetailState => RecentDetailAction(body, code),
+            RecentDeleteState => RecentDeleteAction(body, code),
+            RecentCategoryState => RecentCategoryAction(body, code),
+            RecentRecategorizeState => RecentRecategorizeAction(body, code),
             _ => new WorkspaceMove(state, Model(body, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
         };
     }
@@ -200,6 +228,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         IncomeAmountState => TransactionAmount(body, value, true),
         IncomeCategoryState => CategoryText(body, value, true),
         IncomeConfirmState => new WorkspaceMove(IncomeConfirmState, TransactionBody(body, AccountPick(body, true), CategoryValue(body, true), TransactionTotal(body, true), true, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        RecentCategoryState => RecentCategoryText(body, value),
+        RecentListState => new WorkspaceMove(RecentListState, Model(body, status: new StatusData("Use the buttons to choose one transaction or go back", string.Empty)), null, string.Empty, null),
+        RecentDetailState => new WorkspaceMove(RecentDetailState, Model(body, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null),
+        RecentDeleteState => new WorkspaceMove(RecentDeleteState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null),
+        RecentRecategorizeState => new WorkspaceMove(RecentRecategorizeState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null),
         _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null)
     };
     private static WorkspaceMove HomeAction(WorkspaceData body, string code)
@@ -216,8 +249,98 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return TransactionStart(body, true);
         }
+        if (code == ShowRecent)
+        {
+            return new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
+        }
         return new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null);
     }
+    private static WorkspaceMove RecentListAction(WorkspaceData body, string code)
+    {
+        if (code == RecentPrevious)
+        {
+            int page = body.Recent.HasPrevious ? body.Recent.Page - 1 : body.Recent.Page;
+            return new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(page < 0 ? 0 : page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
+        }
+        if (code == RecentNext)
+        {
+            int page = body.Recent.HasNext ? body.Recent.Page + 1 : body.Recent.Page;
+            return new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
+        }
+        int slot = Slot(code, RecentItemSlot);
+        RecentItemData? item = RecentItem(body.Recent.Items, slot);
+        return item is null
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            : new WorkspaceMove(RecentDetailState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(item.Slot, item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc))), null, string.Empty, null);
+    }
+    private static WorkspaceMove RecentDetailAction(WorkspaceData body, string code) => code switch
+    {
+        RecentDelete => RecentSelected(body, RecentDeleteState, "Transaction was not found"),
+        RecentRecategorize => RecentSelected(body, RecentCategoryState, "Transaction was not found"),
+        _ => new WorkspaceMove(RecentDetailState, Model(body, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null)
+    };
+    private static WorkspaceMove RecentDeleteAction(WorkspaceData body, string code)
+    {
+        if (code != RecentDeleteApply)
+        {
+            return new WorkspaceMove(RecentDeleteState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null);
+        }
+        RecentItemData item = body.Recent.Selected;
+        return string.IsNullOrWhiteSpace(item.Id)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            : new WorkspaceMove(RecentDeleteState, body, null, string.Empty, null, new CorrectionNote(item.Id, item.Kind, DeleteMode, string.Empty));
+    }
+    private static WorkspaceMove RecentCategoryAction(WorkspaceData body, string code)
+    {
+        int slot = Slot(code, RecentCategorySlot);
+        OptionData? item = Option(body.Choices.Categories, slot);
+        if (item is null)
+        {
+            return new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
+        }
+        RecentItemData selected = body.Recent.Selected;
+        WorkspaceData state = RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(selected.Slot, selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc)));
+        return new WorkspaceMove(RecentRecategorizeState, state, null, string.Empty, null);
+    }
+    private static WorkspaceMove RecentCategoryText(WorkspaceData body, string value)
+    {
+        string text = value.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData("Category name is required", string.Empty)), null, string.Empty, null);
+        }
+        RecentItemData item = body.Recent.Selected;
+        return string.IsNullOrWhiteSpace(item.Id)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            : new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData()), null, text, null, new CorrectionNote(item.Id, item.Kind, RecategorizeMode, string.Empty));
+    }
+    private static WorkspaceMove RecentRecategorizeAction(WorkspaceData body, string code)
+    {
+        if (code != RecentRecategorizeApply)
+        {
+            return new WorkspaceMove(RecentRecategorizeState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null);
+        }
+        RecentItemData item = body.Recent.Selected;
+        return string.IsNullOrWhiteSpace(item.Id) || string.IsNullOrWhiteSpace(item.Category.Id)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            : new WorkspaceMove(RecentRecategorizeState, body, null, string.Empty, null, new CorrectionNote(item.Id, item.Kind, RecategorizeMode, item.Category.Id));
+    }
+    private static WorkspaceMove RecentSelected(WorkspaceData body, string state, string notice)
+    {
+        RecentItemData item = body.Recent.Selected;
+        return string.IsNullOrWhiteSpace(item.Id)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, notice)), null, string.Empty, null)
+            : new WorkspaceMove(state, body, null, string.Empty, null);
+    }
+    private static WorkspaceMove RecentReturn(WorkspaceData body, string state) => state switch
+    {
+        RecentListState => new WorkspaceMove(HomeState, Home(body.Accounts, "Choose one action"), null, string.Empty, null),
+        RecentDetailState => new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData())), null, string.Empty, null),
+        RecentDeleteState => new WorkspaceMove(RecentDetailState, body, null, string.Empty, null),
+        RecentCategoryState => new WorkspaceMove(RecentDetailState, Model(body, choices: new ChoicesData(), status: new StatusData()), null, string.Empty, null),
+        RecentRecategorizeState => new WorkspaceMove(RecentDetailState, body, null, string.Empty, null),
+        _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null)
+    };
     private static WorkspaceMove AccountCurrency(WorkspaceData body, string code) => code switch
     {
         Rub => Currency(body, "RUB"),
@@ -362,9 +485,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         WorkspaceData item = TransactionBody(body, new PickData(accountId, account.Name, account.Note), category, total, income);
         return new WorkspaceMove(TransactionConfirmCode(income), item, null, string.Empty, new TransactionNote(accountId, category.Id, total.Value, Kind(income)));
     }
-    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
-    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new IncomeData(), new ChoicesData(), new StatusData(error, notice), false);
-    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Income, body.Choices, body.Status, body.Custom);
+    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
+    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(error, notice), false);
+    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Income, body.Recent, body.Choices, body.Status, body.Custom);
     private static WorkspaceData Data(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -372,10 +495,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new WorkspaceData();
         }
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
+        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
     }
     private static string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
-    private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Custom);
+    private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, body.Recent.HasPrevious, body.Recent.HasNext, body.Custom);
     private static DateTimeOffset Utc(DateTimeOffset value, string name)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(value, default);
@@ -440,8 +563,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static bool AccountState(string state) => state is NameState or CurrencyState or BalanceState or ConfirmState;
     private static bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
     private static bool IncomeState(string state) => state is IncomeAccountState or IncomeAmountState or IncomeCategoryState or IncomeConfirmState;
-    private static bool TransactionCategoryState(string state) => state is ExpenseCategoryState or IncomeCategoryState;
+    private static bool RecentState(string state) => state is RecentListState or RecentDetailState or RecentDeleteState or RecentCategoryState or RecentRecategorizeState;
+    private static bool TransactionCategoryState(string state) => state is ExpenseCategoryState or IncomeCategoryState or RecentCategoryState;
     private static OptionData? Option(IReadOnlyList<OptionData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
+    private static RecentItemData? RecentItem(IReadOnlyList<RecentItemData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
     private static IReadOnlyList<OptionData> AccountChoices(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1, item.Id, item.Name, item.Currency))];
     private static string Resolve(WorkspaceData body, bool income)
     {
@@ -465,11 +590,17 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static async ValueTask<WorkspaceMove> Fill(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
     {
+        if (move.Code == RecentListState && move.Body.Recent.Items.Count == 0)
+        {
+            RecentData page = await Recent(link, lane, userId, move.Body.Recent.Page, token);
+            return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), move.Body.Status), null, string.Empty, null);
+        }
         if (!TransactionCategoryState(move.Code) || move.Body.Choices.Categories.Count > 0)
         {
             return move;
         }
-        IReadOnlyList<OptionData> list = await Categories(link, lane, userId, Kind(move.Code), token);
+        string kind = move.Code == RecentCategoryState ? move.Body.Recent.Selected.Kind : Kind(move.Code);
+        IReadOnlyList<OptionData> list = await Categories(link, lane, userId, kind, token);
         return new WorkspaceMove(move.Code, Model(move.Body, choices: new ChoicesData([], list)), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Track(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
@@ -481,17 +612,58 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         await Transaction(link, lane, userId, move.RecordValue, when, token);
         return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.RecordValue.TransactionKind == IncomeKind ? "Income was recorded" : "Expense was recorded"), null, string.Empty, null);
     }
-    private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token) => move.Code == HomeState ? new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice, move.Body.Status.Error), null, string.Empty, null) : move;
+    private static async ValueTask<WorkspaceMove> Correct(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
+    {
+        if (move.CorrectValue is null)
+        {
+            return move;
+        }
+        if (move.CorrectValue.Mode == DeleteMode)
+        {
+            bool ok = await Delete(link, lane, userId, move.CorrectValue.TransactionId, move.CorrectValue.TransactionKind, when, token);
+            RecentData page = await Recent(link, lane, userId, Page(move.Body.Recent.Page, ok ? -1 : 0), token);
+            return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, ok ? "Transaction was deleted" : "Transaction was not found")), null, string.Empty, null);
+        }
+        bool fresh = await Recategorize(link, lane, userId, move.CorrectValue, when, token);
+        RecentData current = await Recent(link, lane, userId, move.Body.Recent.Page, token);
+        return new WorkspaceMove(RecentListState, RecentBody(move.Body, current, new ChoicesData(), new StatusData(string.Empty, fresh ? "Category was updated" : "Transaction was not found")), null, string.Empty, null);
+    }
+    private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
+    {
+        if (move.Code == HomeState)
+        {
+            return new WorkspaceMove(HomeState, Home(await Accounts(link, lane, userId, token), move.Body.Status.Notice, move.Body.Status.Error), null, string.Empty, null);
+        }
+        if (move.Code == RecentDetailState && !string.IsNullOrWhiteSpace(move.Body.Recent.Selected.Id))
+        {
+            RecentItemData? item = await Recent(link, lane, userId, move.Body.Recent.Selected.Id, token);
+            if (item is null)
+            {
+                RecentData page = await Recent(link, lane, userId, move.Body.Recent.Page, token);
+                return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null);
+            }
+            return new WorkspaceMove(RecentDetailState, RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, item), move.Body.Choices, move.Body.Status), null, string.Empty, null);
+        }
+        return move;
+    }
     private static async ValueTask<WorkspaceMove> CategoryPick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
+        if (move.Code == RecentCategoryState && move.CorrectValue is not null)
+        {
+            PickData pick = await Category(link, lane, userId, move.CategoryEntry, move.CorrectValue.TransactionKind, when, token);
+            RecentItemData selected = move.Body.Recent.Selected;
+            WorkspaceData recent = RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(selected.Slot, selected.Id, selected.Kind, selected.Account, pick, selected.Amount, selected.Currency, selected.OccurredUtc)), move.Body.Choices, move.Body.Status);
+            return new WorkspaceMove(RecentRecategorizeState, recent, null, string.Empty, null);
+        }
         bool income = Kind(move.Code) == IncomeKind;
         PickData item = await Category(link, lane, userId, move.CategoryEntry, Kind(income), when, token);
         WorkspaceData body = TransactionBody(move.Body, AccountPick(move.Body, income), item, TransactionTotal(move.Body, income), income);
         return new WorkspaceMove(TransactionConfirmCode(income), body, null, string.Empty, null);
     }
-    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom);
-    private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, financial, new ExpenseData(), new IncomeData(), new ChoicesData(), status ?? new StatusData(), custom);
-    private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), choices ?? new ChoicesData(), status ?? new StatusData(), false);
+    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, RecentData? recent = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, recent ?? body.Recent, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom);
+    private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), custom);
+    private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), false);
+    private static WorkspaceData RecentBody(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), false);
     private static PickData AccountPick(WorkspaceData body, bool income) => income ? body.Income.Account : body.Expense.Account;
     private static PickData CategoryValue(WorkspaceData body, bool income) => income ? body.Income.Category : body.Expense.Category;
     private static decimal? TransactionTotal(WorkspaceData body, bool income) => income ? body.Income.Amount : body.Expense.Amount;
@@ -507,6 +679,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         IncomeKind => "+",
         ExpenseKind => "-",
+        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
+    };
+    private static string Reverse(string kind) => Supported(kind) switch
+    {
+        IncomeKind => "-",
+        ExpenseKind => "+",
         _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
     };
     private static string TransactionAccountCode(bool income) => income ? IncomeAccountState : ExpenseAccountState;
@@ -679,6 +857,88 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         return list;
     }
+    private static async ValueTask<RecentData> Recent(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int page, CancellationToken token)
+    {
+        int index = Page(page, 0);
+        int offset = index * RecentPageSize;
+        List<RecentItemData> list = [];
+        await using NpgsqlCommand note = new("""
+                                             select item.id::text,
+                                                    item.kind,
+                                                    account.id::text,
+                                                    account.name,
+                                                    account.currency_code,
+                                                    category.id::text,
+                                                    category.name,
+                                                    coalesce(category.code, ''),
+                                                    item.amount,
+                                                    item.occurred_utc
+                                             from finance.transaction_entry item
+                                             join finance.account account on account.id = item.account_id
+                                             join finance.category category on category.id = item.category_id
+                                             where item.user_id = @user_id
+                                             order by item.occurred_utc desc, item.created_utc desc, item.id desc
+                                             offset @offset
+                                             limit @limit
+                                             """, link, lane);
+        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue("offset", offset);
+        note.Parameters.AddWithValue("limit", RecentPageSize + 1);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        while (await row.ReadAsync(token))
+        {
+            list.Add(new RecentItemData(
+                list.Count + 1,
+                row.GetString(0),
+                row.GetString(1),
+                new PickData(row.GetString(2), row.GetString(3), row.GetString(4)),
+                new PickData(row.GetString(5), row.GetString(6), row.GetString(7)),
+                row.GetDecimal(8),
+                row.GetString(4),
+                await row.GetFieldValueAsync<DateTimeOffset>(9, token)));
+        }
+        bool hasNext = list.Count > RecentPageSize;
+        RecentItemData[] items = hasNext ? [.. list.Take(RecentPageSize)] : [.. list];
+        for (int item = 0; item < items.Length; item += 1)
+        {
+            items[item] = new RecentItemData(item + 1, items[item].Id, items[item].Kind, items[item].Account, items[item].Category, items[item].Amount, items[item].Currency, items[item].OccurredUtc);
+        }
+        return new RecentData(index, index > 0, hasNext, items, new RecentItemData());
+    }
+    private static async ValueTask<RecentItemData?> Recent(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string transactionId, CancellationToken token)
+    {
+        Guid itemId = Parse(transactionId, nameof(transactionId));
+        await using NpgsqlCommand note = new("""
+                                             select item.id::text,
+                                                    item.kind,
+                                                    account.id::text,
+                                                    account.name,
+                                                    account.currency_code,
+                                                    category.id::text,
+                                                    category.name,
+                                                    coalesce(category.code, ''),
+                                                    item.amount,
+                                                    item.occurred_utc
+                                             from finance.transaction_entry item
+                                             join finance.account account on account.id = item.account_id
+                                             join finance.category category on category.id = item.category_id
+                                             where item.user_id = @user_id and item.id = @id
+                                             limit 1
+                                             """, link, lane);
+        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue("id", itemId);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        if (!await row.ReadAsync(token))
+        {
+            return null;
+        }
+        return new RecentItemData(0, row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token));
+    }
+    private static int Page(int page, int shift)
+    {
+        int item = page + shift;
+        return item < 0 ? 0 : item;
+    }
     private static async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, DateTimeOffset when, CancellationToken token)
     {
         string text = value.Trim();
@@ -719,6 +979,53 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new PickData(data.GetString(0), data.GetString(1), data.GetString(2));
         }
         throw new InvalidOperationException("Category upsert failed");
+    }
+    private static async ValueTask<bool> Delete(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string transactionId, string kind, DateTimeOffset when, CancellationToken token)
+    {
+        Guid itemId = Parse(transactionId, nameof(transactionId));
+        await using NpgsqlCommand item = new("select account_id, amount from finance.transaction_entry where id = @id and user_id = @user_id for update", link, lane);
+        item.Parameters.AddWithValue("id", itemId);
+        item.Parameters.AddWithValue(UserId, userId);
+        await using NpgsqlDataReader row = await item.ExecuteReaderAsync(token);
+        if (!await row.ReadAsync(token))
+        {
+            return false;
+        }
+        Guid accountId = row.GetGuid(0);
+        decimal amount = row.GetDecimal(1);
+        await row.DisposeAsync();
+        await using NpgsqlCommand note = new("delete from finance.transaction_entry where id = @id and user_id = @user_id", link, lane);
+        note.Parameters.AddWithValue("id", itemId);
+        note.Parameters.AddWithValue(UserId, userId);
+        if (await note.ExecuteNonQueryAsync(token) != 1)
+        {
+            return false;
+        }
+        await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {Reverse(kind)} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
+        data.Parameters.AddWithValue("amount", amount);
+        data.Parameters.AddWithValue(UpdatedUtc, when);
+        data.Parameters.AddWithValue("account_id", accountId);
+        data.Parameters.AddWithValue(UserId, userId);
+        if (await data.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("Account balance update failed");
+        }
+        return true;
+    }
+    private static async ValueTask<bool> Recategorize(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CorrectionNote note, DateTimeOffset when, CancellationToken token)
+    {
+        Guid itemId = Parse(note.TransactionId, nameof(note.TransactionId));
+        string categoryId = note.CategoryId;
+        if (string.IsNullOrWhiteSpace(categoryId))
+        {
+            return false;
+        }
+        await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id", link, lane);
+        item.Parameters.AddWithValue("category_id", Parse(categoryId, nameof(note.CategoryId)));
+        item.Parameters.AddWithValue(UpdatedUtc, when);
+        item.Parameters.AddWithValue("id", itemId);
+        item.Parameters.AddWithValue(UserId, userId);
+        return await item.ExecuteNonQueryAsync(token) == 1;
     }
     private static async ValueTask Transaction(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TransactionNote note, DateTimeOffset when, CancellationToken token)
     {
@@ -802,19 +1109,21 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private sealed record WorkspaceMove
     {
-        internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, TransactionNote? transaction)
+        internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, TransactionNote? transaction, CorrectionNote? correction = null)
         {
             Code = code ?? throw new ArgumentNullException(nameof(code));
             Body = body ?? throw new ArgumentNullException(nameof(body));
             AccountValue = account;
             CategoryEntry = category ?? throw new ArgumentNullException(nameof(category));
             RecordValue = transaction;
+            CorrectValue = correction;
         }
         internal string Code { get; }
         internal WorkspaceData Body { get; }
         internal AccountDraft? AccountValue { get; }
         internal string CategoryEntry { get; }
         internal TransactionNote? RecordValue { get; }
+        internal CorrectionNote? CorrectValue { get; }
     }
     private sealed record AccountDraft
     {
@@ -841,6 +1150,20 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         internal string CategoryId { get; }
         internal decimal Total { get; }
         internal string TransactionKind { get; }
+    }
+    private sealed record CorrectionNote
+    {
+        internal CorrectionNote(string transactionId, string kind, string mode, string categoryId)
+        {
+            TransactionId = transactionId ?? throw new ArgumentNullException(nameof(transactionId));
+            TransactionKind = Supported(kind ?? throw new ArgumentNullException(nameof(kind)));
+            Mode = mode ?? throw new ArgumentNullException(nameof(mode));
+            CategoryId = categoryId ?? throw new ArgumentNullException(nameof(categoryId));
+        }
+        internal string TransactionId { get; }
+        internal string TransactionKind { get; }
+        internal string Mode { get; }
+        internal string CategoryId { get; }
     }
     private sealed record WorkspaceFrame
     {
