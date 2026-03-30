@@ -235,7 +235,7 @@ internal static class WorkspaceScreen
     private static TelegramButton RecentButton(string code, WorkspaceData data)
     {
         RecentItemData item = Recent(data.Recent.Items, code, RecentItemSlot);
-        string text = $"{Flow(item.Kind)} {Category(item.Category.Name, item.Category.Note)} · {Label(item.Amount, item.Currency)}";
+        string text = $"{item.Slot}. {Flow(item.Kind)} {Category(item.Category.Name, item.Category.Note)} · {Label(item.Amount, item.Currency)}";
         return new TelegramButton(text, code);
     }
     private static string Transaction(string title, WorkspaceData data, TransactionData item, Action<StringBuilder, TransactionData> write)

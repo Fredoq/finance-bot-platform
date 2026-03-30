@@ -227,6 +227,15 @@ dotnet_diagnostic.SA1649.severity = none
 # S1121: Assignments should not be made from within sub-expressions
 dotnet_diagnostic.S1121.severity = none
 
+# S107: Methods should not have too many parameters
+dotnet_diagnostic.S107.severity = error
+
+# S1192: String literals should not be duplicated
+dotnet_diagnostic.S1192.severity = error
+
+# S3966: Objects should not be disposed more than once
+dotnet_diagnostic.S3966.severity = error
+
 # NET.CodeAnalyzers
 
 # CA1000: Do not declare static members on generic types
@@ -264,6 +273,9 @@ dotnet_diagnostic.CA1819.severity = none
 
 # CA1848: Use the LoggerMessage delegates
 dotnet_diagnostic.CA1848.severity = none
+
+# CA1859: Use concrete types when possible for improved performance
+dotnet_diagnostic.CA1859.severity = error
 
 # CA1869: Cache and reuse JsonSerializerOptions
 dotnet_diagnostic.CA1869.severity = error

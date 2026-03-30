@@ -48,7 +48,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
             _ => throw new InvalidOperationException($"WorkspaceActions.Codes does not support state '{state}' and cannot fall back to {Cancel}")
         };
     }
-    private static IReadOnlyList<string> RecentList(WorkspaceActionContext context)
+    private static List<string> RecentList(WorkspaceActionContext context)
     {
         var list = new List<string>(context.RecentItemCount + 3);
         list.AddRange(Enumerable.Range(1, context.RecentItemCount).Select(item => $"transaction.recent.item.{item}"));

@@ -126,7 +126,7 @@ public sealed class WorkspaceScreenTests
         WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.list", WorkspaceStateNote.RecentList(0, false, true, [WorkspaceStateNote.RecentItem(1, "t1", "expense", "Food", "food", 12.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))]), "transaction.recent.item.1", "transaction.recent.page.next", "transaction.recent.back");
         TelegramText data = WorkspaceScreen.Message(100, note, keys);
         Assert.Contains("<b>Recent transactions</b>", data.Text, StringComparison.Ordinal);
-        Assert.Equal(["- 🍽 Food · 12.5 $", "Next ▶", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        Assert.Equal(["1. - 🍽 Food · 12.5 $", "Next ▶", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that an empty recent list is rendered without requiring a notice.

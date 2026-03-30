@@ -175,6 +175,34 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("Transaction was not found", Notice(list.Payload.Frame.StateData));
     }
     /// <summary>
+    /// Verifies that stale recent recategorization returns to the refreshed list before category upsert.
+    /// </summary>
+    [Fact(DisplayName = "Returns to the recent list when recategorizing a deleted transaction from free text")]
+    public async Task Handles_stale_recent_recategorize()
+    {
+        const string actor = "actor-recent-stale-recategorize";
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-recent-stale-recategorize"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, actor, "room-recent-stale-recategorize", "Cash", "USD", "100", "recent-stale-recategorize");
+        await Record(queue, actor, "room-recent-stale-recategorize", "10", "Coffee", "recent-stale-recategorize-entry");
+        await Publish(Input(actor, "room-recent-stale-recategorize", "action", "transaction.recent.show", "recent-stale-recategorize-open"));
+        _ = await Take(queue, "recent-stale-recategorize-open");
+        await Publish(Input(actor, "room-recent-stale-recategorize", "action", "transaction.recent.item.1", "recent-stale-recategorize-item"));
+        _ = await Take(queue, "recent-stale-recategorize-item");
+        await Publish(Input(actor, "room-recent-stale-recategorize", "action", "transaction.recent.recategorize", "recent-stale-recategorize-category"));
+        _ = await Take(queue, "recent-stale-recategorize-category");
+        await Execute("delete from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = @actor)", ("actor", actor));
+        await Publish(Input(actor, "room-recent-stale-recategorize", "text", "Tea", "recent-stale-recategorize-text"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> list = await Take(queue, "recent-stale-recategorize-text");
+        Assert.Equal("transaction.recent.list", list.Payload.Frame.State);
+        Assert.Equal("Transaction was not found", Notice(list.Payload.Frame.StateData));
+        Assert.Equal(0, await Number("select count(*) from finance.category where user_id = (select id from finance.user_account where actor_key = @actor) and name = @name", ("actor", actor), ("name", "Tea")));
+    }
+    /// <summary>
     /// Verifies that stale detail selection returns the last non-empty page.
     /// </summary>
     [Fact(DisplayName = "Returns the last non-empty recent page when a stale selection comes from the last page")]

@@ -69,6 +69,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private const string CreatedUtc = "created_utc";
     private const string UpdatedUtc = "updated_utc";
     private const string UserId = "user_id";
+    private const string AddAccountPrompt = "Tap Add account to start";
+    private const string ChooseActionPrompt = "Choose one action";
+    private const string ConfirmGoBackPrompt = "Use the buttons to confirm or go back";
+    private const string TransactionMissingNotice = "Transaction was not found";
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private readonly NpgsqlDataSource source;
     private readonly IWorkspaceActions policy;
@@ -171,7 +175,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             "action" => Act(state, body, command.Value),
             "text" => Text(state, body, command.Value),
-            _ => new WorkspaceMove(state, Model(body, status: new StatusData("Input kind is not supported", body.Status.Notice)), null, string.Empty, null)
+            _ => new WorkspaceMove(state, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Input kind is not supported", body.Status.Notice) }), null, string.Empty, null)
         };
     }
     private static WorkspaceMove Act(string state, WorkspaceData body, string value)
@@ -209,31 +213,31 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             RecentDeleteState => RecentDeleteAction(body, code),
             RecentCategoryState => RecentCategoryAction(body, code),
             RecentRecategorizeState => RecentRecategorizeAction(body, code),
-            _ => new WorkspaceMove(state, Model(body, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
+            _ => new WorkspaceMove(state, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("This action is not available", string.Empty) }), null, string.Empty, null)
         };
     }
     private static WorkspaceMove Text(string state, WorkspaceData body, string value) => state switch
     {
-        HomeState when body.Accounts.Count == 0 => new WorkspaceMove(HomeState, Home(body.Accounts, "Tap Add account to start"), null, string.Empty, null),
-        HomeState => new WorkspaceMove(HomeState, Home(body.Accounts, "Choose one action"), null, string.Empty, null),
+        HomeState when body.Accounts.Count == 0 => new WorkspaceMove(HomeState, Home(body.Accounts, AddAccountPrompt), null, string.Empty, null),
+        HomeState => new WorkspaceMove(HomeState, Home(body.Accounts, ChooseActionPrompt), null, string.Empty, null),
         NameState => Draft(body, value),
         CurrencyState => Currency(body, value),
         BalanceState => Amount(body, value),
         ConfirmState => new WorkspaceMove(ConfirmState, AccountBody(body, body.Financial, new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
-        ExpenseAccountState => new WorkspaceMove(ExpenseAccountState, Model(body, financial: new FinancialData(), status: new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
+        ExpenseAccountState => new WorkspaceMove(ExpenseAccountState, Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData("Use the buttons to choose one account or cancel", string.Empty) }), null, string.Empty, null),
         ExpenseAmountState => TransactionAmount(body, value, false),
         ExpenseCategoryState => CategoryText(body, value, false),
         ExpenseConfirmState => new WorkspaceMove(ExpenseConfirmState, TransactionBody(body, AccountPick(body, false), CategoryValue(body, false), TransactionTotal(body, false), false, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
-        IncomeAccountState => new WorkspaceMove(IncomeAccountState, Model(body, financial: new FinancialData(), status: new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
+        IncomeAccountState => new WorkspaceMove(IncomeAccountState, Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData("Use the buttons to choose one account or cancel", string.Empty) }), null, string.Empty, null),
         IncomeAmountState => TransactionAmount(body, value, true),
         IncomeCategoryState => CategoryText(body, value, true),
         IncomeConfirmState => new WorkspaceMove(IncomeConfirmState, TransactionBody(body, AccountPick(body, true), CategoryValue(body, true), TransactionTotal(body, true), true, new ChoicesData(), new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
         RecentCategoryState => RecentCategoryText(body, value),
-        RecentListState => new WorkspaceMove(RecentListState, Model(body, status: new StatusData("Use the buttons to choose one transaction or go back", string.Empty)), null, string.Empty, null),
-        RecentDetailState => new WorkspaceMove(RecentDetailState, Model(body, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null),
-        RecentDeleteState => new WorkspaceMove(RecentDeleteState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null),
-        RecentRecategorizeState => new WorkspaceMove(RecentRecategorizeState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null),
-        _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null)
+        RecentListState => new WorkspaceMove(RecentListState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Use the buttons to choose one transaction or go back", string.Empty) }), null, string.Empty, null),
+        RecentDetailState => new WorkspaceMove(RecentDetailState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Use the buttons to continue", string.Empty) }), null, string.Empty, null),
+        RecentDeleteState => new WorkspaceMove(RecentDeleteState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData(ConfirmGoBackPrompt, string.Empty) }), null, string.Empty, null),
+        RecentRecategorizeState => new WorkspaceMove(RecentRecategorizeState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData(ConfirmGoBackPrompt, string.Empty) }), null, string.Empty, null),
+        _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? AddAccountPrompt : ChooseActionPrompt), null, string.Empty, null)
     };
     private static WorkspaceMove HomeAction(WorkspaceData body, string code)
     {
@@ -253,7 +257,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
         }
-        return new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null);
+        return new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? AddAccountPrompt : ChooseActionPrompt), null, string.Empty, null);
     }
     private static WorkspaceMove RecentListAction(WorkspaceData body, string code)
     {
@@ -270,24 +274,24 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         int slot = Slot(code, RecentItemSlot);
         RecentItemData? item = RecentItem(body.Recent.Items, slot);
         return item is null
-            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null)
             : new WorkspaceMove(RecentDetailState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc)))), null, string.Empty, null);
     }
     private static WorkspaceMove RecentDetailAction(WorkspaceData body, string code) => code switch
     {
-        RecentDelete => RecentSelected(body, RecentDeleteState, "Transaction was not found"),
-        RecentRecategorize => RecentSelected(body, RecentCategoryState, "Transaction was not found"),
-        _ => new WorkspaceMove(RecentDetailState, Model(body, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null)
+        RecentDelete => RecentSelected(body, RecentDeleteState, TransactionMissingNotice),
+        RecentRecategorize => RecentSelected(body, RecentCategoryState, TransactionMissingNotice),
+        _ => new WorkspaceMove(RecentDetailState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Use the buttons to continue", string.Empty) }), null, string.Empty, null)
     };
     private static WorkspaceMove RecentDeleteAction(WorkspaceData body, string code)
     {
         if (code != RecentDeleteApply)
         {
-            return new WorkspaceMove(RecentDeleteState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null);
+            return new WorkspaceMove(RecentDeleteState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData(ConfirmGoBackPrompt, string.Empty) }), null, string.Empty, null);
         }
         RecentItemData item = body.Recent.Selected;
         return string.IsNullOrWhiteSpace(item.Id)
-            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null)
             : new WorkspaceMove(RecentDeleteState, body, null, string.Empty, null, new CorrectionNote(item.Id, item.Kind, DeleteMode, string.Empty));
     }
     private static WorkspaceMove RecentCategoryAction(WorkspaceData body, string code)
@@ -296,7 +300,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         OptionData? item = Option(body.Choices.Categories, slot);
         if (item is null)
         {
-            return new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
+            return new WorkspaceMove(RecentCategoryState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Choose one category or send a new name", string.Empty) }), null, string.Empty, null);
         }
         RecentItemData selected = body.Recent.Selected;
         WorkspaceData state = RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc))));
@@ -307,22 +311,22 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         string text = value.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData("Category name is required", string.Empty)), null, string.Empty, null);
+            return new WorkspaceMove(RecentCategoryState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData("Category name is required", string.Empty) }), null, string.Empty, null);
         }
         RecentItemData item = body.Recent.Selected;
         return string.IsNullOrWhiteSpace(item.Id)
-            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
-            : new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData()), null, text, null, new CorrectionNote(item.Id, item.Kind, RecategorizeMode, string.Empty));
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null)
+            : new WorkspaceMove(RecentCategoryState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData() }), null, text, null, new CorrectionNote(item.Id, item.Kind, RecategorizeMode, string.Empty));
     }
     private static WorkspaceMove RecentRecategorizeAction(WorkspaceData body, string code)
     {
         if (code != RecentRecategorizeApply)
         {
-            return new WorkspaceMove(RecentRecategorizeState, Model(body, status: new StatusData("Use the buttons to confirm or go back", string.Empty)), null, string.Empty, null);
+            return new WorkspaceMove(RecentRecategorizeState, Model(body, view: new WorkspaceViewPatch { Status = new StatusData(ConfirmGoBackPrompt, string.Empty) }), null, string.Empty, null);
         }
         RecentItemData item = body.Recent.Selected;
         return string.IsNullOrWhiteSpace(item.Id) || string.IsNullOrWhiteSpace(item.Category.Id)
-            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
+            ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null)
             : new WorkspaceMove(RecentRecategorizeState, body, null, string.Empty, null, new CorrectionNote(item.Id, item.Kind, RecategorizeMode, item.Category.Id));
     }
     private static WorkspaceMove RecentSelected(WorkspaceData body, string state, string notice)
@@ -334,12 +338,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     }
     private static WorkspaceMove RecentReturn(WorkspaceData body, string state) => state switch
     {
-        RecentListState => new WorkspaceMove(HomeState, Home(body.Accounts, "Choose one action"), null, string.Empty, null),
+        RecentListState => new WorkspaceMove(HomeState, Home(body.Accounts, ChooseActionPrompt), null, string.Empty, null),
         RecentDetailState => new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData())), null, string.Empty, null),
         RecentDeleteState => new WorkspaceMove(RecentDetailState, body, null, string.Empty, null),
-        RecentCategoryState => new WorkspaceMove(RecentDetailState, Model(body, choices: new ChoicesData(), status: new StatusData()), null, string.Empty, null),
+        RecentCategoryState => new WorkspaceMove(RecentDetailState, Model(body, view: new WorkspaceViewPatch { Choices = new ChoicesData(), Status = new StatusData() }), null, string.Empty, null),
         RecentRecategorizeState => new WorkspaceMove(RecentDetailState, body, null, string.Empty, null),
-        _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? "Tap Add account to start" : "Choose one action"), null, string.Empty, null)
+        _ => new WorkspaceMove(HomeState, Home(body.Accounts, body.Accounts.Count == 0 ? AddAccountPrompt : ChooseActionPrompt), null, string.Empty, null)
     };
     private static WorkspaceMove AccountCurrency(WorkspaceData body, string code) => code switch
     {
@@ -368,7 +372,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         int slot = Slot(code, TransactionAccountSlot(income));
         OptionData? item = Option(body.Choices.Accounts, slot);
         return item is null
-            ? new WorkspaceMove(TransactionAccountCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Choose one account", string.Empty)), null, string.Empty, null)
+            ? new WorkspaceMove(TransactionAccountCode(income), Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData("Choose one account", string.Empty) }), null, string.Empty, null)
             : new WorkspaceMove(TransactionAmountCode(income), TransactionBody(body, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income), null, string.Empty, null);
     }
     private static WorkspaceMove CategoryAction(WorkspaceData body, string code, bool income)
@@ -376,7 +380,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         int slot = Slot(code, TransactionCategorySlot(income));
         OptionData? item = Option(body.Choices.Categories, slot);
         return item is null
-            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null)
+            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData("Choose one category or send a new name", string.Empty) }), null, string.Empty, null)
             : new WorkspaceMove(TransactionConfirmCode(income), TransactionBody(body, AccountPick(body, income), new PickData(item.Id, item.Name, item.Note), TransactionTotal(body, income), income), null, string.Empty, null);
     }
     private static WorkspaceMove TransactionConfirm(WorkspaceData body, string code, bool income)
@@ -445,8 +449,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         string text = value.Trim();
         return string.IsNullOrWhiteSpace(text)
-            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData("Category name is required", string.Empty)), null, string.Empty, null)
-            : new WorkspaceMove(TransactionCategoryCode(income), Model(body, financial: new FinancialData(), status: new StatusData()), null, text, null);
+            ? new WorkspaceMove(TransactionCategoryCode(income), Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData("Category name is required", string.Empty) }), null, string.Empty, null)
+            : new WorkspaceMove(TransactionCategoryCode(income), Model(body, new WorkspaceFlowPatch { Financial = new FinancialData() }, new WorkspaceViewPatch { Status = new StatusData() }), null, text, null);
     }
     private static WorkspaceMove AccountCreate(WorkspaceData body)
     {
@@ -601,7 +605,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         string kind = move.Code == RecentCategoryState ? move.Body.Recent.Selected.Kind : Kind(move.Code);
         IReadOnlyList<OptionData> list = await Categories(link, lane, userId, kind, token);
-        return new WorkspaceMove(move.Code, Model(move.Body, choices: new ChoicesData([], list)), null, string.Empty, null);
+        return new WorkspaceMove(move.Code, Model(move.Body, view: new WorkspaceViewPatch { Choices = new ChoicesData([], list) }), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Track(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
@@ -622,11 +626,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             bool ok = await Delete(link, lane, userId, move.CorrectValue.TransactionId, move.CorrectValue.TransactionKind, when, token);
             RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
-            return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, ok ? "Transaction was deleted" : "Transaction was not found")), null, string.Empty, null);
+            return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, ok ? "Transaction was deleted" : TransactionMissingNotice)), null, string.Empty, null);
         }
         bool fresh = await Recategorize(link, lane, userId, move.CorrectValue, when, token);
         RecentData current = await Recent(link, lane, userId, move.Body.Recent.Page, token);
-        return new WorkspaceMove(RecentListState, RecentBody(move.Body, current, new ChoicesData(), new StatusData(string.Empty, fresh ? "Category was updated" : "Transaction was not found")), null, string.Empty, null);
+        return new WorkspaceMove(RecentListState, RecentBody(move.Body, current, new ChoicesData(), new StatusData(string.Empty, fresh ? "Category was updated" : TransactionMissingNotice)), null, string.Empty, null);
     }
     private static async ValueTask<WorkspaceMove> Finish(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
     {
@@ -640,7 +644,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             if (item is null)
             {
                 RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
-                return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null);
+                return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null);
             }
             return new WorkspaceMove(RecentDetailState, RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, item), move.Body.Choices, move.Body.Status), null, string.Empty, null);
         }
@@ -650,9 +654,19 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     {
         if (move.Code == RecentCategoryState && move.CorrectValue is not null)
         {
+            if (string.IsNullOrWhiteSpace(move.Body.Recent.Selected.Id))
+            {
+                RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
+                return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null);
+            }
+            RecentItemData? current = await Recent(link, lane, userId, move.Body.Recent.Selected.Id, token);
+            if (current is null)
+            {
+                RecentData page = await Current(link, lane, userId, move.Body.Recent.Page, token);
+                return new WorkspaceMove(RecentListState, RecentBody(move.Body, page, new ChoicesData(), new StatusData(string.Empty, TransactionMissingNotice)), null, string.Empty, null);
+            }
             PickData pick = await Category(link, lane, userId, move.CategoryEntry, move.CorrectValue.TransactionKind, when, token);
-            RecentItemData selected = move.Body.Recent.Selected;
-            WorkspaceData recent = RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, pick, selected.Amount, selected.Currency, selected.OccurredUtc))), move.Body.Choices, move.Body.Status);
+            WorkspaceData recent = RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(current.Slot, new RecentEntryData(current.Id, current.Kind, current.Account, pick, current.Amount, current.Currency, current.OccurredUtc))), move.Body.Choices, move.Body.Status);
             return new WorkspaceMove(RecentRecategorizeState, recent, null, string.Empty, null);
         }
         bool income = Kind(move.Code) == IncomeKind;
@@ -660,7 +674,16 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         WorkspaceData body = TransactionBody(move.Body, AccountPick(move.Body, income), item, TransactionTotal(move.Body, income), income);
         return new WorkspaceMove(TransactionConfirmCode(income), body, null, string.Empty, null);
     }
-    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, RecentData? recent = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, new WorkspaceStateData(financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, recent ?? body.Recent, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom));
+    private static WorkspaceData Model(WorkspaceData body, WorkspaceFlowPatch? flow = null, WorkspaceViewPatch? view = null) => new(body.Accounts, new WorkspaceStateData(flow?.Financial ?? body.Financial, body.Expense, body.Income, body.Recent, view?.Choices ?? body.Choices, view?.Status ?? body.Status, body.Custom));
+    private sealed record WorkspaceFlowPatch
+    {
+        public FinancialData? Financial { get; init; }
+    }
+    private sealed record WorkspaceViewPatch
+    {
+        public ChoicesData? Choices { get; init; }
+        public StatusData? Status { get; init; }
+    }
     private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData(financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), custom));
     private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), false));
     private static WorkspaceData RecentBody(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), false));
@@ -996,14 +1019,17 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         await using NpgsqlCommand item = new("select account_id, amount from finance.transaction_entry where id = @id and user_id = @user_id for update", link, lane);
         item.Parameters.AddWithValue("id", itemId);
         item.Parameters.AddWithValue(UserId, userId);
-        await using NpgsqlDataReader row = await item.ExecuteReaderAsync(token);
-        if (!await row.ReadAsync(token))
+        Guid accountId;
+        decimal amount;
+        await using (NpgsqlDataReader row = await item.ExecuteReaderAsync(token))
         {
-            return false;
+            if (!await row.ReadAsync(token))
+            {
+                return false;
+            }
+            accountId = row.GetGuid(0);
+            amount = row.GetDecimal(1);
         }
-        Guid accountId = row.GetGuid(0);
-        decimal amount = row.GetDecimal(1);
-        await row.DisposeAsync();
         await using NpgsqlCommand note = new("delete from finance.transaction_entry where id = @id and user_id = @user_id", link, lane);
         note.Parameters.AddWithValue("id", itemId);
         note.Parameters.AddWithValue(UserId, userId);

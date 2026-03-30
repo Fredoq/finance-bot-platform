@@ -63,10 +63,10 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
                 return;
             }
         }
-        else
+        await port.Send(note, token);
+        if (!item.Payload.Frame.State.StartsWith("transaction.recent.", StringComparison.Ordinal))
         {
             context.Clear(room);
         }
-        await port.Send(note, token);
     }
 }
