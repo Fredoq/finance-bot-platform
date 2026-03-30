@@ -30,31 +30,56 @@ internal sealed record WorkspaceData
         Financial = new FinancialData();
         Expense = new ExpenseData();
         Income = new IncomeData();
+        Recent = new RecentData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
-    internal WorkspaceData(IReadOnlyList<AccountData> accounts, FinancialData financial, ExpenseData expense, IncomeData income, ChoicesData choices, StatusData status, bool custom)
+    internal WorkspaceData(IReadOnlyList<AccountData> accounts, WorkspaceStateData state)
     {
+        ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(accounts);
         if (accounts.Any(item => item is null))
         {
             throw new ArgumentException("Workspace accounts cannot contain null items", nameof(accounts));
         }
         Accounts = Array.AsReadOnly(accounts.ToArray());
-        Financial = financial ?? throw new ArgumentNullException(nameof(financial));
-        Expense = expense ?? throw new ArgumentNullException(nameof(expense));
-        Income = income ?? throw new ArgumentNullException(nameof(income));
-        Choices = choices ?? throw new ArgumentNullException(nameof(choices));
-        Status = status ?? throw new ArgumentNullException(nameof(status));
-        Custom = custom;
+        Financial = state.Financial;
+        Expense = state.Expense;
+        Income = state.Income;
+        Recent = state.Recent;
+        Choices = state.Choices;
+        Status = state.Status;
+        Custom = state.Custom;
     }
     public IReadOnlyList<AccountData> Accounts { get; init; }
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
+    public RecentData Recent { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
+}
+
+internal sealed record WorkspaceStateData
+{
+    internal WorkspaceStateData(FinancialData financial, ExpenseData expense, IncomeData income, RecentData recent, ChoicesData choices, StatusData status, bool custom)
+    {
+        Financial = financial ?? throw new ArgumentNullException(nameof(financial));
+        Expense = expense ?? throw new ArgumentNullException(nameof(expense));
+        Income = income ?? throw new ArgumentNullException(nameof(income));
+        Recent = recent ?? throw new ArgumentNullException(nameof(recent));
+        Choices = choices ?? throw new ArgumentNullException(nameof(choices));
+        Status = status ?? throw new ArgumentNullException(nameof(status));
+        Custom = custom;
+    }
+    public FinancialData Financial { get; }
+    public ExpenseData Expense { get; }
+    public IncomeData Income { get; }
+    public RecentData Recent { get; }
+    public ChoicesData Choices { get; }
+    public StatusData Status { get; }
+    public bool Custom { get; }
 }
 
 internal sealed record FinancialData
@@ -109,6 +134,88 @@ internal sealed record IncomeData
     public PickData Account { get; init; }
     public PickData Category { get; init; }
     public decimal? Amount { get; init; }
+}
+
+internal sealed record RecentData
+{
+    public RecentData()
+    {
+        Items = Array.AsReadOnly<RecentItemData>([]);
+        Selected = new RecentItemData();
+    }
+    internal RecentData(int page, bool hasPrevious, bool hasNext, IReadOnlyList<RecentItemData> items, RecentItemData selected)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(page);
+        ArgumentNullException.ThrowIfNull(items);
+        if (items.Any(item => item is null))
+        {
+            throw new ArgumentException("Workspace recent items cannot contain null items", nameof(items));
+        }
+        Page = page;
+        HasPrevious = hasPrevious;
+        HasNext = hasNext;
+        Items = Array.AsReadOnly(items.ToArray());
+        Selected = selected ?? throw new ArgumentNullException(nameof(selected));
+    }
+    public int Page { get; init; }
+    public bool HasPrevious { get; init; }
+    public bool HasNext { get; init; }
+    public IReadOnlyList<RecentItemData> Items { get; init; }
+    public RecentItemData Selected { get; init; }
+}
+
+internal sealed record RecentItemData
+{
+    public RecentItemData()
+    {
+        Id = string.Empty;
+        Kind = string.Empty;
+        Account = new PickData();
+        Category = new PickData();
+        Currency = string.Empty;
+    }
+    internal RecentItemData(int slot, RecentEntryData entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentOutOfRangeException.ThrowIfNegative(slot);
+        Id = entry.Id;
+        Kind = entry.Kind;
+        Account = entry.Account;
+        Category = entry.Category;
+        Amount = entry.Amount;
+        Currency = entry.Currency;
+        OccurredUtc = entry.OccurredUtc;
+        Slot = slot;
+    }
+    public int Slot { get; init; }
+    public string Id { get; init; }
+    public string Kind { get; init; }
+    public PickData Account { get; init; }
+    public PickData Category { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; }
+    public DateTimeOffset OccurredUtc { get; init; }
+}
+
+internal sealed record RecentEntryData
+{
+    internal RecentEntryData(string id, string kind, PickData account, PickData category, decimal amount, string currency, DateTimeOffset occurredUtc)
+    {
+        Id = id ?? throw new ArgumentNullException(nameof(id));
+        Kind = kind ?? throw new ArgumentNullException(nameof(kind));
+        Account = account ?? throw new ArgumentNullException(nameof(account));
+        Category = category ?? throw new ArgumentNullException(nameof(category));
+        Amount = amount;
+        Currency = currency ?? throw new ArgumentNullException(nameof(currency));
+        OccurredUtc = occurredUtc;
+    }
+    public string Id { get; }
+    public string Kind { get; }
+    public PickData Account { get; }
+    public PickData Category { get; }
+    public decimal Amount { get; }
+    public string Currency { get; }
+    public DateTimeOffset OccurredUtc { get; }
 }
 
 internal sealed record PickData

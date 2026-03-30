@@ -3,6 +3,7 @@ using Finance.Application.Contracts.Messaging;
 using TelegramGateway.Application.Keys;
 using TelegramGateway.Application.Messaging;
 using TelegramGateway.Application.Telegram.Contracts;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Telegram.Flow;
 using TelegramGateway.Application.Telegram.Normalization;
 using TelegramGateway.Domain.Entry.Workspace;
@@ -16,10 +17,12 @@ internal sealed class TextSlice : ITelegramSlice
     private static readonly long MaxUnixSeconds = DateTimeOffset.MaxValue.ToUnixTimeSeconds();
     private readonly IOpaqueKey key;
     private readonly IBusPort port;
-    internal TextSlice(IOpaqueKey key, IBusPort port)
+    private readonly ITelegramContextPort context;
+    internal TextSlice(IOpaqueKey key, IBusPort port, ITelegramContextPort context)
     {
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
+        this.context = context ?? throw new ArgumentNullException(nameof(context));
     }
     public bool Match(TelegramUpdate update)
     {
@@ -47,6 +50,11 @@ internal sealed class TextSlice : ITelegramSlice
         string cause = $"edge-update-{update.UpdateId}";
         string stamp = $"workspace-input-{update.UpdateId}";
         var note = new MessageEnvelope<WorkspaceInputRequestedCommand>(Guid.CreateVersion7(), Contract, body.OccurredUtc, new MessageContext(trace, cause, stamp), Source, body);
+        TelegramContextNote? current = context.Conversation(room.Value);
+        if (current is not null)
+        {
+            context.Save(note.MessageId, room.Value, current.ChatId, current.MessageId, string.Empty);
+        }
         await port.Publish(note, token);
     }
 }
