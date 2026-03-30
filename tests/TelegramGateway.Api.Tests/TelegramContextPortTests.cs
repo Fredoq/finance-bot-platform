@@ -38,6 +38,7 @@ public sealed class TelegramContextPortTests
         item.Update("room", 100, 7);
         TelegramContextNote? conversation = item.Conversation("room");
         Assert.Equal(7, conversation?.MessageId);
+        Assert.True(string.IsNullOrEmpty(conversation?.QueryId));
         item.Clear("room");
         Assert.Null(item.Conversation("room"));
     }

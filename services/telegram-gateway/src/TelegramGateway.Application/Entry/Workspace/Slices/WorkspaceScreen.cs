@@ -15,6 +15,9 @@ internal static class WorkspaceScreen
     private const string IncomeCategorySlot = "transaction.income.category.";
     private const string RecentItemSlot = "transaction.recent.item.";
     private const string RecentCategorySlot = "transaction.recent.category.";
+    private const string Primary = "primary";
+    private const string Success = "success";
+    private const string Danger = "danger";
     private static readonly Dictionary<string, string> icon = new(StringComparer.Ordinal)
     {
         ["food"] = "🍽",
@@ -36,11 +39,12 @@ internal static class WorkspaceScreen
     };
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web);
     private static readonly NumberFormatInfo money = Note();
-    public static TelegramText Message(long chatId, WorkspaceViewRequestedCommand command)
+    public static TelegramText Message(long chatId, WorkspaceViewRequestedCommand command, ITelegramKeys keys)
     {
         ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(keys);
         WorkspaceData data = Data(command.Frame.State, command.Frame.StateData);
-        return new TelegramText(chatId, Text(command.Frame.State, command.Freshness.IsNewUser, data), Keys(command.Frame.Actions, data));
+        return new TelegramText(chatId, Text(command.Frame.State, command.Freshness.IsNewUser, data), Keys(command.Frame.Actions, data), keys);
     }
     private static string Text(string state, bool fresh, WorkspaceData data) => state switch
     {
@@ -187,27 +191,27 @@ internal static class WorkspaceScreen
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         return code switch
         {
-            "account.add" => new TelegramButton("➕ Add account", code, "primary"),
+            "account.add" => new TelegramButton("➕ Add account", code, Primary),
             "account.currency.rub" => new TelegramButton("RUB ₽", code),
             "account.currency.usd" => new TelegramButton("USD $", code),
             "account.currency.eur" => new TelegramButton("EUR €", code),
             "account.currency.other" => new TelegramButton("Other", code),
-            "account.create" => new TelegramButton("✅ Create account", code, "success"),
-            "account.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
-            "transaction.expense.add" => new TelegramButton("➖ Add expense", code, "primary"),
-            "transaction.income.add" => new TelegramButton("➕ Add income", code, "primary"),
-            "transaction.expense.create" => new TelegramButton("✅ Save expense", code, "success"),
-            "transaction.expense.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
-            "transaction.income.create" => new TelegramButton("✅ Save income", code, "success"),
-            "transaction.income.cancel" => new TelegramButton("✖ Cancel", code, "danger"),
-            "transaction.recent.show" => new TelegramButton("🧾 Recent transactions", code, "primary"),
+            "account.create" => new TelegramButton("✅ Create account", code, Success),
+            "account.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "transaction.expense.add" => new TelegramButton("➖ Add expense", code, Primary),
+            "transaction.income.add" => new TelegramButton("➕ Add income", code, Primary),
+            "transaction.expense.create" => new TelegramButton("✅ Save expense", code, Success),
+            "transaction.expense.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "transaction.income.create" => new TelegramButton("✅ Save income", code, Success),
+            "transaction.income.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "transaction.recent.show" => new TelegramButton("🧾 Recent transactions", code, Primary),
             "transaction.recent.page.prev" => new TelegramButton("◀ Previous", code),
             "transaction.recent.page.next" => new TelegramButton("Next ▶", code),
             "transaction.recent.back" => new TelegramButton("↩ Back", code),
-            "transaction.recent.delete" => new TelegramButton("🗑 Delete", code, "danger"),
-            "transaction.recent.delete.apply" => new TelegramButton("✅ Delete transaction", code, "danger"),
-            "transaction.recent.recategorize" => new TelegramButton("✏ Change category", code, "primary"),
-            "transaction.recent.recategorize.apply" => new TelegramButton("✅ Save category", code, "success"),
+            "transaction.recent.delete" => new TelegramButton("🗑 Delete", code, Danger),
+            "transaction.recent.delete.apply" => new TelegramButton("✅ Delete transaction", code, Danger),
+            "transaction.recent.recategorize" => new TelegramButton("✏ Change category", code, Primary),
+            "transaction.recent.recategorize.apply" => new TelegramButton("✅ Save category", code, Success),
             _ when code.StartsWith(ExpenseAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, ExpenseAccountSlot),
             _ when code.StartsWith(IncomeAccountSlot, StringComparison.Ordinal) => AccountButton(code, data, IncomeAccountSlot),
             _ when code.StartsWith(ExpenseCategorySlot, StringComparison.Ordinal) => CategoryButton(code, data, ExpenseCategorySlot),

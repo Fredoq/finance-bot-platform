@@ -3,12 +3,14 @@ namespace TelegramGateway.Application.Telegram.Delivery;
 internal sealed record TelegramEditText : TelegramOperation
 {
     private const string Html = "HTML";
-    public TelegramEditText(long chatId, long messageId, string text, IReadOnlyList<TelegramRow> keys) : base("editMessageText")
+    private readonly ITelegramKeys item;
+    public TelegramEditText(long chatId, long messageId, string text, IReadOnlyList<TelegramRow> keys, ITelegramKeys item) : base("editMessageText")
     {
         ChatId = chatId;
         MessageId = messageId > 0 ? messageId : throw new ArgumentOutOfRangeException(nameof(messageId));
         Text = !string.IsNullOrWhiteSpace(text) ? text.Trim() : throw new ArgumentException("Telegram text is required", nameof(text));
-        Keys = TelegramKeys.Read(keys, nameof(keys));
+        this.item = item ?? throw new ArgumentNullException(nameof(item));
+        Keys = this.item.Rows(keys, nameof(keys));
         ParseMode = Html;
     }
     public long ChatId { get; }
@@ -22,6 +24,6 @@ internal sealed record TelegramEditText : TelegramOperation
         message_id = MessageId,
         text = Text,
         parse_mode = ParseMode,
-        reply_markup = TelegramKeys.Markup(Keys)
+        reply_markup = item.Markup(Keys)
     };
 }

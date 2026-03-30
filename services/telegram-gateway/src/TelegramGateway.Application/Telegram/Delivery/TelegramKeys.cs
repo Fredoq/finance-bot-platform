@@ -1,8 +1,14 @@
 namespace TelegramGateway.Application.Telegram.Delivery;
 
-internal static class TelegramKeys
+internal interface ITelegramKeys
 {
-    public static IReadOnlyList<TelegramRow> Read(IReadOnlyList<TelegramRow> keys, string name)
+    IReadOnlyList<TelegramRow> Rows(IReadOnlyList<TelegramRow> keys, string name);
+    object Markup(IReadOnlyList<TelegramRow> keys);
+}
+
+internal sealed class TelegramKeys : ITelegramKeys
+{
+    public IReadOnlyList<TelegramRow> Rows(IReadOnlyList<TelegramRow> keys, string name)
     {
         ArgumentNullException.ThrowIfNull(keys);
         if (keys.Any(item => item is null))
@@ -11,10 +17,12 @@ internal static class TelegramKeys
         }
         return Array.AsReadOnly(keys.ToArray());
     }
-    public static object? Markup(IReadOnlyList<TelegramRow> keys) => keys.Count > 0 ? new
+    public object Markup(IReadOnlyList<TelegramRow> keys) => keys.Count > 0 ? new
     {
         inline_keyboard = keys.Select(Row).ToArray()
-    } : null;
+    } : new
+    {
+    };
     private static object[] Row(TelegramRow item) => [.. item.Cells.Select(Cell)];
     private static object Cell(TelegramButton item) => string.IsNullOrWhiteSpace(item.Style)
         ? new

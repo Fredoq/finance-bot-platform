@@ -271,7 +271,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         RecentItemData? item = RecentItem(body.Recent.Items, slot);
         return item is null
             ? new WorkspaceMove(RecentListState, RecentBody(body, new RecentData(body.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, "Transaction was not found")), null, string.Empty, null)
-            : new WorkspaceMove(RecentDetailState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(item.Slot, item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc))), null, string.Empty, null);
+            : new WorkspaceMove(RecentDetailState, RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc)))), null, string.Empty, null);
     }
     private static WorkspaceMove RecentDetailAction(WorkspaceData body, string code) => code switch
     {
@@ -299,7 +299,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new WorkspaceMove(RecentCategoryState, Model(body, status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
         }
         RecentItemData selected = body.Recent.Selected;
-        WorkspaceData state = RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(selected.Slot, selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc)));
+        WorkspaceData state = RecentBody(body, new RecentData(body.Recent.Page, body.Recent.HasPrevious, body.Recent.HasNext, body.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc))));
         return new WorkspaceMove(RecentRecategorizeState, state, null, string.Empty, null);
     }
     private static WorkspaceMove RecentCategoryText(WorkspaceData body, string value)
@@ -485,9 +485,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         WorkspaceData item = TransactionBody(body, new PickData(accountId, account.Name, account.Note), category, total, income);
         return new WorkspaceMove(TransactionConfirmCode(income), item, null, string.Empty, new TransactionNote(accountId, category.Id, total.Value, Kind(income)));
     }
-    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(string.Empty, notice), false);
-    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(error, notice), false);
-    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, body.Financial, body.Expense, body.Income, body.Recent, body.Choices, body.Status, body.Custom);
+    private static WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(string.Empty, notice), false));
+    private static WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(error, notice), false));
+    private static WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData(body.Financial, body.Expense, body.Income, body.Recent, body.Choices, body.Status, body.Custom));
     private static WorkspaceData Data(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -495,7 +495,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             return new WorkspaceData();
         }
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return new WorkspaceData(item?.Accounts ?? [], item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false);
+        return new WorkspaceData(item?.Accounts ?? [], new WorkspaceStateData(item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false));
     }
     private static string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
     private static WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), body.Custom);
@@ -652,7 +652,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             PickData pick = await Category(link, lane, userId, move.CategoryEntry, move.CorrectValue.TransactionKind, when, token);
             RecentItemData selected = move.Body.Recent.Selected;
-            WorkspaceData recent = RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(selected.Slot, selected.Id, selected.Kind, selected.Account, pick, selected.Amount, selected.Currency, selected.OccurredUtc)), move.Body.Choices, move.Body.Status);
+            WorkspaceData recent = RecentBody(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, pick, selected.Amount, selected.Currency, selected.OccurredUtc))), move.Body.Choices, move.Body.Status);
             return new WorkspaceMove(RecentRecategorizeState, recent, null, string.Empty, null);
         }
         bool income = Kind(move.Code) == IncomeKind;
@@ -660,10 +660,10 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         WorkspaceData body = TransactionBody(move.Body, AccountPick(move.Body, income), item, TransactionTotal(move.Body, income), income);
         return new WorkspaceMove(TransactionConfirmCode(income), body, null, string.Empty, null);
     }
-    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, RecentData? recent = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, recent ?? body.Recent, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom);
-    private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), custom);
-    private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), false);
-    private static WorkspaceData RecentBody(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), false);
+    private static WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ExpenseData? expense = null, IncomeData? income = null, RecentData? recent = null, ChoicesData? choices = null, StatusData? status = null, bool? custom = null) => new(body.Accounts, new WorkspaceStateData(financial ?? body.Financial, expense ?? body.Expense, income ?? body.Income, recent ?? body.Recent, choices ?? body.Choices, status ?? body.Status, custom ?? body.Custom));
+    private static WorkspaceData AccountBody(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData(financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), custom));
+    private static WorkspaceData TransactionBody(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), false));
+    private static WorkspaceData RecentBody(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), false));
     private static PickData AccountPick(WorkspaceData body, bool income) => income ? body.Income.Account : body.Expense.Account;
     private static PickData CategoryValue(WorkspaceData body, bool income) => income ? body.Income.Category : body.Expense.Category;
     private static decimal? TransactionTotal(WorkspaceData body, bool income) => income ? body.Income.Amount : body.Expense.Amount;
@@ -889,19 +889,20 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             list.Add(new RecentItemData(
                 list.Count + 1,
-                row.GetString(0),
-                row.GetString(1),
-                new PickData(row.GetString(2), row.GetString(3), row.GetString(4)),
-                new PickData(row.GetString(5), row.GetString(6), row.GetString(7)),
-                row.GetDecimal(8),
-                row.GetString(4),
-                await row.GetFieldValueAsync<DateTimeOffset>(9, token)));
+                new RecentEntryData(
+                    row.GetString(0),
+                    row.GetString(1),
+                    new PickData(row.GetString(2), row.GetString(3), row.GetString(4)),
+                    new PickData(row.GetString(5), row.GetString(6), row.GetString(7)),
+                    row.GetDecimal(8),
+                    row.GetString(4),
+                    await row.GetFieldValueAsync<DateTimeOffset>(9, token))));
         }
         bool hasNext = list.Count > RecentPageSize;
         RecentItemData[] items = hasNext ? [.. list.Take(RecentPageSize)] : [.. list];
         for (int item = 0; item < items.Length; item += 1)
         {
-            items[item] = new RecentItemData(item + 1, items[item].Id, items[item].Kind, items[item].Account, items[item].Category, items[item].Amount, items[item].Currency, items[item].OccurredUtc);
+            items[item] = new RecentItemData(item + 1, new RecentEntryData(items[item].Id, items[item].Kind, items[item].Account, items[item].Category, items[item].Amount, items[item].Currency, items[item].OccurredUtc));
         }
         return new RecentData(index, index > 0, hasNext, items, new RecentItemData());
     }
@@ -932,7 +933,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             return null;
         }
-        return new RecentItemData(0, row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token));
+        return new RecentItemData(0, new RecentEntryData(row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token)));
     }
     private static async ValueTask<RecentData> Current(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int page, CancellationToken token)
     {
