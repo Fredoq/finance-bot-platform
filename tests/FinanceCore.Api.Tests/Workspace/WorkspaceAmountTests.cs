@@ -27,4 +27,14 @@ public sealed class WorkspaceAmountTests
         int value = new WorkspaceAmount().Scale(12.3456m);
         Assert.Equal(4, value);
     }
+
+    /// <summary>
+    /// Verifies that null amount input is rejected explicitly.
+    /// </summary>
+    [Fact(DisplayName = "Rejects null amount input")]
+    public void Rejects_null()
+    {
+        string value = null!;
+        Assert.Throws<ArgumentNullException>(() => new WorkspaceAmount().Try(value, out _));
+    }
 }

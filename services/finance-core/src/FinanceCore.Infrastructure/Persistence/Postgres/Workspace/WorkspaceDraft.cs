@@ -46,19 +46,15 @@ internal sealed class WorkspaceDraft
     internal WorkspaceMove Account(WorkspaceData data, string code, bool income)
     {
         int slot = body.Slot(code, body.AccountSlot(income));
-        OptionData? item = body.Option(data.Choices.Accounts, slot);
-        return item is null
-            ? new WorkspaceMove(body.AccountCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData("Choose one account", string.Empty)), null, string.Empty, null)
-            : new WorkspaceMove(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income), null, string.Empty, null);
+        OptionData item = body.Option(data.Choices.Accounts, slot);
+        return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income), null, string.Empty, null);
     }
 
     internal WorkspaceMove Category(WorkspaceData data, string code, bool income)
     {
         int slot = body.Slot(code, body.CategorySlot(income));
-        OptionData? item = body.Option(data.Choices.Categories, slot);
-        return item is null
-            ? new WorkspaceMove(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null)
-            : new WorkspaceMove(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income), null, string.Empty, null);
+        OptionData item = body.Option(data.Choices.Categories, slot);
+        return new WorkspaceMove(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income), null, string.Empty, null);
     }
 
     internal WorkspaceMove Finish(WorkspaceData data, string code, bool income)

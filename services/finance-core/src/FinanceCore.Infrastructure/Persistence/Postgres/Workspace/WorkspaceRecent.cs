@@ -19,10 +19,8 @@ internal sealed class WorkspaceRecent
             return new WorkspaceMove(WorkspaceBody.RecentListState, body.Recent(data, new RecentData(page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
         }
         int slot = body.Slot(code, WorkspaceBody.RecentItemSlot);
-        RecentItemData? item = body.Item(data.Recent.Items, slot);
-        return item is null
-            ? new WorkspaceMove(WorkspaceBody.RecentListState, body.Recent(data, new RecentData(data.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData(string.Empty, WorkspaceBody.TransactionMissingNotice)), null, string.Empty, null)
-            : new WorkspaceMove(WorkspaceBody.RecentDetailState, body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc)))), null, string.Empty, null);
+        RecentItemData item = body.Item(data.Recent.Items, slot);
+        return new WorkspaceMove(WorkspaceBody.RecentDetailState, body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc)))), null, string.Empty, null);
     }
 
     internal WorkspaceMove Detail(WorkspaceData data, string code) => code switch
@@ -47,11 +45,7 @@ internal sealed class WorkspaceRecent
     internal WorkspaceMove Category(WorkspaceData data, string code)
     {
         int slot = body.Slot(code, WorkspaceBody.RecentCategorySlot);
-        OptionData? item = body.Option(data.Choices.Categories, slot);
-        if (item is null)
-        {
-            return new WorkspaceMove(WorkspaceBody.RecentCategoryState, body.Model(data, status: new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
-        }
+        OptionData item = body.Option(data.Choices.Categories, slot);
         RecentItemData selected = data.Recent.Selected;
         WorkspaceData state = body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc))));
         return new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, state, null, string.Empty, null);

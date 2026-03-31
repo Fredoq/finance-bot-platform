@@ -143,13 +143,38 @@ internal sealed class WorkspaceBody
 
     internal bool TransactionCategoryState(string state) => states.Category(state);
 
-    internal OptionData? Option(IReadOnlyList<OptionData> list, int slot) => slot > codes.Zero ? list.SingleOrDefault(item => item.Slot == slot) : null;
+    internal OptionData Option(IReadOnlyList<OptionData> list, int slot)
+    {
+        if (slot <= codes.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slot), "Option slot must be greater than zero");
+        }
+        return list.SingleOrDefault(item => item.Slot == slot) ?? throw new InvalidOperationException($"Option slot '{slot}' was not found");
+    }
 
-    internal RecentItemData? Item(IReadOnlyList<RecentItemData> list, int slot) => slot > codes.Zero ? list.SingleOrDefault(item => item.Slot == slot) : null;
+    internal RecentItemData Item(IReadOnlyList<RecentItemData> list, int slot)
+    {
+        if (slot <= codes.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slot), "Recent item slot must be greater than zero");
+        }
+        return list.SingleOrDefault(item => item.Slot == slot) ?? throw new InvalidOperationException($"Recent item slot '{slot}' was not found");
+    }
 
     internal IReadOnlyList<OptionData> Accounts(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1 + codes.Zero, item.Id, item.Name, item.Currency))];
 
-    internal string Kind(string state) => states.Income(state) ? kinds.Kind(true) : kinds.Kind(false);
+    internal string Kind(string state)
+    {
+        if (states.Income(state))
+        {
+            return kinds.Kind(true);
+        }
+        if (states.Expense(state))
+        {
+            return kinds.Kind(false);
+        }
+        throw new ArgumentException($"Workspace state '{state}' is not supported", nameof(state));
+    }
 
     internal string Kind(bool income) => kinds.Kind(income);
 

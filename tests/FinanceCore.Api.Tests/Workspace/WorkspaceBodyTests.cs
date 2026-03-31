@@ -41,4 +41,34 @@ public sealed class WorkspaceBodyTests
         Assert.Equal("a1", model.Expense.Account.Id);
         Assert.Equal(12.5m, model.Expense.Amount);
     }
+
+    /// <summary>
+    /// Verifies that an unknown state is rejected instead of being treated as expense.
+    /// </summary>
+    [Fact(DisplayName = "Rejects unsupported transaction state")]
+    public void Rejects_state()
+    {
+        WorkspaceBody item = new();
+        Assert.Throws<ArgumentException>(() => item.Kind("home"));
+    }
+
+    /// <summary>
+    /// Verifies that option lookup rejects non-positive slots.
+    /// </summary>
+    [Fact(DisplayName = "Rejects non-positive option slot")]
+    public void Rejects_option_slot()
+    {
+        WorkspaceBody item = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => item.Option([new OptionData(1, "a1", "Cash", "USD")], 0));
+    }
+
+    /// <summary>
+    /// Verifies that recent item lookup rejects a missing slot.
+    /// </summary>
+    [Fact(DisplayName = "Rejects missing recent item slot")]
+    public void Rejects_item_slot()
+    {
+        WorkspaceBody item = new();
+        Assert.Throws<InvalidOperationException>(() => item.Item([new RecentItemData(1, new RecentEntryData("t1", WorkspaceBody.ExpenseKind, new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", DateTimeOffset.UnixEpoch))], 2));
+    }
 }

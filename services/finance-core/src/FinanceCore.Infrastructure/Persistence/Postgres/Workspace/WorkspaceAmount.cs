@@ -10,6 +10,7 @@ internal sealed class WorkspaceAmount
 
     internal bool Try(string value, out decimal amount)
     {
+        ArgumentNullException.ThrowIfNull(value);
         string text = value.Trim();
         if (Decimal(text, axis.Comma, out amount) && Candidate(text, axis.Comma))
         {
