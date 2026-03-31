@@ -7,6 +7,7 @@ namespace FinanceCore.Api.Tests.Workspace;
 /// </summary>
 public sealed class WorkspaceRecentTests
 {
+    private static readonly DateTimeOffset when = new(2026, 3, 29, 20, 28, 0, TimeSpan.Zero);
     /// <summary>
     /// Verifies that empty category text is rejected.
     /// </summary>
@@ -15,7 +16,7 @@ public sealed class WorkspaceRecentTests
     {
         var body = new WorkspaceBody();
         var item = new WorkspaceRecent(body);
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", DateTimeOffset.UtcNow))), new ChoicesData(), new StatusData(), false));
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData(), new StatusData(), false));
         WorkspaceMove move = item.Text(data, " ");
         Assert.Equal(WorkspaceBody.RecentCategoryState, move.Code);
     }
@@ -28,7 +29,7 @@ public sealed class WorkspaceRecentTests
     {
         var body = new WorkspaceBody();
         var item = new WorkspaceRecent(body);
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", DateTimeOffset.UtcNow))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", DateTimeOffset.UtcNow))), new ChoicesData(), new StatusData(), false));
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData(), new StatusData(), false));
         WorkspaceMove move = item.Return(data, WorkspaceBody.RecentDetailState);
         Assert.Equal(WorkspaceBody.RecentListState, move.Code);
     }

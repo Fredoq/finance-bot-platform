@@ -54,7 +54,12 @@ internal sealed record CorrectionNote
     internal CorrectionNote(string transactionId, string kind, string mode, string categoryId)
     {
         TransactionId = transactionId ?? throw new ArgumentNullException(nameof(transactionId));
-        TransactionKind = kind ?? throw new ArgumentNullException(nameof(kind));
+        TransactionKind = kind switch
+        {
+            WorkspaceBody.ExpenseKind => kind,
+            WorkspaceBody.IncomeKind => kind,
+            _ => throw new ArgumentException("Workspace transaction kind is not supported", nameof(kind))
+        };
         Mode = mode ?? throw new ArgumentNullException(nameof(mode));
         CategoryId = categoryId ?? throw new ArgumentNullException(nameof(categoryId));
     }

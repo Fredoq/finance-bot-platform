@@ -7,7 +7,7 @@ internal sealed class WorkspaceBody
 {
     private readonly JsonSerializerOptions json;
 
-    internal WorkspaceBody() => json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    public WorkspaceBody() => json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
     internal WorkspaceData Data(string state, string value)
     {
@@ -49,7 +49,7 @@ internal sealed class WorkspaceBody
             "transaction.recent.delete.confirm" => Selected(item, "transaction.recent.delete.confirm"),
             "transaction.recent.category" => RecentCategory(item),
             "transaction.recent.recategorize.confirm" => Selected(item, "transaction.recent.recategorize.confirm"),
-            _ => item
+            _ => throw new InvalidOperationException($"Workspace screen '{state}' is not recognized")
         };
     }
 

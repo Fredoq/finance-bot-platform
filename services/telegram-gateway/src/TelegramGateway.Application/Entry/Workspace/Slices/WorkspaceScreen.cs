@@ -10,7 +10,7 @@ internal sealed class WorkspaceScreen : IWorkspaceScreen
     private readonly WorkspaceKeys rows;
     private readonly ITelegramKeys keys;
 
-    internal WorkspaceScreen(WorkspaceBody body, WorkspaceText text, WorkspaceKeys rows, ITelegramKeys keys)
+    public WorkspaceScreen(WorkspaceBody body, WorkspaceText text, WorkspaceKeys rows, ITelegramKeys keys)
     {
         this.body = body ?? throw new ArgumentNullException(nameof(body));
         this.text = text ?? throw new ArgumentNullException(nameof(text));

@@ -6,7 +6,7 @@ internal sealed class WorkspaceText
 {
     private readonly WorkspaceHtml html;
 
-    internal WorkspaceText(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
+    public WorkspaceText(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
 
     internal string Text(string state, bool fresh, WorkspaceData data) => state switch
     {

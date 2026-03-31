@@ -15,7 +15,7 @@ internal sealed class WorkspaceKeys
     private const string Danger = "danger";
     private readonly WorkspaceHtml html;
 
-    internal WorkspaceKeys(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
+    public WorkspaceKeys(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
 
     internal IReadOnlyList<TelegramRow> Rows(IReadOnlyList<string> actions, WorkspaceData data)
     {
@@ -57,7 +57,7 @@ internal sealed class WorkspaceKeys
             _ when code.StartsWith(IncomeCategorySlot, StringComparison.Ordinal) => Category(code, data, IncomeCategorySlot),
             _ when code.StartsWith(RecentItemSlot, StringComparison.Ordinal) => Recent(code, data),
             _ when code.StartsWith(RecentCategorySlot, StringComparison.Ordinal) => Category(code, data, RecentCategorySlot),
-            _ => new TelegramButton(code, code)
+            _ => throw new InvalidOperationException($"Workspace action '{code}' is not recognized")
         };
     }
 

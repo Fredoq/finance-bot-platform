@@ -10,7 +10,7 @@ namespace TelegramGateway.Api.Tests;
 public sealed class WorkspaceScreenTests
 {
     private static readonly ITelegramKeys keys = new TelegramKeys();
-    private static readonly WorkspaceScreen screen = Build();
+    private readonly WorkspaceScreen screen = Build();
     /// <summary>
     /// Verifies that the home screen message contains actions and buttons.
     /// </summary>

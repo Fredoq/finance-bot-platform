@@ -27,4 +27,15 @@ public sealed class WorkspaceBodyTests
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => body.Data("transaction.recent.category", "{\"accounts\":[],\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"slot\":1,\"id\":\"t1\",\"kind\":\"expense\",\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},\"amount\":10,\"currency\":\"USD\",\"occurredUtc\":\"2026-03-29T20:28:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
         Assert.Contains("requires category choices", error.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Verifies that unknown states fail fast.
+    /// </summary>
+    [Fact(DisplayName = "Rejects unknown workspace screen states")]
+    public void Rejects_unknown_state()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => body.Data("workspace.unknown", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.Contains("is not recognized", error.Message, StringComparison.Ordinal);
+    }
 }

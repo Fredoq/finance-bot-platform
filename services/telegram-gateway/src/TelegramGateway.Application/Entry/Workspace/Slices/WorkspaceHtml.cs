@@ -8,7 +8,7 @@ internal sealed class WorkspaceHtml
     private readonly NumberFormatInfo money;
     private readonly Dictionary<string, string> icon;
 
-    internal WorkspaceHtml()
+    public WorkspaceHtml()
     {
         money = Note();
         icon = new Dictionary<string, string>(StringComparer.Ordinal)

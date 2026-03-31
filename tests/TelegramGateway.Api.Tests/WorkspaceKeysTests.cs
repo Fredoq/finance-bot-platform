@@ -19,4 +19,27 @@ public sealed class WorkspaceKeysTests
         IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["transaction.recent.item.1"], data);
         Assert.Equal("1. - 🍽 Food · 12.5 $", rows.SelectMany(item => item.Cells).Single().Text);
     }
+
+    /// <summary>
+    /// Verifies that unknown actions fail fast.
+    /// </summary>
+    [Fact(DisplayName = "Rejects unknown workspace action codes")]
+    public void Rejects_unknown_codes()
+    {
+        WorkspaceHtml html = new();
+        WorkspaceKeys keys = new(html);
+        WorkspaceData data = new()
+        {
+            Accounts = [],
+            Financial = new FinancialData(),
+            Expense = new TransactionData(),
+            Income = new TransactionData(),
+            Recent = new RecentData(),
+            Choices = new ChoicesData(),
+            Status = new StatusData(),
+            Custom = false
+        };
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => keys.Rows(["workspace.unknown"], data));
+        Assert.Contains("is not recognized", error.Message, StringComparison.Ordinal);
+    }
 }
