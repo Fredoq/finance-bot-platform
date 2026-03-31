@@ -1,4 +1,3 @@
-#pragma warning disable S2325
 using System.Globalization;
 using System.Text.Json;
 using FinanceCore.Domain.Workspace.Models;
@@ -62,14 +61,23 @@ internal sealed class WorkspaceBody
     internal const string ConfirmGoBackPrompt = "Use the buttons to confirm or go back";
     internal const string TransactionMissingNotice = "Transaction was not found";
     private readonly JsonSerializerOptions json;
+    private readonly WorkspaceStateSet states;
+    private readonly WorkspaceKindSet kinds;
+    private readonly WorkspaceCodeSet codes;
 
-    internal WorkspaceBody() => json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    internal WorkspaceBody()
+    {
+        json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        states = new WorkspaceStateSet();
+        kinds = new WorkspaceKindSet();
+        codes = new WorkspaceCodeSet();
+    }
 
-    internal WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(string.Empty, notice), false));
+    internal WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(codes.Empty, notice), codes.Custom(false)));
 
-    internal WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(error, notice), false));
+    internal WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(error, notice), codes.Custom(false)));
 
-    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData(body.Financial, body.Expense, body.Income, body.Recent, body.Choices, body.Status, body.Custom));
+    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData(body.Financial, body.Expense, body.Income, body.Recent, body.Choices, body.Status, codes.Custom(body.Custom)));
 
     internal WorkspaceData Data(string value)
     {
@@ -78,32 +86,32 @@ internal sealed class WorkspaceBody
             return new WorkspaceData();
         }
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
-        return new WorkspaceData(item?.Accounts ?? [], new WorkspaceStateData(item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), item?.Custom ?? false));
+        return new WorkspaceData(item?.Accounts ?? [], new WorkspaceStateData(item?.Financial ?? new FinancialData(), item?.Expense ?? new ExpenseData(), item?.Income ?? new IncomeData(), item?.Recent ?? new RecentData(), item?.Choices ?? new ChoicesData(), item?.Status ?? new StatusData(), codes.Custom(item?.Custom ?? false)));
     }
 
     internal string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
 
-    internal WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), body.Custom);
+    internal WorkspaceActionContext Context(WorkspaceData body) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), codes.Custom(body.Custom));
 
     internal DateTimeOffset Utc(DateTimeOffset value, string name)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(value, default);
-        return value.Offset == TimeSpan.Zero ? value : throw new ArgumentException("Workspace occurrence time must be UTC", name);
+        return value.Offset == codes.Utc ? value : throw new ArgumentException("Workspace occurrence time must be UTC", name);
     }
 
-    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(financial ?? body.Financial, body.Expense, body.Income, body.Recent, choices ?? body.Choices, status ?? body.Status, body.Custom));
+    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(financial ?? body.Financial, body.Expense, body.Income, body.Recent, choices ?? body.Choices, status ?? body.Status, codes.Custom(body.Custom)));
 
-    internal WorkspaceData Account(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData(financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), custom));
+    internal WorkspaceData Account(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData(financial, new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), status ?? new StatusData(), codes.Custom(custom)));
 
-    internal WorkspaceData Transaction(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), income ? new ExpenseData() : new ExpenseData(account, category, amount), income ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), false));
+    internal WorkspaceData Transaction(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), kinds.Income(income) ? new ExpenseData() : new ExpenseData(account, category, amount), kinds.Income(income) ? new IncomeData(account, category, amount) : new IncomeData(), new RecentData(), choices ?? new ChoicesData(), status ?? new StatusData(), codes.Custom(false)));
 
-    internal WorkspaceData Recent(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), false));
+    internal WorkspaceData Recent(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), recent, choices ?? new ChoicesData(), status ?? new StatusData(), codes.Custom(false)));
 
-    internal PickData Pick(WorkspaceData body, bool income) => income ? body.Income.Account : body.Expense.Account;
+    internal PickData Pick(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Account : body.Expense.Account;
 
-    internal PickData Category(WorkspaceData body, bool income) => income ? body.Income.Category : body.Expense.Category;
+    internal PickData Category(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Category : body.Expense.Category;
 
-    internal decimal? Total(WorkspaceData body, bool income) => income ? body.Income.Amount : body.Expense.Amount;
+    internal decimal? Total(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Amount : body.Expense.Amount;
 
     internal string Resolve(WorkspaceData body, bool income)
     {
@@ -113,71 +121,211 @@ internal sealed class WorkspaceBody
             return account.Id;
         }
         AccountData? item = body.Accounts.FirstOrDefault(candidate => candidate.Name == account.Name && candidate.Currency == account.Note);
-        return item?.Id ?? string.Empty;
+        return item?.Id ?? codes.Empty;
     }
 
     internal int Slot(string value, string prefix)
     {
-        if (!value.StartsWith(prefix, StringComparison.Ordinal))
+        if (!value.StartsWith(prefix, codes.Comparison))
         {
-            return 0;
+            return codes.Zero;
         }
-        return int.TryParse(value[prefix.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out int slot) && slot > 0 ? slot : 0;
+        return int.TryParse(value[prefix.Length..], codes.Styles, CultureInfo.InvariantCulture, out int slot) && slot > codes.Zero ? slot : codes.Zero;
     }
 
-    internal bool AccountState(string state) => state is NameState or CurrencyState or BalanceState or ConfirmState;
+    internal bool AccountState(string state) => states.Account(state);
 
-    internal bool ExpenseState(string state) => state is ExpenseAccountState or ExpenseAmountState or ExpenseCategoryState or ExpenseConfirmState;
+    internal bool ExpenseState(string state) => states.Expense(state);
 
-    internal bool IncomeState(string state) => state is IncomeAccountState or IncomeAmountState or IncomeCategoryState or IncomeConfirmState;
+    internal bool IncomeState(string state) => states.Income(state);
 
-    internal bool RecentState(string state) => state is RecentListState or RecentDetailState or RecentDeleteState or RecentCategoryState or RecentRecategorizeState;
+    internal bool RecentState(string state) => states.Recent(state);
 
-    internal bool TransactionCategoryState(string state) => state is ExpenseCategoryState or IncomeCategoryState or RecentCategoryState;
+    internal bool TransactionCategoryState(string state) => states.Category(state);
 
-    internal OptionData? Option(IReadOnlyList<OptionData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
+    internal OptionData? Option(IReadOnlyList<OptionData> list, int slot) => slot > codes.Zero ? list.SingleOrDefault(item => item.Slot == slot) : null;
 
-    internal RecentItemData? Item(IReadOnlyList<RecentItemData> list, int slot) => list.SingleOrDefault(item => item.Slot == slot);
+    internal RecentItemData? Item(IReadOnlyList<RecentItemData> list, int slot) => slot > codes.Zero ? list.SingleOrDefault(item => item.Slot == slot) : null;
 
-    internal IReadOnlyList<OptionData> Accounts(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1, item.Id, item.Name, item.Currency))];
+    internal IReadOnlyList<OptionData> Accounts(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1 + codes.Zero, item.Id, item.Name, item.Currency))];
 
-    internal string Kind(string state) => state.StartsWith("transaction.income.", StringComparison.Ordinal) ? IncomeKind : ExpenseKind;
+    internal string Kind(string state) => states.Income(state) ? kinds.Kind(true) : kinds.Kind(false);
 
-    internal string Kind(bool income) => income ? IncomeKind : ExpenseKind;
+    internal string Kind(bool income) => kinds.Kind(income);
 
-    internal string Supported(string kind) => kind switch
+    internal string Supported(string kind) => kinds.Supported(kind);
+
+    internal string Change(string kind) => kinds.Change(kind);
+
+    internal string Reverse(string kind) => kinds.Reverse(kind);
+
+    internal string AccountCode(bool income) => codes.Account(income);
+
+    internal string AmountCode(bool income) => codes.Amount(income);
+
+    internal string CategoryCode(bool income) => codes.Category(income);
+
+    internal string ConfirmCode(bool income) => codes.Confirm(income);
+
+    internal string CreateCode(bool income) => codes.Create(income);
+
+    internal string AccountSlot(bool income) => codes.Slot(income);
+
+    internal string CategorySlot(bool income) => codes.CategorySlot(income);
+
+    private sealed class WorkspaceStateSet
     {
-        IncomeKind => IncomeKind,
-        ExpenseKind => ExpenseKind,
-        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
-    };
+        private readonly HashSet<string> accounts;
+        private readonly HashSet<string> expenses;
+        private readonly HashSet<string> incomes;
+        private readonly HashSet<string> recents;
 
-    internal string Change(string kind) => Supported(kind) switch
+        internal WorkspaceStateSet()
+        {
+            accounts = new HashSet<string>(StringComparer.Ordinal) { NameState, CurrencyState, BalanceState, ConfirmState };
+            expenses = new HashSet<string>(StringComparer.Ordinal) { ExpenseAccountState, ExpenseAmountState, ExpenseCategoryState, ExpenseConfirmState };
+            incomes = new HashSet<string>(StringComparer.Ordinal) { IncomeAccountState, IncomeAmountState, IncomeCategoryState, IncomeConfirmState };
+            recents = new HashSet<string>(StringComparer.Ordinal) { RecentListState, RecentDetailState, RecentDeleteState, RecentCategoryState, RecentRecategorizeState };
+        }
+
+        internal bool Account(string state) => accounts.Contains(state);
+
+        internal bool Category(string state) => expenses.Contains(state) && state == ExpenseCategoryState || incomes.Contains(state) && state == IncomeCategoryState || recents.Contains(state) && state == RecentCategoryState;
+
+        internal bool Expense(string state) => expenses.Contains(state);
+
+        internal bool Income(string state) => incomes.Contains(state);
+
+        internal bool Recent(string state) => recents.Contains(state);
+    }
+
+    private sealed class WorkspaceKindSet
     {
-        IncomeKind => "+",
-        ExpenseKind => "-",
-        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
-    };
+        private readonly Dictionary<string, WorkspaceKindMark> marks;
+        private readonly string income;
+        private readonly string expense;
+        private readonly bool flag;
 
-    internal string Reverse(string kind) => Supported(kind) switch
+        internal WorkspaceKindSet()
+        {
+            income = IncomeKind;
+            expense = ExpenseKind;
+            flag = true;
+            marks = new Dictionary<string, WorkspaceKindMark>(StringComparer.Ordinal)
+            {
+                [income] = new WorkspaceKindMark("+", "-"),
+                [expense] = new WorkspaceKindMark("-", "+")
+            };
+        }
+
+        internal string Change(string kind) => marks[Supported(kind)].Change;
+
+        internal bool Income(bool value) => value == flag;
+
+        internal string Kind(bool value) => Income(value) ? income : expense;
+
+        internal string Reverse(string kind) => marks[Supported(kind)].Reverse;
+
+        internal string Supported(string kind) => marks.ContainsKey(kind) ? kind : throw new InvalidOperationException($"Transaction kind '{kind}' is not supported");
+    }
+
+    private sealed class WorkspaceKindMark
     {
-        IncomeKind => "-",
-        ExpenseKind => "+",
-        _ => throw new InvalidOperationException($"Transaction kind '{kind}' is not supported")
-    };
+        internal WorkspaceKindMark(string change, string reverse)
+        {
+            Change = change;
+            Reverse = reverse;
+        }
 
-    internal string AccountCode(bool income) => income ? IncomeAccountState : ExpenseAccountState;
+        internal string Change { get; }
 
-    internal string AmountCode(bool income) => income ? IncomeAmountState : ExpenseAmountState;
+        internal string Reverse { get; }
+    }
 
-    internal string CategoryCode(bool income) => income ? IncomeCategoryState : ExpenseCategoryState;
+    private sealed class WorkspaceCodeSet
+    {
+        private readonly WorkspacePath expense;
+        private readonly WorkspacePath income;
+        private readonly WorkspaceScalar scalar;
 
-    internal string ConfirmCode(bool income) => income ? IncomeConfirmState : ExpenseConfirmState;
+        internal WorkspaceCodeSet()
+        {
+            expense = new WorkspacePath([ExpenseAccountState, ExpenseAmountState, ExpenseCategoryState, ExpenseConfirmState, CreateExpenseCode], ExpenseAccountSlot, ExpenseCategorySlot);
+            income = new WorkspacePath([IncomeAccountState, IncomeAmountState, IncomeCategoryState, IncomeConfirmState, CreateIncomeCode], IncomeAccountSlot, IncomeCategorySlot);
+            scalar = new WorkspaceScalar();
+        }
 
-    internal string CreateCode(bool income) => income ? CreateIncomeCode : CreateExpenseCode;
+        internal StringComparison Comparison => scalar.Comparison;
 
-    internal string AccountSlot(bool income) => income ? IncomeAccountSlot : ExpenseAccountSlot;
+        internal string Empty => scalar.Empty;
 
-    internal string CategorySlot(bool income) => income ? IncomeCategorySlot : ExpenseCategorySlot;
+        internal NumberStyles Styles => scalar.Styles;
+
+        internal TimeSpan Utc => scalar.Utc;
+
+        internal int Zero => scalar.Empty.Length;
+
+        internal string Account(bool value) => Path(value).Account;
+
+        internal string Amount(bool value) => Path(value).Amount;
+
+        internal string Category(bool value) => Path(value).Category;
+
+        internal string Confirm(bool value) => Path(value).Confirm;
+
+        internal string Create(bool value) => Path(value).Create;
+
+        internal bool Custom(bool value) => value || scalar.Empty.Length > 0;
+
+        internal string Slot(bool value) => Path(value).AccountSlot;
+
+        internal string CategorySlot(bool value) => Path(value).CategorySlot;
+
+        private WorkspacePath Path(bool value) => value ? income : expense;
+    }
+
+    private sealed class WorkspacePath
+    {
+        internal WorkspacePath(string[] states, string accountSlot, string categorySlot)
+        {
+            States = states;
+            AccountSlot = accountSlot;
+            CategorySlot = categorySlot;
+        }
+
+        private string[] States { get; }
+
+        internal string Account => States[0];
+
+        internal string AccountSlot { get; }
+
+        internal string Amount => States[1];
+
+        internal string Category => States[2];
+
+        internal string CategorySlot { get; }
+
+        internal string Confirm => States[3];
+
+        internal string Create => States[4];
+    }
+
+    private sealed class WorkspaceScalar
+    {
+        internal WorkspaceScalar()
+        {
+            Empty = string.Empty;
+            Utc = TimeSpan.Zero;
+            Comparison = StringComparison.Ordinal;
+            Styles = NumberStyles.None;
+        }
+
+        internal StringComparison Comparison { get; }
+
+        internal string Empty { get; }
+
+        internal NumberStyles Styles { get; }
+
+        internal TimeSpan Utc { get; }
+    }
 }
-#pragma warning restore S2325

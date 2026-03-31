@@ -227,6 +227,9 @@ dotnet_diagnostic.SA1649.severity = none
 # S1121: Assignments should not be made from within sub-expressions
 dotnet_diagnostic.S1121.severity = none
 
+# S2325: Methods and properties that do not access instance data should be static
+dotnet_diagnostic.S2325.severity = error
+
 # S107: Methods should not have too many parameters
 dotnet_diagnostic.S107.severity = error
 
@@ -258,6 +261,12 @@ dotnet_diagnostic.CA1062.severity = none
 
 # CA1711: Identifiers should not have incorrect suffix
 dotnet_diagnostic.CA1711.severity = none
+
+# CA1822: Mark members as static
+dotnet_diagnostic.CA1822.severity = error
+
+# IDE0062: Make local function static
+dotnet_diagnostic.IDE0062.severity = error
 
 # CA1716: Identifiers should not match keywords
 dotnet_diagnostic.CA1716.severity = none

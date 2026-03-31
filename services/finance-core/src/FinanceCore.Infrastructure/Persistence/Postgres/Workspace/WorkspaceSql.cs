@@ -1,4 +1,3 @@
-#pragma warning disable S2325
 using Npgsql;
 using NpgsqlTypes;
 
@@ -6,18 +5,20 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 
 internal sealed class WorkspaceSql
 {
-    private const string CreatedUtc = "created_utc";
-    private const string UpdatedUtc = "updated_utc";
-    private const string UserId = "user_id";
     private readonly WorkspaceBody body;
+    private readonly WorkspaceSqlMap map;
 
-    internal WorkspaceSql(WorkspaceBody body) => this.body = body ?? throw new ArgumentNullException(nameof(body));
+    internal WorkspaceSql(WorkspaceBody body)
+    {
+        this.body = body ?? throw new ArgumentNullException(nameof(body));
+        map = new WorkspaceSqlMap();
+    }
 
     internal async ValueTask<WorkspaceItem?> Read(NpgsqlConnection link, NpgsqlTransaction lane, string key, Guid userId, CancellationToken token)
     {
         await using NpgsqlCommand note = new("select id, state_code, state_data, revision from finance.workspace where conversation_key = @conversation_key and user_id = @user_id for update", link, lane);
         note.Parameters.AddWithValue("conversation_key", key);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         return await Item(note, false, token);
     }
 
@@ -25,16 +26,16 @@ internal sealed class WorkspaceSql
     {
         await using NpgsqlCommand note = new("insert into finance.workspace(id, user_id, conversation_key, state_code, state_data, revision, entry_payload, last_payload, created_utc, opened_utc, updated_utc) values (@id, @user_id, @conversation_key, @state_code, @state_data, @revision, @entry_payload, @last_payload, @created_utc, @opened_utc, @updated_utc) on conflict (user_id, conversation_key) do nothing returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", Guid.CreateVersion7());
-        note.Parameters.AddWithValue(UserId, frame.UserValue);
+        note.Parameters.AddWithValue(map.UserId, frame.UserValue);
         note.Parameters.AddWithValue("conversation_key", frame.Room);
         note.Parameters.AddWithValue("state_code", frame.State);
         note.Parameters.AddWithValue("state_data", NpgsqlDbType.Jsonb, frame.Body);
         note.Parameters.AddWithValue("revision", 1L);
         note.Parameters.AddWithValue("entry_payload", frame.Entry);
         note.Parameters.AddWithValue("last_payload", frame.Last);
-        note.Parameters.AddWithValue(CreatedUtc, frame.When);
+        note.Parameters.AddWithValue(map.CreatedUtc, frame.When);
         note.Parameters.AddWithValue("opened_utc", frame.When);
-        note.Parameters.AddWithValue(UpdatedUtc, frame.When);
+        note.Parameters.AddWithValue(map.UpdatedUtc, frame.When);
         return await Item(note, true, token);
     }
 
@@ -43,12 +44,12 @@ internal sealed class WorkspaceSql
         await using NpgsqlCommand note = new("update finance.workspace set user_id = @user_id, state_code = @state_code, state_data = @state_data, last_payload = @last_payload, revision = revision + 1, opened_utc = @opened_utc, updated_utc = @updated_utc where id = @id and revision = @revision and user_id = @user_id returning id, state_code, state_data, revision", link, lane);
         note.Parameters.AddWithValue("id", mark.IdValue);
         note.Parameters.AddWithValue("revision", mark.Revision);
-        note.Parameters.AddWithValue(UserId, mark.Frame.UserValue);
+        note.Parameters.AddWithValue(map.UserId, mark.Frame.UserValue);
         note.Parameters.AddWithValue("state_code", mark.Frame.State);
         note.Parameters.AddWithValue("state_data", NpgsqlDbType.Jsonb, mark.Frame.Body);
         note.Parameters.AddWithValue("last_payload", mark.Frame.Last);
         note.Parameters.AddWithValue("opened_utc", mark.Frame.When);
-        note.Parameters.AddWithValue(UpdatedUtc, mark.Frame.When);
+        note.Parameters.AddWithValue(map.UpdatedUtc, mark.Frame.When);
         return await Item(note, false, token);
     }
 
@@ -56,20 +57,20 @@ internal sealed class WorkspaceSql
     {
         await using NpgsqlCommand note = new("insert into finance.account(id, user_id, name, currency_code, opening_amount, current_amount, created_utc, updated_utc) values (@id, @user_id, @name, @currency_code, @opening_amount, @current_amount, @created_utc, @updated_utc) on conflict do nothing returning id", link, lane);
         note.Parameters.AddWithValue("id", Guid.CreateVersion7());
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         note.Parameters.AddWithValue("name", draft.Title);
         note.Parameters.AddWithValue("currency_code", draft.Unit);
         note.Parameters.AddWithValue("opening_amount", draft.Total);
         note.Parameters.AddWithValue("current_amount", draft.Total);
-        note.Parameters.AddWithValue(CreatedUtc, when);
-        note.Parameters.AddWithValue(UpdatedUtc, when);
+        note.Parameters.AddWithValue(map.CreatedUtc, when);
+        note.Parameters.AddWithValue(map.UpdatedUtc, when);
         return (await Id(note, token)).HasValue;
     }
 
     internal async ValueTask<IReadOnlyList<AccountData>> Accounts(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {
         await using NpgsqlCommand note = new("select id::text, name, currency_code, current_amount from finance.account where user_id = @user_id order by created_utc, name", link, lane);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         List<AccountData> list = [];
         while (await row.ReadAsync(token))
@@ -116,7 +117,7 @@ internal sealed class WorkspaceSql
                                              ) item
                                              order by area, order_id, occurred_utc desc nulls last, name
                                              """, link, lane);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         note.Parameters.AddWithValue("kind", kind);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         while (await row.ReadAsync(token))
@@ -150,7 +151,7 @@ internal sealed class WorkspaceSql
                                              offset @offset
                                              limit @limit
                                              """, link, lane);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         note.Parameters.AddWithValue("offset", offset);
         note.Parameters.AddWithValue("limit", WorkspaceBody.RecentPageSize + 1);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
@@ -187,7 +188,7 @@ internal sealed class WorkspaceSql
                                              where item.user_id = @user_id and item.id = @id
                                              limit 1
                                              """, link, lane);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         note.Parameters.AddWithValue("id", itemId);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         if (!await row.ReadAsync(token))
@@ -214,7 +215,7 @@ internal sealed class WorkspaceSql
         {
             find.Parameters.AddWithValue("kind", kind);
             find.Parameters.AddWithValue("name", text);
-            find.Parameters.AddWithValue(UserId, userId);
+            find.Parameters.AddWithValue(map.UserId, userId);
             await using NpgsqlDataReader row = await find.ExecuteReaderAsync(token);
             if (await row.ReadAsync(token))
             {
@@ -226,11 +227,11 @@ internal sealed class WorkspaceSql
             add.Parameters.AddWithValue("id", Guid.CreateVersion7());
             add.Parameters.AddWithValue("kind", kind);
             add.Parameters.AddWithValue("scope", "user");
-            add.Parameters.AddWithValue(UserId, userId);
+            add.Parameters.AddWithValue(map.UserId, userId);
             add.Parameters.Add("code", NpgsqlDbType.Text).Value = DBNull.Value;
             add.Parameters.AddWithValue("name", text);
-            add.Parameters.AddWithValue(CreatedUtc, when);
-            add.Parameters.AddWithValue(UpdatedUtc, when);
+            add.Parameters.AddWithValue(map.CreatedUtc, when);
+            add.Parameters.AddWithValue(map.UpdatedUtc, when);
             await using NpgsqlDataReader row = await add.ExecuteReaderAsync(token);
             if (await row.ReadAsync(token))
             {
@@ -240,7 +241,7 @@ internal sealed class WorkspaceSql
         await using NpgsqlCommand note = new("select id::text, name, coalesce(code, '') from finance.category where kind = @kind and lower(name) = lower(@name) and user_id = @user_id limit 1", link, lane);
         note.Parameters.AddWithValue("kind", kind);
         note.Parameters.AddWithValue("name", text);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         await using NpgsqlDataReader data = await note.ExecuteReaderAsync(token);
         if (await data.ReadAsync(token))
         {
@@ -254,7 +255,7 @@ internal sealed class WorkspaceSql
         Guid itemId = Parse(transactionId, nameof(transactionId));
         await using NpgsqlCommand item = new("select account_id, amount from finance.transaction_entry where id = @id and user_id = @user_id for update", link, lane);
         item.Parameters.AddWithValue("id", itemId);
-        item.Parameters.AddWithValue(UserId, userId);
+        item.Parameters.AddWithValue(map.UserId, userId);
         Guid accountId;
         decimal amount;
         await using (NpgsqlDataReader row = await item.ExecuteReaderAsync(token))
@@ -268,16 +269,16 @@ internal sealed class WorkspaceSql
         }
         await using NpgsqlCommand note = new("delete from finance.transaction_entry where id = @id and user_id = @user_id", link, lane);
         note.Parameters.AddWithValue("id", itemId);
-        note.Parameters.AddWithValue(UserId, userId);
+        note.Parameters.AddWithValue(map.UserId, userId);
         if (await note.ExecuteNonQueryAsync(token) != 1)
         {
             return false;
         }
         await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {body.Reverse(kind)} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
         data.Parameters.AddWithValue("amount", amount);
-        data.Parameters.AddWithValue(UpdatedUtc, when);
+        data.Parameters.AddWithValue(map.UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
-        data.Parameters.AddWithValue(UserId, userId);
+        data.Parameters.AddWithValue(map.UserId, userId);
         if (await data.ExecuteNonQueryAsync(token) != 1)
         {
             throw new InvalidOperationException("Account balance update failed");
@@ -295,9 +296,9 @@ internal sealed class WorkspaceSql
         }
         await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id", link, lane);
         item.Parameters.AddWithValue("category_id", Parse(categoryId, nameof(note.CategoryId)));
-        item.Parameters.AddWithValue(UpdatedUtc, when);
+        item.Parameters.AddWithValue(map.UpdatedUtc, when);
         item.Parameters.AddWithValue("id", itemId);
-        item.Parameters.AddWithValue(UserId, userId);
+        item.Parameters.AddWithValue(map.UserId, userId);
         return await item.ExecuteNonQueryAsync(token) == 1;
     }
 
@@ -310,14 +311,14 @@ internal sealed class WorkspaceSql
         await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
         {
             item.Parameters.AddWithValue("id", Guid.CreateVersion7());
-            item.Parameters.AddWithValue(UserId, userId);
+            item.Parameters.AddWithValue(map.UserId, userId);
             item.Parameters.AddWithValue("account_id", accountId);
             item.Parameters.AddWithValue("category_id", categoryId);
             item.Parameters.AddWithValue("kind", kind);
             item.Parameters.AddWithValue("amount", note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
-            item.Parameters.AddWithValue(CreatedUtc, when);
-            item.Parameters.AddWithValue(UpdatedUtc, when);
+            item.Parameters.AddWithValue(map.CreatedUtc, when);
+            item.Parameters.AddWithValue(map.UpdatedUtc, when);
             if (await item.ExecuteNonQueryAsync(token) != 1)
             {
                 throw new InvalidOperationException("Transaction insert failed");
@@ -325,33 +326,62 @@ internal sealed class WorkspaceSql
         }
         await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {sign} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
         data.Parameters.AddWithValue("amount", note.Total);
-        data.Parameters.AddWithValue(UpdatedUtc, when);
+        data.Parameters.AddWithValue(map.UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
-        data.Parameters.AddWithValue(UserId, userId);
+        data.Parameters.AddWithValue(map.UserId, userId);
         if (await data.ExecuteNonQueryAsync(token) != 1)
         {
             throw new InvalidOperationException("Account balance update failed");
         }
     }
 
-    private int Page(int page, int shift)
-    {
-        int item = page + shift;
-        return item < 0 ? 0 : item;
-    }
+    private int Page(int page, int shift) => map.Page(page, shift);
 
-    private Guid Parse(string value, string name) => Guid.TryParse(value, out Guid item) ? item : throw new ArgumentException("Workspace identity value is invalid", name);
+    private Guid Parse(string value, string name) => map.Parse(value, name);
 
-    private async ValueTask<Guid?> Id(NpgsqlCommand note, CancellationToken token)
-    {
-        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-        return await row.ReadAsync(token) ? row.GetGuid(0) : null;
-    }
+    private async ValueTask<Guid?> Id(NpgsqlCommand note, CancellationToken token) => await map.Id(note, token);
 
-    private async ValueTask<WorkspaceItem?> Item(NpgsqlCommand note, bool isNew, CancellationToken token)
+    private async ValueTask<WorkspaceItem?> Item(NpgsqlCommand note, bool isNew, CancellationToken token) => await map.Item(note, isNew, token);
+
+    private sealed class WorkspaceSqlMap
     {
-        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-        return await row.ReadAsync(token) ? new WorkspaceItem(row.GetGuid(0), new WorkspaceSnapshot(row.GetString(1), row.GetString(2), row.GetInt64(3), isNew)) : null;
+        internal WorkspaceSqlMap()
+        {
+            CreatedUtc = "created_utc";
+            UpdatedUtc = "updated_utc";
+            UserId = "user_id";
+            Zero = 0;
+            IdentityError = "Workspace identity value is invalid";
+        }
+
+        internal string CreatedUtc { get; }
+
+        internal string IdentityError { get; }
+
+        internal string UpdatedUtc { get; }
+
+        internal string UserId { get; }
+
+        internal int Zero { get; }
+
+        internal async ValueTask<Guid?> Id(NpgsqlCommand note, CancellationToken token)
+        {
+            await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+            return await row.ReadAsync(token) ? row.GetGuid(Zero) : null;
+        }
+
+        internal async ValueTask<WorkspaceItem?> Item(NpgsqlCommand note, bool isNew, CancellationToken token)
+        {
+            await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+            return await row.ReadAsync(token) ? new WorkspaceItem(row.GetGuid(Zero), new WorkspaceSnapshot(row.GetString(Zero + 1), row.GetString(Zero + 2), row.GetInt64(Zero + 3), isNew)) : null;
+        }
+
+        internal Guid Parse(string value, string name) => Guid.TryParse(value, out Guid item) ? item : throw new ArgumentException(IdentityError, name);
+
+        internal int Page(int page, int shift)
+        {
+            int item = page + shift;
+            return item < Zero ? Zero : item;
+        }
     }
 }
-#pragma warning restore S2325
