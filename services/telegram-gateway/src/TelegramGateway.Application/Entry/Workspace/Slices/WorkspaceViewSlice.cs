@@ -13,13 +13,15 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
     private readonly IOpaqueKey key;
     private readonly ITelegramPort port;
     private readonly ITelegramContextPort context;
+    private readonly IWorkspaceScreen screen;
     private readonly ITelegramKeys keys;
-    internal WorkspaceViewSlice(IOpaqueKey key, ITelegramPort port, ITelegramContextPort context, ITelegramKeys keys)
+    internal WorkspaceViewSlice(IOpaqueKey key, ITelegramPort port, ITelegramContextPort context, IWorkspaceScreen screen, ITelegramKeys keys)
     {
         Contract = Name;
         this.key = key ?? throw new ArgumentNullException(nameof(key));
         this.port = port ?? throw new ArgumentNullException(nameof(port));
         this.context = context ?? throw new ArgumentNullException(nameof(context));
+        this.screen = screen ?? throw new ArgumentNullException(nameof(screen));
         this.keys = keys ?? throw new ArgumentNullException(nameof(keys));
     }
     public string Contract { get; }
@@ -52,7 +54,7 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
             throw new DeliveryException("Telegram conversation key is invalid", false, error);
         }
         string room = item.Payload.Identity.ConversationKey;
-        TelegramText note = WorkspaceScreen.Message(chatId, item.Payload, keys);
+        TelegramText note = screen.Message(chatId, item.Payload);
         if (item.Payload.Frame.State.StartsWith("transaction.recent.", StringComparison.Ordinal))
         {
             TelegramContextNote? edit = context.Envelope(item.Context.CausationId) ?? context.Conversation(room);
