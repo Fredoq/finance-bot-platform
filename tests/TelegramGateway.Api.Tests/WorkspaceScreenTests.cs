@@ -10,6 +10,7 @@ namespace TelegramGateway.Api.Tests;
 public sealed class WorkspaceScreenTests
 {
     private static readonly ITelegramKeys keys = new TelegramKeys();
+    private readonly WorkspaceScreen screen = Build();
     /// <summary>
     /// Verifies that the home screen message contains actions and buttons.
     /// </summary>
@@ -17,7 +18,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_home_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(true, true), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Equal("sendMessage", data.Method);
         Assert.Equal("HTML", data.ParseMode);
         Assert.Contains("<b>Finance workspace</b>", data.Text, StringComparison.Ordinal);
@@ -31,7 +32,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_home_screen_with_expense()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Your accounts</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["➖ Add expense", "➕ Add income", "🧾 Recent transactions", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -42,7 +43,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_confirm_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"RUB\",\"amount\":1200},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Confirm account</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Balance: <b>1 200 ₽ (<code>RUB</code>)</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(2, data.Keys.SelectMany(item => item.Cells).Count());
@@ -54,7 +55,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_expense_account_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.expense.account", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200},{\"id\":\"a2\",\"name\":\"Card\",\"currency\":\"USD\",\"amount\":800}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[{\"slot\":1,\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},{\"slot\":2,\"id\":\"a2\",\"name\":\"Card\",\"note\":\"USD\"}],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.account.1", "transaction.expense.account.2", "transaction.expense.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>New expense</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["Cash · USD", "Card · USD", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -65,7 +66,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_expense_category_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.expense.category", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":12.5},\"choices\":{\"accounts\":[],\"categories\":[{\"slot\":1,\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},{\"slot\":2,\"id\":\"c2\",\"name\":\"Coffee\",\"note\":\"\"}]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.category.1", "transaction.expense.category.2", "transaction.expense.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("Choose the category or send a new name", data.Text, StringComparison.Ordinal);
         Assert.Equal(["🍽 Food", "Coffee", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -76,7 +77,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_expense_confirm_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.expense.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Food\",\"note\":\"food\"},\"amount\":12.5},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.create", "transaction.expense.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Confirm expense</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Category: <b>&#127869; Food</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Amount: <b>12.5 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
@@ -89,7 +90,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_income_account_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.account", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200},{\"id\":\"a2\",\"name\":\"Card\",\"currency\":\"USD\",\"amount\":800}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[{\"slot\":1,\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},{\"slot\":2,\"id\":\"a2\",\"name\":\"Card\",\"note\":\"USD\"}],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>New income</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["Cash · USD", "Card · USD", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -100,7 +101,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_income_category_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.category", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":25.5},\"choices\":{\"accounts\":[],\"categories\":[{\"slot\":1,\"id\":\"c1\",\"name\":\"Salary\",\"note\":\"salary\"},{\"slot\":2,\"id\":\"c2\",\"name\":\"Freelance\",\"note\":\"\"}]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.category.1", "transaction.income.category.2", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("Choose the category or send a new name", data.Text, StringComparison.Ordinal);
         Assert.Equal(["💼 Salary", "Freelance", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -111,7 +112,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_income_confirm_screen()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("transaction.income.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"c1\",\"name\":\"Salary\",\"note\":\"salary\"},\"amount\":25.5},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.income.create", "transaction.income.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Confirm income</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Category: <b>&#128188; Salary</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("Amount: <b>25.5 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
@@ -124,7 +125,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_recent_list_screen()
     {
         WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.list", WorkspaceStateNote.RecentList(0, false, true, [WorkspaceStateNote.RecentItem(1, "t1", "expense", "Food", "food", 12.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))]), "transaction.recent.item.1", "transaction.recent.page.next", "transaction.recent.back");
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Recent transactions</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["1. - 🍽 Food · 12.5 $", "Next ▶", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -135,7 +136,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_empty_recent_list_screen()
     {
         WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.list", WorkspaceStateNote.RecentList(0, false, false, []), "transaction.recent.back");
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("No transactions yet", data.Text, StringComparison.Ordinal);
         Assert.Equal(["↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -146,7 +147,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_recent_detail_screen()
     {
         WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transaction.recent.detail", WorkspaceStateNote.RecentDetail(WorkspaceStateNote.RecentItem(1, "t1", "income", "Salary", "salary", 25.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))), "transaction.recent.delete", "transaction.recent.recategorize", "transaction.recent.back");
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Transaction</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["🗑 Delete", "✏ Change category", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
@@ -157,7 +158,7 @@ public sealed class WorkspaceScreenTests
     public void Builds_code()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("- <b>Vault</b>: 1 200 <code>ABC</code>", data.Text, StringComparison.Ordinal);
     }
     /// <summary>
@@ -167,7 +168,7 @@ public sealed class WorkspaceScreenTests
     public void Escapes_name()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"<cash&card>\",\"currency\":\"USD\",\"amount\":1200},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        TelegramText data = WorkspaceScreen.Message(100, note, keys);
+        TelegramText data = screen.Message(100, note);
         Assert.Contains("&lt;cash&amp;card&gt;", data.Text, StringComparison.Ordinal);
     }
     /// <summary>
@@ -177,7 +178,7 @@ public sealed class WorkspaceScreenTests
     public void Rejects_state_data()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", string.Empty, ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note, keys));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => screen.Message(100, note));
         Assert.Contains("StateData", error.Message, StringComparison.Ordinal);
     }
     /// <summary>
@@ -187,7 +188,7 @@ public sealed class WorkspaceScreenTests
     public void Rejects_currency()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.balance", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note, keys));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => screen.Message(100, note));
         Assert.Contains("requires currency", error.Message, StringComparison.Ordinal);
     }
     /// <summary>
@@ -197,7 +198,12 @@ public sealed class WorkspaceScreenTests
     public void Rejects_amount()
     {
         var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("account.confirm", "{\"accounts\":[],\"financial\":{\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.create", "account.cancel"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => WorkspaceScreen.Message(100, note, keys));
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => screen.Message(100, note));
         Assert.Contains("requires amount", error.Message, StringComparison.Ordinal);
+    }
+    private static WorkspaceScreen Build()
+    {
+        var html = new WorkspaceHtml();
+        return new WorkspaceScreen(new WorkspaceBody(), new WorkspaceText(html), new WorkspaceKeys(html), keys);
     }
 }
