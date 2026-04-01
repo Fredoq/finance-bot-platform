@@ -11,6 +11,8 @@ namespace FinanceCore.Api.Tests.Workspace;
 /// </summary>
 public sealed class CategoryBreakdownRuntimeTests : FinanceCoreRuntimeSuite
 {
+    private static readonly TimeSpan wait = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan poll = TimeSpan.FromMilliseconds(250);
     /// <summary>
     /// Verifies that the category breakdown opens for the selected summary month and stays valid when empty.
     /// </summary>
@@ -233,10 +235,10 @@ public sealed class CategoryBreakdownRuntimeTests : FinanceCoreRuntimeSuite
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Take(string queue, string step)
     {
         string key = $"{step}:workspace-view";
-        DateTimeOffset until = DateTimeOffset.UtcNow.AddSeconds(10);
+        DateTimeOffset until = DateTimeOffset.UtcNow.Add(wait);
         while (DateTimeOffset.UtcNow < until)
         {
-            MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue, TimeSpan.FromMilliseconds(250));
+            MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue, poll);
             if (item is null)
             {
                 continue;

@@ -26,6 +26,31 @@ public sealed record RecentPaging
 }
 
 /// <summary>
+/// Describes month navigation data for summary and breakdown actions.
+/// </summary>
+public sealed record MonthPaging
+{
+    /// <summary>
+    /// Initializes a new instance of the record.
+    /// </summary>
+    /// <param name="summaryHasNext">Indicates whether the current summary month can move forward.</param>
+    /// <param name="breakdownHasNext">Indicates whether the current breakdown month can move forward.</param>
+    public MonthPaging(bool summaryHasNext, bool breakdownHasNext)
+    {
+        SummaryHasNext = summaryHasNext;
+        BreakdownHasNext = breakdownHasNext;
+    }
+    /// <summary>
+    /// Gets a value indicating whether the current summary month can move forward.
+    /// </summary>
+    public bool SummaryHasNext { get; }
+    /// <summary>
+    /// Gets a value indicating whether the current breakdown month can move forward.
+    /// </summary>
+    public bool BreakdownHasNext { get; }
+}
+
+/// <summary>
 /// Describes the data required to resolve workspace actions for a state.
 /// </summary>
 public sealed record WorkspaceActionContext
@@ -38,11 +63,12 @@ public sealed record WorkspaceActionContext
     /// <param name="categoryChoiceCount">The number of category choices in the current state.</param>
     /// <param name="recentItemCount">The number of recent transaction items in the current state.</param>
     /// <param name="recent">The paging state for the current recent transactions page.</param>
-    /// <param name="summaryHasNext">Indicates whether the current summary month can move forward.</param>
+    /// <param name="month">The month navigation state for summary and breakdown screens.</param>
     /// <param name="custom">Indicates whether custom input mode is enabled.</param>
-    public WorkspaceActionContext(int homeAccountCount, int accountChoiceCount, int categoryChoiceCount, int recentItemCount, RecentPaging recent, bool summaryHasNext, bool custom)
+    public WorkspaceActionContext(int homeAccountCount, int accountChoiceCount, int categoryChoiceCount, int recentItemCount, RecentPaging recent, MonthPaging month, bool custom)
     {
         ArgumentNullException.ThrowIfNull(recent);
+        ArgumentNullException.ThrowIfNull(month);
         ArgumentOutOfRangeException.ThrowIfNegative(homeAccountCount);
         ArgumentOutOfRangeException.ThrowIfNegative(accountChoiceCount);
         ArgumentOutOfRangeException.ThrowIfNegative(categoryChoiceCount);
@@ -52,7 +78,7 @@ public sealed record WorkspaceActionContext
         CategoryChoiceCount = categoryChoiceCount;
         RecentItemCount = recentItemCount;
         Recent = recent;
-        SummaryHasNext = summaryHasNext;
+        Month = month;
         Custom = custom;
     }
     /// <summary>
@@ -76,6 +102,10 @@ public sealed record WorkspaceActionContext
     /// </summary>
     public RecentPaging Recent { get; }
     /// <summary>
+    /// Gets the month navigation state for summary and breakdown actions.
+    /// </summary>
+    public MonthPaging Month { get; }
+    /// <summary>
     /// Gets a value indicating whether the current recent page has a previous page.
     /// </summary>
     public bool HasPrevious => Recent.HasPrevious;
@@ -86,7 +116,11 @@ public sealed record WorkspaceActionContext
     /// <summary>
     /// Gets a value indicating whether the current summary month can move forward.
     /// </summary>
-    public bool SummaryHasNext { get; }
+    public bool SummaryHasNext => Month.SummaryHasNext;
+    /// <summary>
+    /// Gets a value indicating whether the current breakdown month can move forward.
+    /// </summary>
+    public bool BreakdownHasNext => Month.BreakdownHasNext;
     /// <summary>
     /// Gets a value indicating whether custom input mode is enabled.
     /// </summary>

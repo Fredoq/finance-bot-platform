@@ -154,6 +154,25 @@ internal sealed class WorkspaceBody
         {
             throw new InvalidOperationException("Workspace screen 'category.month' requires month");
         }
+        if (item.Breakdown.Currencies is null)
+        {
+            throw new InvalidOperationException("Workspace screen 'category.month' requires currencies");
+        }
+        foreach (BreakdownCurrencyData currency in item.Breakdown.Currencies)
+        {
+            if (currency is null)
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' has invalid currencies");
+            }
+            if (currency.Categories is null)
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' requires categories");
+            }
+            if (currency.Categories.Any(category => category is null))
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' has invalid categories");
+            }
+        }
         return item;
     }
 

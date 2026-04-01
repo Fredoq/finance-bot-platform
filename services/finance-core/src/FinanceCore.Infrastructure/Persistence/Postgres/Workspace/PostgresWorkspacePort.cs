@@ -300,7 +300,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private async ValueTask Outbox<TMessage>(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<TMessage> message, WorkspaceItem item, WorkspaceViewNote note, CancellationToken token) where TMessage : class
     {
         var state = new WorkspaceState(item.Snapshot.State, item.Snapshot.Data, item.Snapshot.Revision);
-        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(state.Code, body.Data(state.Data), note.When)), note.IsNewUser, note.IsNewWorkspace, note.When);
+        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(body.Data(state.Data), note.When)), note.IsNewUser, note.IsNewWorkspace, note.When);
         var data = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, new WorkspaceViewFrame(view.State.Code, view.State.Data, view.Actions), new WorkspaceViewFreshness(view.IsNewUser, view.IsNewWorkspace), view.OccurredUtc);
         var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), ViewContract, note.When, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), ViewSource, data);
         string raw = JsonSerializer.Serialize(envelope, json);

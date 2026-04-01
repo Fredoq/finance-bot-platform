@@ -112,7 +112,7 @@ internal sealed class WorkspaceBody
 
     internal string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
 
-    internal WorkspaceActionContext Context(string state, WorkspaceData body, DateTimeOffset when) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), MonthHasNext(state, body, when), codes.Custom(body.Custom));
+    internal WorkspaceActionContext Context(WorkspaceData body, DateTimeOffset when) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), new MonthPaging(SummaryHasNext(body.Summary, when), BreakdownHasNext(body.Breakdown, when)), codes.Custom(body.Custom));
 
     internal DateTimeOffset Utc(DateTimeOffset value, string name)
     {
@@ -251,33 +251,21 @@ internal sealed class WorkspaceBody
     }
 
     internal static bool SummaryHasNext(SummaryData data, DateTimeOffset when)
-    {
-        if (data.Year <= 0 || data.Month <= 0)
-        {
-            return false;
-        }
-        DateTimeOffset current = Start(when.Year, when.Month);
-        DateTimeOffset selected = Start(data.Year, data.Month);
-        return selected < current;
-    }
+        => HasNext(data.Year, data.Month, when);
 
     internal static bool BreakdownHasNext(BreakdownData data, DateTimeOffset when)
+        => HasNext(data.Year, data.Month, when);
+
+    private static bool HasNext(int year, int month, DateTimeOffset when)
     {
-        if (data.Year <= 0 || data.Month <= 0)
+        if (year <= 0 || month <= 0)
         {
             return false;
         }
         DateTimeOffset current = Start(when.Year, when.Month);
-        DateTimeOffset selected = Start(data.Year, data.Month);
+        DateTimeOffset selected = Start(year, month);
         return selected < current;
     }
-
-    private static bool MonthHasNext(string state, WorkspaceData body, DateTimeOffset when) => state switch
-    {
-        SummaryState => SummaryHasNext(body.Summary, when),
-        BreakdownState => BreakdownHasNext(body.Breakdown, when),
-        _ => false
-    };
 
     private static DateTimeOffset Start(int year, int month) => new(year, month, 1, 0, 0, 0, TimeSpan.Zero);
 

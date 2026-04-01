@@ -72,7 +72,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
     private static List<string> Breakdown(WorkspaceActionContext context)
     {
         var list = new List<string>(3) { BreakdownPrevious };
-        if (context.SummaryHasNext)
+        if (context.BreakdownHasNext)
         {
             list.Add(BreakdownNext);
         }

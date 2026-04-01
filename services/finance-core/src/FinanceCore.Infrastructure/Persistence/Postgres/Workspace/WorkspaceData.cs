@@ -50,7 +50,7 @@ internal sealed record WorkspaceData
         Income = state.Income;
         Recent = state.Recent;
         Summary = state.Summary;
-        Breakdown = state.Breakdown;
+        Breakdown = state.Breakdown ?? throw new ArgumentNullException("state.Breakdown");
         Choices = state.Choices;
         Status = state.Status;
         Custom = state.Custom;
