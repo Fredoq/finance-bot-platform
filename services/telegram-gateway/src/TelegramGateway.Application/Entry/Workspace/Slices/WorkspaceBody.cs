@@ -50,6 +50,7 @@ internal sealed class WorkspaceBody
             "transaction.recent.category" => RecentCategory(item),
             "transaction.recent.recategorize.confirm" => Selected(item, "transaction.recent.recategorize.confirm"),
             "summary.month" => Summary(item),
+            "category.month" => Breakdown(item),
             _ => throw new InvalidOperationException($"Workspace screen '{state}' is not recognized")
         };
     }
@@ -139,6 +140,38 @@ internal sealed class WorkspaceBody
         if (item.Summary.Month is < 1 or > 12)
         {
             throw new InvalidOperationException("Workspace screen 'summary.month' requires month");
+        }
+        return item;
+    }
+
+    private static WorkspaceData Breakdown(WorkspaceData item)
+    {
+        if (item.Breakdown.Year <= 0)
+        {
+            throw new InvalidOperationException("Workspace screen 'category.month' requires year");
+        }
+        if (item.Breakdown.Month is < 1 or > 12)
+        {
+            throw new InvalidOperationException("Workspace screen 'category.month' requires month");
+        }
+        if (item.Breakdown.Currencies is null)
+        {
+            throw new InvalidOperationException("Workspace screen 'category.month' requires currencies");
+        }
+        foreach (BreakdownCurrencyData currency in item.Breakdown.Currencies)
+        {
+            if (currency is null)
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' has invalid currencies");
+            }
+            if (currency.Categories is null)
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' requires categories");
+            }
+            if (currency.Categories.Any(category => category is null))
+            {
+                throw new InvalidOperationException("Workspace screen 'category.month' has invalid categories");
+            }
         }
         return item;
     }

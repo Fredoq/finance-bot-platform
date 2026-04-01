@@ -29,8 +29,21 @@ public sealed class WorkspaceKeysTests
         WorkspaceHtml html = new();
         WorkspaceKeys keys = new(html);
         WorkspaceData data = WorkspaceStateNote.Summary(2026, 4, []);
-        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["summary.month.show", "summary.month.prev", "summary.month.next", "summary.month.back"], data);
-        Assert.Equal(["📊 Monthly summary", "◀ Previous month", "Next month ▶", "↩ Back"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["summary.month.show", "category.month.show", "summary.month.prev", "summary.month.next", "summary.month.back"], data);
+        Assert.Equal(["📊 Monthly summary", "🗂 Category breakdown", "◀ Previous month", "Next month ▶", "↩ Back"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+
+    /// <summary>
+    /// Verifies that breakdown action codes map to month navigation buttons.
+    /// </summary>
+    [Fact(DisplayName = "Builds category breakdown navigation buttons")]
+    public void Builds_breakdown_buttons()
+    {
+        WorkspaceHtml html = new();
+        WorkspaceKeys keys = new(html);
+        WorkspaceData data = WorkspaceStateNote.Breakdown(2026, 4, []);
+        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["category.month.prev", "category.month.next", "category.month.back"], data);
+        Assert.Equal(["◀ Previous month", "Next month ▶", "↩ Back"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
 
     /// <summary>

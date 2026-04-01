@@ -72,5 +72,5 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
         }
     }
 
-    private static bool Editable(string state) => state.StartsWith("transaction.recent.", StringComparison.Ordinal) || string.Equals(state, "summary.month", StringComparison.Ordinal);
+    private static bool Editable(string state) => state.StartsWith("transaction.recent.", StringComparison.Ordinal) || string.Equals(state, "summary.month", StringComparison.Ordinal) || string.Equals(state, "category.month", StringComparison.Ordinal);
 }

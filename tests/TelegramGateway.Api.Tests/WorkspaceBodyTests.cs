@@ -42,6 +42,19 @@ public sealed class WorkspaceBodyTests
     }
 
     /// <summary>
+    /// Verifies that breakdown state requires year and month.
+    /// </summary>
+    [Fact(DisplayName = "Rejects category breakdown state when year or month is missing")]
+    public void Rejects_breakdown_without_period()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException year = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":0,\"month\":4,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException month = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":2026,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.Contains("requires year", year.Message, StringComparison.Ordinal);
+        Assert.Contains("requires month", month.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Verifies that unknown states fail fast.
     /// </summary>
     [Fact(DisplayName = "Rejects unknown workspace screen states")]

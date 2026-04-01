@@ -17,7 +17,7 @@ public sealed class WorkspaceInputTests
         WorkspaceBody body = new();
         WorkspaceDraft draft = new(body, new WorkspaceAmount());
         WorkspaceRecent recent = new(body);
-        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body));
+        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body), new WorkspaceBreakdown(body));
         const string state = WorkspaceBody.ExpenseAmountState;
         WorkspaceMove move = item.Move(state, body.Transaction(new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData()), new PickData("a1", "Cash", "USD"), new PickData(), null, false), new WorkspaceInputRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "voice", "hello", DateTimeOffset.UtcNow), DateTimeOffset.UtcNow);
         Assert.Equal(state, move.Code);
@@ -32,7 +32,7 @@ public sealed class WorkspaceInputTests
         WorkspaceBody body = new();
         WorkspaceDraft draft = new(body, new WorkspaceAmount());
         WorkspaceRecent recent = new(body);
-        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body));
+        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body), new WorkspaceBreakdown(body));
         WorkspaceMove move = item.Move(WorkspaceBody.NameState, body.Account(new WorkspaceData(), new FinancialData()), new WorkspaceInputRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "action", WorkspaceBody.AccountCancel, DateTimeOffset.UtcNow), DateTimeOffset.UtcNow);
         Assert.Equal(WorkspaceBody.HomeState, move.Code);
     }

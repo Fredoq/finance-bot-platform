@@ -32,6 +32,7 @@ internal sealed record WorkspaceData
         Income = new IncomeData();
         Recent = new RecentData();
         Summary = new SummaryData();
+        Breakdown = new BreakdownData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -49,6 +50,7 @@ internal sealed record WorkspaceData
         Income = state.Income;
         Recent = state.Recent;
         Summary = state.Summary;
+        Breakdown = state.Breakdown ?? throw new ArgumentNullException("state.Breakdown");
         Choices = state.Choices;
         Status = state.Status;
         Custom = state.Custom;
@@ -59,6 +61,7 @@ internal sealed record WorkspaceData
     public IncomeData Income { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
+    public BreakdownData Breakdown { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -73,6 +76,7 @@ internal sealed record WorkspaceStateData
         Income = new IncomeData();
         Recent = new RecentData();
         Summary = new SummaryData();
+        Breakdown = new BreakdownData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -81,6 +85,7 @@ internal sealed record WorkspaceStateData
     public IncomeData Income { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
+    public BreakdownData Breakdown { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -293,6 +298,73 @@ internal sealed record SummaryAccountData
     public decimal Income { get; init; }
     public decimal Expense { get; init; }
     public decimal Net { get; init; }
+}
+
+internal sealed record BreakdownData
+{
+    public BreakdownData() => Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
+    internal BreakdownData(int year, int month, IReadOnlyList<BreakdownCurrencyData> currencies)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(year);
+        if (month is < 1 or > 12)
+        {
+            throw new ArgumentOutOfRangeException(nameof(month));
+        }
+        ArgumentNullException.ThrowIfNull(currencies);
+        if (currencies.Any(item => item is null))
+        {
+            throw new ArgumentException("Workspace breakdown currencies cannot contain null items", nameof(currencies));
+        }
+        Year = year;
+        Month = month;
+        Currencies = Array.AsReadOnly(currencies.ToArray());
+    }
+    public int Year { get; init; }
+    public int Month { get; init; }
+    public IReadOnlyList<BreakdownCurrencyData> Currencies { get; init; }
+}
+
+internal sealed record BreakdownCurrencyData
+{
+    public BreakdownCurrencyData()
+    {
+        Currency = string.Empty;
+        Categories = Array.AsReadOnly<BreakdownCategoryData>([]);
+    }
+    internal BreakdownCurrencyData(string currency, decimal total, IReadOnlyList<BreakdownCategoryData> categories)
+    {
+        Currency = currency ?? throw new ArgumentNullException(nameof(currency));
+        ArgumentNullException.ThrowIfNull(categories);
+        if (categories.Any(item => item is null))
+        {
+            throw new ArgumentException("Workspace breakdown categories cannot contain null items", nameof(categories));
+        }
+        Total = total;
+        Categories = Array.AsReadOnly(categories.ToArray());
+    }
+    public string Currency { get; init; }
+    public decimal Total { get; init; }
+    public IReadOnlyList<BreakdownCategoryData> Categories { get; init; }
+}
+
+internal sealed record BreakdownCategoryData
+{
+    public BreakdownCategoryData()
+    {
+        Name = string.Empty;
+        Code = string.Empty;
+    }
+    internal BreakdownCategoryData(string name, string code, decimal amount, decimal share)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Code = code ?? throw new ArgumentNullException(nameof(code));
+        Amount = amount;
+        Share = share;
+    }
+    public string Name { get; init; }
+    public string Code { get; init; }
+    public decimal Amount { get; init; }
+    public decimal Share { get; init; }
 }
 
 internal sealed record PickData

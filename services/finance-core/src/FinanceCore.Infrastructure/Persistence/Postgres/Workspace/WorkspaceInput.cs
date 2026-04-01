@@ -8,13 +8,15 @@ internal sealed class WorkspaceInput
     private readonly WorkspaceDraft draft;
     private readonly WorkspaceRecent recent;
     private readonly WorkspaceSummary summary;
+    private readonly WorkspaceBreakdown breakdown;
 
-    internal WorkspaceInput(WorkspaceBody body, WorkspaceDraft draft, WorkspaceRecent recent, WorkspaceSummary summary)
+    internal WorkspaceInput(WorkspaceBody body, WorkspaceDraft draft, WorkspaceRecent recent, WorkspaceSummary summary, WorkspaceBreakdown breakdown)
     {
         this.body = body ?? throw new ArgumentNullException(nameof(body));
         this.draft = draft ?? throw new ArgumentNullException(nameof(draft));
         this.recent = recent ?? throw new ArgumentNullException(nameof(recent));
         this.summary = summary ?? throw new ArgumentNullException(nameof(summary));
+        this.breakdown = breakdown ?? throw new ArgumentNullException(nameof(breakdown));
     }
 
     internal WorkspaceMove Move(string state, WorkspaceData data, WorkspaceInputRequestedCommand command, DateTimeOffset when)
@@ -47,9 +49,17 @@ internal sealed class WorkspaceInput
         {
             return recent.Return(data, state);
         }
+        if (code == WorkspaceBody.ShowBreakdown && body.SummaryScreen(state))
+        {
+            return breakdown.Open(data);
+        }
         if (code == WorkspaceBody.SummaryBack && body.SummaryScreen(state))
         {
             return summary.Action(data, code, when);
+        }
+        if (code == WorkspaceBody.BreakdownBack && body.BreakdownScreen(state))
+        {
+            return breakdown.Action(data, code, when);
         }
         return state switch
         {
@@ -68,6 +78,7 @@ internal sealed class WorkspaceInput
             WorkspaceBody.RecentCategoryState => recent.Category(data, code),
             WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
             WorkspaceBody.SummaryState => summary.Action(data, code, when),
+            WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
             _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
         };
     }
@@ -94,6 +105,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.RecentDeleteState => new WorkspaceMove(WorkspaceBody.RecentDeleteState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentRecategorizeState => new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.SummaryState => summary.Text(data),
+        WorkspaceBody.BreakdownState => breakdown.Text(data),
         _ => new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null)
     };
 }
