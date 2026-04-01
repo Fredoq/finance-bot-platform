@@ -32,13 +32,13 @@ Repeated workspace requests do not reset an existing active state in v1.
 
 The outbound routing key is `workspace.view.requested`.
 
-The v1 action codes are:
+The current v1 home action codes are:
 
+- `account.add`
 - `transaction.expense.add`
 - `transaction.income.add`
-- `summary.month.show`
-- `category.breakdown.show`
-- `transaction.recent.show`
+
+Reporting and history actions such as `summary.month.show`, `category.breakdown.show`, and `transaction.recent.show` remain planned follow-up capabilities rather than current home actions.
 
 ## Rationale
 
@@ -58,8 +58,8 @@ The v1 action codes are:
 
 ### Negative
 
-- The initial action list is broader than the currently implemented command set
-- A downstream service must decide how to present unsupported future actions until those commands exist
+- The current action set remains intentionally narrower than the full MVP reporting scope
+- Additional home actions will require additive contract and rendering updates as reporting features arrive
 
 ## Workflow Rules
 

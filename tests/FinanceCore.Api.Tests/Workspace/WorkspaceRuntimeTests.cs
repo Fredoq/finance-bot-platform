@@ -176,6 +176,26 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(-25.5m, decimal.Parse(await Scalar("select current_amount::text from finance.account where user_id = (select id from finance.user_account where actor_key = 'actor-6')"), System.Globalization.CultureInfo.InvariantCulture));
     }
     /// <summary>
+    /// Verifies that unsupported input kinds preserve the error when the workspace stays on home.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Preserves home error state for unsupported input kinds")]
+    public async Task Preserves_home_error()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-home-error"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Publish(Envelope("actor-7", "room-7", string.Empty, "workspace-requested-7"));
+        await Take(queue, "workspace-requested-7");
+        await Publish(Input("actor-7", "room-7", "voice", "hello", "workspace-input-27"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "workspace-input-27");
+        Assert.Equal("home", home.Payload.Frame.State);
+        Assert.Equal("Input kind is not supported", Error(home.Payload.Frame.StateData));
+    }
+    /// <summary>
     /// Verifies that unknown contracts are moved to the dead queue.
     /// </summary>
     /// <returns>A task that completes when the operation finishes.</returns>
@@ -264,5 +284,11 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         using var item = JsonDocument.Parse(data);
         string? text = item.RootElement.GetProperty("financial").GetProperty("currency").GetString();
         return text ?? throw new InvalidOperationException("Workspace state is missing financial.currency");
+    }
+    private static string Error(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        string? text = item.RootElement.GetProperty("status").GetProperty("error").GetString();
+        return text ?? throw new InvalidOperationException("Workspace state is missing status.error");
     }
 }

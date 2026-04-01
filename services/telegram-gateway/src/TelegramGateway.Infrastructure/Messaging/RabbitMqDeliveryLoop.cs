@@ -1,11 +1,11 @@
 using System.Diagnostics.Metrics;
 using System.Text;
-using TelegramGateway.Application.Telegram.Delivery;
-using TelegramGateway.Infrastructure.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using TelegramGateway.Application.Telegram.Delivery;
+using TelegramGateway.Infrastructure.Configuration;
 
 namespace TelegramGateway.Infrastructure.Messaging;
 

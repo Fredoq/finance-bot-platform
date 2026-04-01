@@ -69,39 +69,50 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
     /// Clears the finance core tables.
     /// </summary>
     /// <returns>A task that completes when the reset finishes.</returns>
-    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message, finance.account, finance.workspace, finance.user_account restart identity cascade");
+    protected Task Reset() => Execute("truncate table finance.outbox_message, finance.inbox_message restart identity; delete from finance.user_account");
     /// <summary>
     /// Executes a SQL command.
     /// </summary>
     /// <param name="text">The SQL text.</param>
+    /// <param name="values">The SQL parameters.</param>
     /// <returns>A task that completes when execution finishes.</returns>
-    protected async Task Execute(string text)
+    protected async Task Execute(string text, params (string Name, object? Value)[] values)
     {
         await using NpgsqlConnection link = new(postgres);
         await link.OpenAsync();
         await using NpgsqlCommand note = new(text, link);
+        foreach ((string name, object? value) in values)
+        {
+            note.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        }
         _ = await note.ExecuteNonQueryAsync();
     }
     /// <summary>
     /// Executes a scalar query and parses the result as a number.
     /// </summary>
     /// <param name="text">The SQL text.</param>
+    /// <param name="values">The SQL parameters.</param>
     /// <returns>The scalar number result.</returns>
-    protected async Task<long> Number(string text)
+    protected async Task<long> Number(string text, params (string Name, object? Value)[] values)
     {
-        string data = await Scalar(text);
+        string data = await Scalar(text, values);
         return long.Parse(data, System.Globalization.CultureInfo.InvariantCulture);
     }
     /// <summary>
     /// Executes a scalar query and returns its string value.
     /// </summary>
     /// <param name="text">The SQL text.</param>
+    /// <param name="values">The SQL parameters.</param>
     /// <returns>The scalar value.</returns>
-    protected async Task<string> Scalar(string text)
+    protected async Task<string> Scalar(string text, params (string Name, object? Value)[] values)
     {
         await using NpgsqlConnection link = new(postgres);
         await link.OpenAsync();
         await using NpgsqlCommand note = new(text, link);
+        foreach ((string name, object? value) in values)
+        {
+            note.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        }
         return (await note.ExecuteScalarAsync())?.ToString() ?? string.Empty;
     }
     /// <summary>

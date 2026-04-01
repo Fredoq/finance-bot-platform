@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using TelegramGateway.Application.Keys;
-using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Application.Messaging;
+using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Infrastructure.Configuration;
 using TelegramGateway.Infrastructure.Messaging;
 using TelegramGateway.Infrastructure.Observability;
@@ -21,6 +21,7 @@ public static class InfrastructureSetup
     /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddTelegramGatewayInfrastructure(this IServiceCollection items)
     {
+        items.AddMemoryCache();
         items.AddOptionsWithValidateOnStart<RabbitMqOptions>().BindConfiguration(RabbitMqOptions.Section).ValidateDataAnnotations();
         items.AddOptionsWithValidateOnStart<TelegramBotOptions>().BindConfiguration(TelegramBotOptions.Section).ValidateDataAnnotations();
         items.AddOptionsWithValidateOnStart<OpaqueKeyOptions>().BindConfiguration(OpaqueKeyOptions.Section).ValidateDataAnnotations();
@@ -31,6 +32,7 @@ public static class InfrastructureSetup
         });
         items.AddSingleton<IBrokerState, RabbitMqLink>();
         items.AddSingleton<IBusPort, RabbitMqBusPort>();
+        items.AddSingleton<ITelegramContextPort>(item => new TelegramContextPort(item.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
         items.AddHttpClient<ITelegramPort, TelegramBotPort>((item, client) =>
         {
             TelegramBotOptions note = item.GetRequiredService<Microsoft.Extensions.Options.IOptions<TelegramBotOptions>>().Value;

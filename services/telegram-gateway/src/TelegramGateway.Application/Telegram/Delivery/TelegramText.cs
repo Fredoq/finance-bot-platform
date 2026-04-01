@@ -3,16 +3,13 @@ namespace TelegramGateway.Application.Telegram.Delivery;
 internal sealed record TelegramText : TelegramOperation
 {
     private const string Html = "HTML";
-    public TelegramText(long chatId, string text, IReadOnlyList<TelegramRow> keys) : base("sendMessage")
+    private readonly ITelegramKeys item;
+    public TelegramText(long chatId, string text, IReadOnlyList<TelegramRow> keys, ITelegramKeys item) : base("sendMessage")
     {
         ChatId = chatId;
         Text = !string.IsNullOrWhiteSpace(text) ? text.Trim() : throw new ArgumentException("Telegram text is required", nameof(text));
-        ArgumentNullException.ThrowIfNull(keys);
-        if (keys.Any(item => item is null))
-        {
-            throw new ArgumentException("Telegram keyboard row is required", nameof(keys));
-        }
-        Keys = Array.AsReadOnly(keys.ToArray());
+        this.item = item ?? throw new ArgumentNullException(nameof(item));
+        Keys = this.item.Rows(keys, nameof(keys));
         ParseMode = Html;
     }
     public long ChatId { get; }
@@ -24,22 +21,6 @@ internal sealed record TelegramText : TelegramOperation
         chat_id = ChatId,
         text = Text,
         parse_mode = ParseMode,
-        reply_markup = Keys.Count > 0 ? new
-        {
-            inline_keyboard = Keys.Select(Row).ToArray()
-        } : null
+        reply_markup = item.Markup(Keys)
     };
-    private static object[] Row(TelegramRow item) => [.. item.Cells.Select(Cell)];
-    private static object Cell(TelegramButton item) => string.IsNullOrWhiteSpace(item.Style)
-        ? new
-        {
-            text = item.Text,
-            callback_data = item.Data
-        }
-        : new
-        {
-            text = item.Text,
-            callback_data = item.Data,
-            style = item.Style
-        };
 }

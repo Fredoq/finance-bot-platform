@@ -23,6 +23,14 @@ The v1 workspace states are:
 - `account.currency`
 - `account.balance`
 - `account.confirm`
+- `transaction.expense.account`
+- `transaction.expense.amount`
+- `transaction.expense.category`
+- `transaction.expense.confirm`
+- `transaction.income.account`
+- `transaction.income.amount`
+- `transaction.income.category`
+- `transaction.income.confirm`
 
 The v1 account model is:
 
@@ -30,11 +38,20 @@ The v1 account model is:
 - each account has a name
 - each account has a required ISO-style currency code
 - each account stores both `opening_amount` and `current_amount`
+- `current_amount` may become negative
 - account type is intentionally omitted in v1
 
 The current balance is collected during onboarding and saved directly on the account row.
 
+Expense and income flows project directly into `current_amount`.
+
+The v1 balance model allows negative balances after transaction application.
+
+Insufficient funds validation and overdraft protection are intentionally out of scope for now.
+
 The initial `home` screen shows only `account.add` when the user has no accounts.
+
+The current `home` screen shows `transaction.expense.add`, `transaction.income.add`, and `account.add` when the user already has at least one account.
 
 Workspace user input is carried through a new application contract named `WorkspaceInputRequestedCommand` with `Kind` values `action` and `text`.
 
@@ -47,9 +64,11 @@ Workspace user input is carried through a new application contract named `Worksp
 - new users reach the first meaningful outcome immediately
 - the account model is explicit in PostgreSQL instead of being hidden in workspace state
 - the bot can render multi-step onboarding while keeping Telegram concerns inside `telegram-gateway`
+- future transaction flows can apply balance mutations without adding account-type-specific rules in v1
+- expense and income now follow the same state-machine shape and balance projection model
 
 ### Negative
 
 - `/start` now resets the current workspace to the account-aware `home` screen instead of preserving the previous state
 - the delivery contract becomes larger because it now carries `StateData`
-- later transaction flows must decide how account balance changes are projected into `current_amount`
+- negative balances can exist until explicit overdraft rules are introduced

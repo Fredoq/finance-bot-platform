@@ -1,11 +1,11 @@
+using FinanceCore.Infrastructure.Messaging.RabbitMq;
+using FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using FinanceCore.Infrastructure.Persistence.Postgres.Migrations;
-using FinanceCore.Infrastructure.Messaging.RabbitMq;
 
 namespace FinanceCore.Api.Tests.Infrastructure;
 
