@@ -54,6 +54,12 @@ internal sealed class WorkspaceHtml
         return string.IsNullOrWhiteSpace(sign) ? $"{Money(value)} {code}" : $"{Money(value)} {sign}";
     }
 
+    internal static string Month(int year, int month)
+    {
+        DateTime item = new(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+        return $"{CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(item.Month)} {item.Year}";
+    }
+
     internal static string Flow(string kind) => string.Equals(kind, "income", StringComparison.Ordinal) ? "+" : "-";
 
     internal static string Title(string kind) => string.Equals(kind, "income", StringComparison.Ordinal) ? "Income" : "Expense";

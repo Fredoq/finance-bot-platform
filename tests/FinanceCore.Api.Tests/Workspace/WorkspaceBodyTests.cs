@@ -24,7 +24,7 @@ public sealed class WorkspaceBodyTests
     public void Resolves_account()
     {
         var item = new WorkspaceBody();
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(new PickData(string.Empty, "Cash", "USD"), new PickData(), 5m), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(), false));
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Expense = new ExpenseData(new PickData(string.Empty, "Cash", "USD"), new PickData(), 5m) });
         string value = item.Resolve(data, false);
         Assert.Equal("a1", value);
     }
@@ -36,7 +36,7 @@ public sealed class WorkspaceBodyTests
     public void Preserves_expense_draft()
     {
         WorkspaceBody item = new();
-        WorkspaceData data = item.Transaction(new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(), new ChoicesData(), new StatusData(), false)), new PickData("a1", "Cash", "USD"), new PickData(), 12.5m, false);
+        WorkspaceData data = item.Transaction(new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData()), new PickData("a1", "Cash", "USD"), new PickData(), 12.5m, false);
         WorkspaceData model = item.Model(data, choices: new ChoicesData([], [new OptionData(1, "c1", "Food", "food")]));
         Assert.Equal("a1", model.Expense.Account.Id);
         Assert.Equal(12.5m, model.Expense.Amount);

@@ -31,10 +31,10 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen with transaction actions")]
     public void Builds_home_screen_with_expense()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"summary\":{\"year\":0,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Your accounts</b>", data.Text, StringComparison.Ordinal);
-        Assert.Equal(["➖ Add expense", "➕ Add income", "🧾 Recent transactions", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        Assert.Equal(["➖ Add expense", "➕ Add income", "🧾 Recent transactions", "📊 Monthly summary", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that the confirmation screen includes the account draft summary.
@@ -150,6 +150,31 @@ public sealed class WorkspaceScreenTests
         TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Transaction</b>", data.Text, StringComparison.Ordinal);
         Assert.Equal(["🗑 Delete", "✏ Change category", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+
+    /// <summary>
+    /// Verifies that the summary screen renders totals and month navigation.
+    /// </summary>
+    [Fact(DisplayName = "Builds the monthly summary screen for Telegram delivery")]
+    public void Builds_summary_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("summary.month", WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a2", "Card", 0m, 40m), WorkspaceStateNote.Account("a1", "Cash", 100m, 0m))]), "summary.month.prev", "summary.month.back");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("<b>Monthly summary</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("April 2026", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Income: <b>100 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["◀ Previous month", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+
+    /// <summary>
+    /// Verifies that the empty summary month renders the fallback text.
+    /// </summary>
+    [Fact(DisplayName = "Builds the empty monthly summary screen for Telegram delivery")]
+    public void Builds_empty_summary_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("summary.month", WorkspaceStateNote.Summary(2026, 4, []), "summary.month.prev", "summary.month.back");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("No transactions in this month", data.Text, StringComparison.Ordinal);
     }
     /// <summary>
     /// Verifies that unknown currencies keep the code without a symbol.

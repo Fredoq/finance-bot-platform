@@ -27,6 +27,7 @@ internal sealed class WorkspaceText
         "transaction.recent.delete.confirm" => RecentDelete(data),
         "transaction.recent.category" => RecentCategory(data),
         "transaction.recent.recategorize.confirm" => RecentRecategorize(data),
+        "summary.month" => Summary(data),
         _ => Home(fresh, data)
     };
 
@@ -237,6 +238,45 @@ internal sealed class WorkspaceText
         }
         text.AppendLine($"<b>{title}</b>");
         note(text, item);
+        return text.ToString().TrimEnd();
+    }
+
+    private string Summary(WorkspaceData data)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Monthly summary</b>");
+        text.AppendLine(WorkspaceHtml.Escape(WorkspaceHtml.Month(data.Summary.Year, data.Summary.Month)));
+        if (data.Summary.Currencies.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+            {
+                text.AppendLine(WorkspaceHtml.Escape(data.Status.Notice));
+            }
+            text.Append("No transactions in this month");
+            return text.ToString().TrimEnd();
+        }
+        foreach (SummaryCurrencyData item in data.Summary.Currencies)
+        {
+            text.AppendLine();
+            text.AppendLine($"<b>{WorkspaceHtml.Escape(item.Currency)}</b>");
+            text.AppendLine($"Income: <b>{html.Amount(item.Income, item.Currency)}</b>");
+            text.AppendLine($"Expense: <b>{html.Amount(item.Expense, item.Currency)}</b>");
+            text.AppendLine($"Net: <b>{html.Amount(item.Net, item.Currency)}</b>");
+            text.AppendLine("Accounts:");
+            foreach (SummaryAccountData account in item.Accounts)
+            {
+                text.AppendLine($"- <b>{WorkspaceHtml.Escape(account.Name)}</b>: +{html.Label(account.Income, item.Currency)} / -{html.Label(account.Expense, item.Currency)} / {html.Label(account.Net, item.Currency)}");
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+        {
+            text.AppendLine();
+            text.Append(WorkspaceHtml.Escape(data.Status.Notice));
+        }
         return text.ToString().TrimEnd();
     }
 }

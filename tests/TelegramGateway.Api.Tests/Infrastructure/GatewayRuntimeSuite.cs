@@ -181,7 +181,7 @@ public abstract class GatewayRuntimeSuite : IAsyncLifetime
             DateTimeOffset.UtcNow,
             new MessageContext($"trace-{Guid.CreateVersion7():N}", $"cause-{Guid.CreateVersion7():N}", $"view-{Guid.CreateVersion7():N}"),
             "finance-core",
-            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, Data(state), actions ?? ["transaction.expense.add", "transaction.income.add", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
+            new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", chatId)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame(state, Data(state), actions ?? ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow));
     }
     private static string Data(string state) => JsonSerializer.Serialize(state switch
     {

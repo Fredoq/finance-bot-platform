@@ -28,4 +28,16 @@ public sealed class WorkspaceTextTests
         string data = text.Text("home", true, new WorkspaceData());
         Assert.Contains("Add your first account", data, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Verifies that summary text renders the month label and totals.
+    /// </summary>
+    [Fact(DisplayName = "Builds monthly summary text with grouped totals")]
+    public void Builds_summary()
+    {
+        var text = new WorkspaceText(new WorkspaceHtml());
+        string data = text.Text("summary.month", false, WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a1", "Cash", 100m, 40m))]));
+        Assert.Contains("April 2026", data, StringComparison.Ordinal);
+        Assert.Contains("Income: <b>100 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
+    }
 }

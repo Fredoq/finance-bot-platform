@@ -38,8 +38,9 @@ public sealed record WorkspaceActionContext
     /// <param name="categoryChoiceCount">The number of category choices in the current state.</param>
     /// <param name="recentItemCount">The number of recent transaction items in the current state.</param>
     /// <param name="recent">The paging state for the current recent transactions page.</param>
+    /// <param name="summaryHasNext">Indicates whether the current summary month can move forward.</param>
     /// <param name="custom">Indicates whether custom input mode is enabled.</param>
-    public WorkspaceActionContext(int homeAccountCount, int accountChoiceCount, int categoryChoiceCount, int recentItemCount, RecentPaging recent, bool custom)
+    public WorkspaceActionContext(int homeAccountCount, int accountChoiceCount, int categoryChoiceCount, int recentItemCount, RecentPaging recent, bool summaryHasNext, bool custom)
     {
         ArgumentNullException.ThrowIfNull(recent);
         ArgumentOutOfRangeException.ThrowIfNegative(homeAccountCount);
@@ -51,6 +52,7 @@ public sealed record WorkspaceActionContext
         CategoryChoiceCount = categoryChoiceCount;
         RecentItemCount = recentItemCount;
         Recent = recent;
+        SummaryHasNext = summaryHasNext;
         Custom = custom;
     }
     /// <summary>
@@ -81,6 +83,10 @@ public sealed record WorkspaceActionContext
     /// Gets a value indicating whether the current recent page has a next page.
     /// </summary>
     public bool HasNext => Recent.HasNext;
+    /// <summary>
+    /// Gets a value indicating whether the current summary month can move forward.
+    /// </summary>
+    public bool SummaryHasNext { get; }
     /// <summary>
     /// Gets a value indicating whether custom input mode is enabled.
     /// </summary>

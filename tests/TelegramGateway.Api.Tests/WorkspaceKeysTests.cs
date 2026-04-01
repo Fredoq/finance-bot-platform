@@ -21,6 +21,19 @@ public sealed class WorkspaceKeysTests
     }
 
     /// <summary>
+    /// Verifies that summary action codes map to month navigation buttons.
+    /// </summary>
+    [Fact(DisplayName = "Builds monthly summary navigation buttons")]
+    public void Builds_summary_buttons()
+    {
+        WorkspaceHtml html = new();
+        WorkspaceKeys keys = new(html);
+        WorkspaceData data = WorkspaceStateNote.Summary(2026, 4, []);
+        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["summary.month.show", "summary.month.prev", "summary.month.next", "summary.month.back"], data);
+        Assert.Equal(["📊 Monthly summary", "◀ Previous month", "Next month ▶", "↩ Back"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+
+    /// <summary>
     /// Verifies that unknown actions fail fast.
     /// </summary>
     [Fact(DisplayName = "Rejects unknown workspace action codes")]

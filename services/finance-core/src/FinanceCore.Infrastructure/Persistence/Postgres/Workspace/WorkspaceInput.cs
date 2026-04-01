@@ -7,26 +7,28 @@ internal sealed class WorkspaceInput
     private readonly WorkspaceBody body;
     private readonly WorkspaceDraft draft;
     private readonly WorkspaceRecent recent;
+    private readonly WorkspaceSummary summary;
 
-    internal WorkspaceInput(WorkspaceBody body, WorkspaceDraft draft, WorkspaceRecent recent)
+    internal WorkspaceInput(WorkspaceBody body, WorkspaceDraft draft, WorkspaceRecent recent, WorkspaceSummary summary)
     {
         this.body = body ?? throw new ArgumentNullException(nameof(body));
         this.draft = draft ?? throw new ArgumentNullException(nameof(draft));
         this.recent = recent ?? throw new ArgumentNullException(nameof(recent));
+        this.summary = summary ?? throw new ArgumentNullException(nameof(summary));
     }
 
-    internal WorkspaceMove Move(string state, WorkspaceData data, WorkspaceInputRequestedCommand command)
+    internal WorkspaceMove Move(string state, WorkspaceData data, WorkspaceInputRequestedCommand command, DateTimeOffset when)
     {
         string kind = command.Kind.Trim();
         return kind switch
         {
-            "action" => Action(state, data, command.Value),
+            "action" => Action(state, data, command.Value, when),
             "text" => Text(state, data, command.Value),
             _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("Input kind is not supported", data.Status.Notice)), null, string.Empty, null)
         };
     }
 
-    private WorkspaceMove Action(string state, WorkspaceData data, string value)
+    private WorkspaceMove Action(string state, WorkspaceData data, string value, DateTimeOffset when)
     {
         string code = value.Trim();
         if (code == WorkspaceBody.AccountCancel && body.AccountState(state))
@@ -45,9 +47,13 @@ internal sealed class WorkspaceInput
         {
             return recent.Return(data, state);
         }
+        if (code == WorkspaceBody.SummaryBack && body.SummaryScreen(state))
+        {
+            return summary.Action(data, code, when);
+        }
         return state switch
         {
-            WorkspaceBody.HomeState => draft.Home(data, code),
+            WorkspaceBody.HomeState => draft.Home(data, code, when),
             WorkspaceBody.CurrencyState => draft.Currency(data, code),
             WorkspaceBody.ConfirmState => draft.Confirm(data, code),
             WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
@@ -61,6 +67,7 @@ internal sealed class WorkspaceInput
             WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
             WorkspaceBody.RecentCategoryState => recent.Category(data, code),
             WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
+            WorkspaceBody.SummaryState => summary.Action(data, code, when),
             _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
         };
     }
@@ -86,6 +93,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.RecentDetailState => new WorkspaceMove(WorkspaceBody.RecentDetailState, body.Model(data, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentDeleteState => new WorkspaceMove(WorkspaceBody.RecentDeleteState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentRecategorizeState => new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
+        WorkspaceBody.SummaryState => summary.Text(data),
         _ => new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null)
     };
 }

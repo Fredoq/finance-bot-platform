@@ -31,6 +31,7 @@ internal sealed record WorkspaceData
         Expense = new ExpenseData();
         Income = new IncomeData();
         Recent = new RecentData();
+        Summary = new SummaryData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -47,6 +48,7 @@ internal sealed record WorkspaceData
         Expense = state.Expense;
         Income = state.Income;
         Recent = state.Recent;
+        Summary = state.Summary;
         Choices = state.Choices;
         Status = state.Status;
         Custom = state.Custom;
@@ -56,6 +58,7 @@ internal sealed record WorkspaceData
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
     public RecentData Recent { get; init; }
+    public SummaryData Summary { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -63,23 +66,24 @@ internal sealed record WorkspaceData
 
 internal sealed record WorkspaceStateData
 {
-    internal WorkspaceStateData(FinancialData financial, ExpenseData expense, IncomeData income, RecentData recent, ChoicesData choices, StatusData status, bool custom)
+    public WorkspaceStateData()
     {
-        Financial = financial ?? throw new ArgumentNullException(nameof(financial));
-        Expense = expense ?? throw new ArgumentNullException(nameof(expense));
-        Income = income ?? throw new ArgumentNullException(nameof(income));
-        Recent = recent ?? throw new ArgumentNullException(nameof(recent));
-        Choices = choices ?? throw new ArgumentNullException(nameof(choices));
-        Status = status ?? throw new ArgumentNullException(nameof(status));
-        Custom = custom;
+        Financial = new FinancialData();
+        Expense = new ExpenseData();
+        Income = new IncomeData();
+        Recent = new RecentData();
+        Summary = new SummaryData();
+        Choices = new ChoicesData();
+        Status = new StatusData();
     }
-    public FinancialData Financial { get; }
-    public ExpenseData Expense { get; }
-    public IncomeData Income { get; }
-    public RecentData Recent { get; }
-    public ChoicesData Choices { get; }
-    public StatusData Status { get; }
-    public bool Custom { get; }
+    public FinancialData Financial { get; init; }
+    public ExpenseData Expense { get; init; }
+    public IncomeData Income { get; init; }
+    public RecentData Recent { get; init; }
+    public SummaryData Summary { get; init; }
+    public ChoicesData Choices { get; init; }
+    public StatusData Status { get; init; }
+    public bool Custom { get; init; }
 }
 
 internal sealed record FinancialData
@@ -216,6 +220,79 @@ internal sealed record RecentEntryData
     public decimal Amount { get; }
     public string Currency { get; }
     public DateTimeOffset OccurredUtc { get; }
+}
+
+internal sealed record SummaryData
+{
+    public SummaryData() => Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
+    internal SummaryData(int year, int month, IReadOnlyList<SummaryCurrencyData> currencies)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(year);
+        if (month is < 1 or > 12)
+        {
+            throw new ArgumentOutOfRangeException(nameof(month));
+        }
+        ArgumentNullException.ThrowIfNull(currencies);
+        if (currencies.Any(item => item is null))
+        {
+            throw new ArgumentException("Workspace summary currencies cannot contain null items", nameof(currencies));
+        }
+        Year = year;
+        Month = month;
+        Currencies = Array.AsReadOnly(currencies.ToArray());
+    }
+    public int Year { get; init; }
+    public int Month { get; init; }
+    public IReadOnlyList<SummaryCurrencyData> Currencies { get; init; }
+}
+
+internal sealed record SummaryCurrencyData
+{
+    public SummaryCurrencyData()
+    {
+        Currency = string.Empty;
+        Accounts = Array.AsReadOnly<SummaryAccountData>([]);
+    }
+    internal SummaryCurrencyData(string currency, decimal income, decimal expense, decimal net, IReadOnlyList<SummaryAccountData> accounts)
+    {
+        Currency = currency ?? throw new ArgumentNullException(nameof(currency));
+        ArgumentNullException.ThrowIfNull(accounts);
+        if (accounts.Any(item => item is null))
+        {
+            throw new ArgumentException("Workspace summary accounts cannot contain null items", nameof(accounts));
+        }
+        Income = income;
+        Expense = expense;
+        Net = net;
+        Accounts = Array.AsReadOnly(accounts.ToArray());
+    }
+    public string Currency { get; init; }
+    public decimal Income { get; init; }
+    public decimal Expense { get; init; }
+    public decimal Net { get; init; }
+    public IReadOnlyList<SummaryAccountData> Accounts { get; init; }
+}
+
+internal sealed record SummaryAccountData
+{
+    public SummaryAccountData()
+    {
+        Id = string.Empty;
+        Name = string.Empty;
+    }
+    internal SummaryAccountData(string id, string name, decimal income, decimal expense, decimal net)
+    {
+        Id = id ?? throw new ArgumentNullException(nameof(id));
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Income = income;
+        Expense = expense;
+        Net = net;
+    }
+    public string Id { get; init; }
+    public string Name { get; init; }
+    public decimal Income { get; init; }
+    public decimal Expense { get; init; }
+    public decimal Net { get; init; }
 }
 
 internal sealed record PickData

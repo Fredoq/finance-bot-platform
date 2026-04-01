@@ -27,7 +27,7 @@ public sealed class WorkspaceDraftTests
     {
         var body = new WorkspaceBody();
         var item = new WorkspaceDraft(body, new WorkspaceAmount());
-        WorkspaceMove move = item.Home(new WorkspaceData(), WorkspaceBody.AddExpense);
+        WorkspaceMove move = item.Home(new WorkspaceData(), WorkspaceBody.AddExpense, DateTimeOffset.UtcNow);
         Assert.Equal(WorkspaceBody.HomeState, move.Code);
     }
 

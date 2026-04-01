@@ -13,6 +13,9 @@ public sealed class WorkspaceActions : IWorkspaceActions
     private const string RecentBack = "transaction.recent.back";
     private const string RecentPrevious = "transaction.recent.page.prev";
     private const string RecentNext = "transaction.recent.page.next";
+    private const string SummaryPrevious = "summary.month.prev";
+    private const string SummaryNext = "summary.month.next";
+    private const string SummaryBack = "summary.month.back";
     /// <summary>
     /// Gets the supported action codes for the workspace state.
     /// </summary>
@@ -25,7 +28,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
         ArgumentNullException.ThrowIfNull(context);
         return state switch
         {
-            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "account.add"],
+            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"],
             "home" => ["account.add"],
             "account.name" => [Cancel],
             "account.currency" when context.Custom => [Cancel],
@@ -45,9 +48,22 @@ public sealed class WorkspaceActions : IWorkspaceActions
             "transaction.recent.delete.confirm" => ["transaction.recent.delete.apply", RecentBack],
             "transaction.recent.category" => [.. Enumerable.Range(1, context.CategoryChoiceCount).Select(item => $"transaction.recent.category.{item}"), RecentBack],
             "transaction.recent.recategorize.confirm" => ["transaction.recent.recategorize.apply", RecentBack],
+            "summary.month" => Summary(context),
             _ => throw new InvalidOperationException($"WorkspaceActions.Codes does not support state '{state}' and cannot fall back to {Cancel}")
         };
     }
+
+    private static List<string> Summary(WorkspaceActionContext context)
+    {
+        var list = new List<string>(3) { SummaryPrevious };
+        if (context.SummaryHasNext)
+        {
+            list.Add(SummaryNext);
+        }
+        list.Add(SummaryBack);
+        return list;
+    }
+
     private static List<string> RecentList(WorkspaceActionContext context)
     {
         var list = new List<string>(context.RecentItemCount + 3);

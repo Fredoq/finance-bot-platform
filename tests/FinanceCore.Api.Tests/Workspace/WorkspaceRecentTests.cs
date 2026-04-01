@@ -16,7 +16,7 @@ public sealed class WorkspaceRecentTests
     {
         var body = new WorkspaceBody();
         var item = new WorkspaceRecent(body);
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData(), new StatusData(), false));
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Recent = new RecentData(0, false, false, [], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))) });
         WorkspaceMove move = item.Text(data, " ");
         Assert.Equal(WorkspaceBody.RecentCategoryState, move.Code);
     }
@@ -29,7 +29,7 @@ public sealed class WorkspaceRecentTests
     {
         var body = new WorkspaceBody();
         var item = new WorkspaceRecent(body);
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData(), new StatusData(), false));
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Recent = new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))) });
         WorkspaceMove move = item.Return(data, WorkspaceBody.RecentDetailState);
         Assert.Equal(WorkspaceBody.RecentListState, move.Code);
     }
@@ -42,7 +42,7 @@ public sealed class WorkspaceRecentTests
     {
         WorkspaceBody body = new();
         WorkspaceRecent item = new(body);
-        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData([new OptionData(1, "c2", "Travel", "travel")], []), new StatusData("Use the buttons to confirm or go back", string.Empty), false));
+        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Recent = new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), Choices = new ChoicesData([new OptionData(1, "c2", "Travel", "travel")], []), Status = new StatusData("Use the buttons to confirm or go back", string.Empty) });
         WorkspaceMove move = item.Return(data, WorkspaceBody.RecentDeleteState);
         Assert.Equal(WorkspaceBody.RecentDetailState, move.Code);
         Assert.Equal(string.Empty, move.Body.Status.Error);
@@ -58,7 +58,7 @@ public sealed class WorkspaceRecentTests
     {
         WorkspaceBody body = new();
         WorkspaceRecent item = new(body);
-        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c2", "Travel", "travel"), 10m, "USD", when))), new ChoicesData([], [new OptionData(1, "c2", "Travel", "travel")]), new StatusData("Use the buttons to confirm or go back", string.Empty), false));
+        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Recent = new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c2", "Travel", "travel"), 10m, "USD", when))), Choices = new ChoicesData([], [new OptionData(1, "c2", "Travel", "travel")]), Status = new StatusData("Use the buttons to confirm or go back", string.Empty) });
         WorkspaceMove move = item.Return(data, WorkspaceBody.RecentRecategorizeState);
         Assert.Equal(WorkspaceBody.RecentDetailState, move.Code);
         Assert.Equal(string.Empty, move.Body.Status.Error);
