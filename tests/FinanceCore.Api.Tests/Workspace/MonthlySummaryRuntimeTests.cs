@@ -183,9 +183,24 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
 
     private async Task Record(string queue, string actor, string room, EntryNote note)
     {
-        string add = note.Kind == "income" ? "transaction.income.add" : "transaction.expense.add";
-        string prefix = note.Kind == "income" ? "transaction.income.account." : "transaction.expense.account.";
-        string create = note.Kind == "income" ? "transaction.income.create" : "transaction.expense.create";
+        string add;
+        string prefix;
+        string create;
+        switch (note.Kind)
+        {
+            case "income":
+                add = "transaction.income.add";
+                prefix = "transaction.income.account.";
+                create = "transaction.income.create";
+                break;
+            case "expense":
+                add = "transaction.expense.add";
+                prefix = "transaction.expense.account.";
+                create = "transaction.expense.create";
+                break;
+            default:
+                throw new InvalidOperationException($"Workspace entry kind '{note.Kind}' is not supported");
+        }
         await Publish(Input(actor, room, "action", add, $"{note.Id}-1"));
         MessageEnvelope<WorkspaceViewRequestedCommand> view = await Take(queue, $"{note.Id}-1");
         if (view.Payload.Frame.State.EndsWith(".account", StringComparison.Ordinal))
@@ -252,10 +267,15 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         while (DateTimeOffset.UtcNow < until)
         {
             MessageEnvelope<WorkspaceViewRequestedCommand>? item = await View(queue, TimeSpan.FromMilliseconds(250));
-            if (item is not null && string.Equals(item.Context.IdempotencyKey, key, StringComparison.Ordinal))
+            if (item is null)
+            {
+                continue;
+            }
+            if (string.Equals(item.Context.IdempotencyKey, key, StringComparison.Ordinal))
             {
                 return item;
             }
+            throw new InvalidOperationException($"Workspace view '{item.Context.IdempotencyKey}' was received instead of '{key}' after '{step}'");
         }
         throw new InvalidOperationException($"Workspace view is missing after '{step}'");
     }
