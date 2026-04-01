@@ -55,7 +55,7 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
         }
         string room = item.Payload.Identity.ConversationKey;
         TelegramText note = screen.Message(chatId, item.Payload);
-        if (item.Payload.Frame.State.StartsWith("transaction.recent.", StringComparison.Ordinal))
+        if (Editable(item.Payload.Frame.State))
         {
             TelegramContextNote? edit = context.Envelope(item.Context.CausationId) ?? context.Conversation(room);
             if (edit is not null)
@@ -66,9 +66,11 @@ internal sealed class WorkspaceViewSlice : ITelegramDeliverySlice
             }
         }
         await port.Send(note, token);
-        if (!item.Payload.Frame.State.StartsWith("transaction.recent.", StringComparison.Ordinal))
+        if (!Editable(item.Payload.Frame.State))
         {
             context.Clear(room);
         }
     }
+
+    private static bool Editable(string state) => state.StartsWith("transaction.recent.", StringComparison.Ordinal) || string.Equals(state, "summary.month", StringComparison.Ordinal);
 }

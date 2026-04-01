@@ -24,6 +24,32 @@ internal static class WorkspaceStateNote
             Choices = new ChoicesData(),
             Status = new StatusData()
         };
+    public static WorkspaceData Summary(int year, int month, IReadOnlyList<SummaryCurrencyData> currencies, string notice = "")
+        => new()
+        {
+            Accounts = [Account()],
+            Summary = new SummaryData { Year = year, Month = month, Currencies = currencies },
+            Choices = new ChoicesData(),
+            Status = new StatusData { Error = string.Empty, Notice = notice }
+        };
+    public static SummaryCurrencyData Currency(string currency, decimal income, decimal expense, params SummaryAccountData[] accounts)
+        => new()
+        {
+            Currency = currency,
+            Income = income,
+            Expense = expense,
+            Net = income - expense,
+            Accounts = accounts
+        };
+    public static SummaryAccountData Account(string id, string name, decimal income, decimal expense)
+        => new()
+        {
+            Id = id,
+            Name = name,
+            Income = income,
+            Expense = expense,
+            Net = income - expense
+        };
     public static RecentItemData RecentItem(int slot, string id, string kind, string category, string code, decimal amount, DateTimeOffset occurred)
         => new()
         {

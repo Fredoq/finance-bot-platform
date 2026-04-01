@@ -49,6 +49,7 @@ internal sealed class WorkspaceBody
             "transaction.recent.delete.confirm" => Selected(item, "transaction.recent.delete.confirm"),
             "transaction.recent.category" => RecentCategory(item),
             "transaction.recent.recategorize.confirm" => Selected(item, "transaction.recent.recategorize.confirm"),
+            "summary.month" => Summary(item),
             _ => throw new InvalidOperationException($"Workspace screen '{state}' is not recognized")
         };
     }
@@ -127,6 +128,19 @@ internal sealed class WorkspaceBody
     {
         Selected(item, "transaction.recent.category");
         return item.Choices.Categories.Count > 0 ? item : throw new InvalidOperationException("Workspace screen 'transaction.recent.category' requires category choices");
+    }
+
+    private static WorkspaceData Summary(WorkspaceData item)
+    {
+        if (item.Summary.Year <= 0)
+        {
+            throw new InvalidOperationException("Workspace screen 'summary.month' requires year");
+        }
+        if (item.Summary.Month is < 1 or > 12)
+        {
+            throw new InvalidOperationException("Workspace screen 'summary.month' requires month");
+        }
+        return item;
     }
 
     internal static OptionData Option(IReadOnlyList<OptionData> list, string code, string prefix)

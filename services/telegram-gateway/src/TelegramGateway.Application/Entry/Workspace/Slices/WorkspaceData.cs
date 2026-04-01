@@ -24,6 +24,7 @@ internal sealed record WorkspaceData
         Expense = new TransactionData();
         Income = new TransactionData();
         Recent = new RecentData();
+        Summary = new SummaryData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -32,6 +33,7 @@ internal sealed record WorkspaceData
     public TransactionData Expense { get; init; }
     public TransactionData Income { get; init; }
     public RecentData Recent { get; init; }
+    public SummaryData Summary { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -106,6 +108,42 @@ internal sealed record RecentItemData
     public decimal Amount { get; init; }
     public string Currency { get; init; }
     public DateTimeOffset OccurredUtc { get; init; }
+}
+
+internal sealed record SummaryData
+{
+    public SummaryData() => Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
+    public int Year { get; init; }
+    public int Month { get; init; }
+    public IReadOnlyList<SummaryCurrencyData> Currencies { get; init; }
+}
+
+internal sealed record SummaryCurrencyData
+{
+    public SummaryCurrencyData()
+    {
+        Currency = string.Empty;
+        Accounts = Array.AsReadOnly<SummaryAccountData>([]);
+    }
+    public string Currency { get; init; }
+    public decimal Income { get; init; }
+    public decimal Expense { get; init; }
+    public decimal Net { get; init; }
+    public IReadOnlyList<SummaryAccountData> Accounts { get; init; }
+}
+
+internal sealed record SummaryAccountData
+{
+    public SummaryAccountData()
+    {
+        Id = string.Empty;
+        Name = string.Empty;
+    }
+    public string Id { get; init; }
+    public string Name { get; init; }
+    public decimal Income { get; init; }
+    public decimal Expense { get; init; }
+    public decimal Net { get; init; }
 }
 
 internal sealed record ChoicesData

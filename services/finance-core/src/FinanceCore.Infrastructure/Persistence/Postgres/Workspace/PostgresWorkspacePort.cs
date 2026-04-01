@@ -31,7 +31,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         var amount = new WorkspaceAmount();
         var draft = new WorkspaceDraft(body, amount);
         var recent = new WorkspaceRecent(body);
-        input = new WorkspaceInput(body, draft, recent);
+        var summary = new WorkspaceSummary(body);
+        input = new WorkspaceInput(body, draft, recent, summary);
         sql = new WorkspaceSql(body);
     }
 
@@ -102,7 +103,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             IReadOnlyList<AccountData> list = await sql.Accounts(link, lane, userId, token);
             WorkspaceData state = current is null ? body.Home(list, string.Empty) : body.Sync(body.Data(current.Snapshot.Data), list);
             string code = current?.Snapshot.State ?? WorkspaceBody.HomeState;
-            WorkspaceMove move = await Flow(link, lane, userId, input.Move(code, state, command), when, token);
+            WorkspaceMove move = await Flow(link, lane, userId, input.Move(code, state, command, when), when, token);
             var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, body.Json(move.Body), string.Empty, command.Value, when);
             WorkspaceItem? next = current is null ? await sql.Add(link, lane, frame, token) : await sql.Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
             if (next is not null)
@@ -143,6 +144,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             RecentData page = await sql.Recent(link, lane, userId, move.Body.Recent.Page, token);
             return new WorkspaceMove(WorkspaceBody.RecentListState, body.Recent(move.Body, page, new ChoicesData(), move.Body.Status), null, string.Empty, null);
+        }
+        if (move.Code == WorkspaceBody.SummaryState && move.Body.Summary.Year > 0 && move.Body.Summary.Month > 0 && move.Body.Summary.Currencies.Count == 0)
+        {
+            SummaryData item = await sql.Summary(link, lane, userId, move.Body.Summary.Year, move.Body.Summary.Month, token);
+            return new WorkspaceMove(WorkspaceBody.SummaryState, body.Summary(move.Body, item, move.Body.Status), null, string.Empty, null);
         }
         if (!body.TransactionCategoryState(move.Code) || move.Body.Choices.Categories.Count > 0)
         {
@@ -288,7 +294,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private async ValueTask Outbox<TMessage>(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<TMessage> message, WorkspaceItem item, WorkspaceViewNote note, CancellationToken token) where TMessage : class
     {
         var state = new WorkspaceState(item.Snapshot.State, item.Snapshot.Data, item.Snapshot.Revision);
-        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(body.Data(state.Data))), note.IsNewUser, note.IsNewWorkspace, note.When);
+        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(body.Data(state.Data), note.When)), note.IsNewUser, note.IsNewWorkspace, note.When);
         var data = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, new WorkspaceViewFrame(view.State.Code, view.State.Data, view.Actions), new WorkspaceViewFreshness(view.IsNewUser, view.IsNewWorkspace), view.OccurredUtc);
         var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), ViewContract, note.When, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), ViewSource, data);
         string raw = JsonSerializer.Serialize(envelope, json);

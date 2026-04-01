@@ -208,6 +208,55 @@ internal sealed class WorkspaceSql
         return item;
     }
 
+    internal async ValueTask<SummaryData> Summary(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, CancellationToken token)
+    {
+        DateTimeOffset start = new(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset end = start.AddMonths(1);
+        await using NpgsqlCommand note = new("""
+                                             select account.currency_code,
+                                                    account.id::text,
+                                                    account.name,
+                                                    coalesce(sum(case when item.kind = 'income' then item.amount else 0 end), 0),
+                                                    coalesce(sum(case when item.kind = 'expense' then item.amount else 0 end), 0)
+                                             from finance.transaction_entry item
+                                             join finance.account account on account.id = item.account_id
+                                             where item.user_id = @user_id and item.occurred_utc >= @start_utc and item.occurred_utc < @end_utc
+                                             group by account.currency_code, account.id, account.name
+                                             order by account.currency_code, account.name
+                                             """, link, lane);
+        note.Parameters.AddWithValue(map.UserId, userId);
+        note.Parameters.AddWithValue("start_utc", start);
+        note.Parameters.AddWithValue("end_utc", end);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        List<SummaryCurrencyData> currencies = [];
+        List<SummaryAccountData> accounts = [];
+        string current = string.Empty;
+        decimal income = 0m;
+        decimal expense = 0m;
+        while (await row.ReadAsync(token))
+        {
+            string currency = row.GetString(0);
+            if (!string.Equals(current, currency, StringComparison.Ordinal) && accounts.Count > 0)
+            {
+                currencies.Add(new SummaryCurrencyData(current, income, expense, income - expense, accounts));
+                accounts = [];
+                income = 0m;
+                expense = 0m;
+            }
+            current = currency;
+            decimal accountIncome = row.GetDecimal(3);
+            decimal accountExpense = row.GetDecimal(4);
+            income += accountIncome;
+            expense += accountExpense;
+            accounts.Add(new SummaryAccountData(row.GetString(1), row.GetString(2), accountIncome, accountExpense, accountIncome - accountExpense));
+        }
+        if (accounts.Count > 0)
+        {
+            currencies.Add(new SummaryCurrencyData(current, income, expense, income - expense, accounts));
+        }
+        return new SummaryData(year, month, currencies);
+    }
+
     internal async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, DateTimeOffset when, CancellationToken token)
     {
         string text = value.Trim();
