@@ -106,7 +106,7 @@ internal sealed class WorkspaceBody
 
     internal string Json(WorkspaceData item) => JsonSerializer.Serialize(item, json);
 
-    internal WorkspaceActionContext Context(WorkspaceData body, DateTimeOffset when) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), SummaryHasNext(body, when), codes.Custom(body.Custom));
+    internal WorkspaceActionContext Context(WorkspaceData body, DateTimeOffset when) => new(body.Accounts.Count, body.Choices.Accounts.Count, body.Choices.Categories.Count, body.Recent.Items.Count, new RecentPaging(body.Recent.HasPrevious, body.Recent.HasNext), SummaryHasNext(body.Summary, when), codes.Custom(body.Custom));
 
     internal DateTimeOffset Utc(DateTimeOffset value, string name)
     {
@@ -232,14 +232,14 @@ internal sealed class WorkspaceBody
         return new SummaryData(item.Year, item.Month, []);
     }
 
-    private bool SummaryHasNext(WorkspaceData body, DateTimeOffset when)
+    internal static bool SummaryHasNext(SummaryData data, DateTimeOffset when)
     {
-        if (body.Summary.Year <= codes.Zero || body.Summary.Month <= codes.Zero)
+        if (data.Year <= 0 || data.Month <= 0)
         {
             return false;
         }
         DateTimeOffset current = Start(when.Year, when.Month);
-        DateTimeOffset selected = Start(body.Summary.Year, body.Summary.Month);
+        DateTimeOffset selected = Start(data.Year, data.Month);
         return selected < current;
     }
 
