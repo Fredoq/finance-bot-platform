@@ -4,6 +4,30 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 
 internal sealed record WorkspaceMove
 {
+    internal WorkspaceMove(string code, WorkspaceData body) : this(code, body, null, string.Empty, null)
+    {
+    }
+
+    internal WorkspaceMove(string code, WorkspaceData body, AccountDraft account) : this(code, body, account, string.Empty, null)
+    {
+    }
+
+    internal WorkspaceMove(string code, WorkspaceData body, string category) : this(code, body, null, category, null)
+    {
+    }
+
+    internal WorkspaceMove(string code, WorkspaceData body, TransactionNote transaction) : this(code, body, null, string.Empty, transaction)
+    {
+    }
+
+    internal WorkspaceMove(string code, WorkspaceData body, CorrectionNote correction) : this(code, body, null, string.Empty, null, correction)
+    {
+    }
+
+    internal WorkspaceMove(string code, WorkspaceData body, string category, CorrectionNote correction) : this(code, body, null, category, null, correction)
+    {
+    }
+
     internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, TransactionNote? transaction, CorrectionNote? correction = null)
     {
         Code = code ?? throw new ArgumentNullException(nameof(code));

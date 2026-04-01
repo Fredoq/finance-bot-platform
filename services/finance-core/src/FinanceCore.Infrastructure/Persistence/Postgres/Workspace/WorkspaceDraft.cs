@@ -15,7 +15,7 @@ internal sealed class WorkspaceDraft
     {
         if (code == WorkspaceBody.AddAccount)
         {
-            return new WorkspaceMove(WorkspaceBody.NameState, body.Account(data, new FinancialData(string.Empty, string.Empty, null)), null, string.Empty, null);
+            return Move(WorkspaceBody.NameState, body.Account(data, new FinancialData(string.Empty, string.Empty, null)));
         }
         if (code == WorkspaceBody.AddExpense)
         {
@@ -27,9 +27,9 @@ internal sealed class WorkspaceDraft
         }
         if (code == WorkspaceBody.ShowRecent)
         {
-            return new WorkspaceMove(WorkspaceBody.RecentListState, body.Recent(data, new RecentData(data.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()), null, string.Empty, null);
+            return Move(WorkspaceBody.RecentListState, body.Recent(data, new RecentData(data.Recent.Page, false, false, [], new RecentItemData()), new ChoicesData(), new StatusData()));
         }
-        return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null);
+        return Move(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt));
     }
 
     internal WorkspaceMove Currency(WorkspaceData data, string code) => code switch
@@ -37,24 +37,24 @@ internal sealed class WorkspaceDraft
         WorkspaceBody.Rub => Code(data, "RUB"),
         WorkspaceBody.Usd => Code(data, "USD"),
         WorkspaceBody.Eur => Code(data, "EUR"),
-        WorkspaceBody.Other => new WorkspaceMove(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, string.Empty, data.Financial.Amount), custom: true), null, string.Empty, null),
-        _ => new WorkspaceMove(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), data.Custom), null, string.Empty, null)
+        WorkspaceBody.Other => Move(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, string.Empty, data.Financial.Amount), custom: true)),
+        _ => Move(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Choose one currency option or send a 3 letter code", string.Empty), data.Custom))
     };
 
-    internal WorkspaceMove Confirm(WorkspaceData data, string code) => code == WorkspaceBody.CreateAccountCode ? Create(data) : new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, data.Financial, new StatusData("Confirm the account or cancel", string.Empty)), null, string.Empty, null);
+    internal WorkspaceMove Confirm(WorkspaceData data, string code) => code == WorkspaceBody.CreateAccountCode ? Create(data) : Move(WorkspaceBody.ConfirmState, body.Account(data, data.Financial, new StatusData("Confirm the account or cancel", string.Empty)));
 
     internal WorkspaceMove Account(WorkspaceData data, string code, bool income)
     {
         int slot = body.Slot(code, body.AccountSlot(income));
         OptionData item = body.Option(data.Choices.Accounts, slot);
-        return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income), null, string.Empty, null);
+        return Move(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Note), new PickData(), null, income));
     }
 
     internal WorkspaceMove Category(WorkspaceData data, string code, bool income)
     {
         int slot = body.Slot(code, body.CategorySlot(income));
         OptionData item = body.Option(data.Choices.Categories, slot);
-        return new WorkspaceMove(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income), null, string.Empty, null);
+        return Move(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income));
     }
 
     internal WorkspaceMove Finish(WorkspaceData data, string code, bool income)
@@ -64,46 +64,48 @@ internal sealed class WorkspaceDraft
             return Record(data, income);
         }
         string text = income ? "Confirm the income or cancel" : "Confirm the expense or cancel";
-        return new WorkspaceMove(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income, new ChoicesData(), new StatusData(text, string.Empty)), null, string.Empty, null);
+        return Move(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income, new ChoicesData(), new StatusData(text, string.Empty)));
     }
 
     internal WorkspaceMove Name(WorkspaceData data, string value)
     {
+        ArgumentNullException.ThrowIfNull(value);
         string text = value.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            return new WorkspaceMove(WorkspaceBody.NameState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Account name is required", string.Empty)), null, string.Empty, null);
+            return Move(WorkspaceBody.NameState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Account name is required", string.Empty)));
         }
         if (data.Financial.Amount.HasValue && !string.IsNullOrWhiteSpace(data.Financial.Currency))
         {
-            return new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(text, data.Financial.Currency, data.Financial.Amount)), null, string.Empty, null);
+            return Move(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(text, data.Financial.Currency, data.Financial.Amount)));
         }
         if (!string.IsNullOrWhiteSpace(data.Financial.Currency))
         {
-            return new WorkspaceMove(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(text, data.Financial.Currency, data.Financial.Amount)), null, string.Empty, null);
+            return Move(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(text, data.Financial.Currency, data.Financial.Amount)));
         }
-        return new WorkspaceMove(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(text, string.Empty, data.Financial.Amount)), null, string.Empty, null);
+        return Move(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(text, string.Empty, data.Financial.Amount)));
     }
 
     internal WorkspaceMove Code(WorkspaceData data, string value)
     {
+        ArgumentNullException.ThrowIfNull(value);
         string text = value.Trim().ToUpperInvariant();
-        bool valid = text.Length == 3 && text.All(char.IsLetter);
+        bool valid = text.Length == 3 && text.All(item => item is >= 'A' and <= 'Z');
         if (!valid)
         {
-            return new WorkspaceMove(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
+            return Move(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true));
         }
         return data.Financial.Amount.HasValue
-            ? new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(data.Financial.Name, text, data.Financial.Amount)), null, string.Empty, null)
-            : new WorkspaceMove(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, text, data.Financial.Amount)), null, string.Empty, null);
+            ? Move(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(data.Financial.Name, text, data.Financial.Amount)))
+            : Move(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, text, data.Financial.Amount)));
     }
 
     internal WorkspaceMove Balance(WorkspaceData data, string value)
     {
         bool ok = amount.Try(value, out decimal total);
         return ok
-            ? new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, total)), null, string.Empty, null)
-            : new WorkspaceMove(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Balance must be a number", string.Empty)), null, string.Empty, null);
+            ? Move(WorkspaceBody.ConfirmState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, total)))
+            : Move(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Balance must be a number", string.Empty)));
     }
 
     internal WorkspaceMove Total(WorkspaceData data, string value, bool income)
@@ -111,56 +113,57 @@ internal sealed class WorkspaceDraft
         bool ok = amount.Try(value, out decimal total);
         if (!ok)
         {
-            return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty)), null, string.Empty, null);
+            return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Enter a valid numeric amount", string.Empty)));
         }
         if (amount.Scale(total) > 4)
         {
-            return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Enter up to 4 decimal places", string.Empty)), null, string.Empty, null);
+            return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Enter up to 4 decimal places", string.Empty)));
         }
         if (total <= 0m)
         {
-            return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)), null, string.Empty, null);
+            return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)));
         }
-        return new WorkspaceMove(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income), null, string.Empty, null);
+        return Move(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income));
     }
 
     internal WorkspaceMove Text(WorkspaceData data, string value, bool income)
     {
+        ArgumentNullException.ThrowIfNull(value);
         string text = value.Trim();
         return string.IsNullOrWhiteSpace(text)
-            ? new WorkspaceMove(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData("Category name is required", string.Empty)), null, string.Empty, null)
-            : new WorkspaceMove(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData()), null, text, null);
+            ? Move(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData("Category name is required", string.Empty)))
+            : Move(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData()), text);
     }
 
     private WorkspaceMove Start(WorkspaceData data, bool income)
     {
         if (data.Accounts.Count == 0)
         {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, income ? "Add an account to record an income" : "Add an account to record an expense"), null, string.Empty, null);
+            return Move(WorkspaceBody.HomeState, body.Home(data.Accounts, income ? "Add an account to record an income" : "Add an account to record an expense"));
         }
         if (data.Accounts.Count == 1)
         {
             AccountData item = data.Accounts[0];
-            return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Currency), new PickData(), null, income), null, string.Empty, null);
+            return Move(body.AmountCode(income), body.Transaction(data, new PickData(item.Id, item.Name, item.Currency), new PickData(), null, income));
         }
-        return new WorkspaceMove(body.AccountCode(income), body.Transaction(data, new PickData(), new PickData(), null, income, new ChoicesData(body.Accounts(data.Accounts), [])), null, string.Empty, null);
+        return Move(body.AccountCode(income), body.Transaction(data, new PickData(), new PickData(), null, income, new ChoicesData(body.Accounts(data.Accounts), [])));
     }
 
     private WorkspaceMove Create(WorkspaceData data)
     {
         if (string.IsNullOrWhiteSpace(data.Financial.Name))
         {
-            return new WorkspaceMove(WorkspaceBody.NameState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Account name is required", string.Empty)), null, string.Empty, null);
+            return Move(WorkspaceBody.NameState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Account name is required", string.Empty)));
         }
         if (string.IsNullOrWhiteSpace(data.Financial.Currency))
         {
-            return new WorkspaceMove(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true), null, string.Empty, null);
+            return Move(WorkspaceBody.CurrencyState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Currency code must contain 3 letters", string.Empty), true));
         }
         if (!data.Financial.Amount.HasValue)
         {
-            return new WorkspaceMove(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Balance must be a number", string.Empty)), null, string.Empty, null);
+            return Move(WorkspaceBody.BalanceState, body.Account(data, new FinancialData(data.Financial.Name, data.Financial.Currency, data.Financial.Amount), new StatusData("Balance must be a number", string.Empty)));
         }
-        return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account was created"), new AccountDraft(data.Financial.Name, data.Financial.Currency, data.Financial.Amount.Value), string.Empty, null);
+        return Move(WorkspaceBody.HomeState, body.Reset(data, "Account was created"), new AccountDraft(data.Financial.Name, data.Financial.Currency, data.Financial.Amount.Value));
     }
 
     private WorkspaceMove Record(WorkspaceData data, bool income)
@@ -173,15 +176,23 @@ internal sealed class WorkspaceDraft
         decimal? total = body.Total(data, income);
         if (!total.HasValue || total.Value <= 0m)
         {
-            return new WorkspaceMove(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)), null, string.Empty, null);
+            return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)));
         }
         PickData category = body.Category(data, income);
         if (string.IsNullOrWhiteSpace(category.Id))
         {
-            return new WorkspaceMove(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty)), null, string.Empty, null);
+            return Move(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty)));
         }
         PickData account = body.Pick(data, income);
         WorkspaceData item = body.Transaction(data, new PickData(accountId, account.Name, account.Note), category, total, income);
-        return new WorkspaceMove(body.ConfirmCode(income), item, null, string.Empty, new TransactionNote(accountId, category.Id, total.Value, body.Kind(income)));
+        return Move(body.ConfirmCode(income), item, new TransactionNote(accountId, category.Id, total.Value, body.Kind(income)));
     }
+
+    private static WorkspaceMove Move(string code, WorkspaceData data) => new(code, data);
+
+    private static WorkspaceMove Move(string code, WorkspaceData data, AccountDraft note) => new(code, data, note);
+
+    private static WorkspaceMove Move(string code, WorkspaceData data, string category) => new(code, data, category);
+
+    private static WorkspaceMove Move(string code, WorkspaceData data, TransactionNote note) => new(code, data, note);
 }

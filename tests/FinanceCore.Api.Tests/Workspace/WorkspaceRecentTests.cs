@@ -33,4 +33,37 @@ public sealed class WorkspaceRecentTests
         WorkspaceMove move = item.Return(data, WorkspaceBody.RecentDetailState);
         Assert.Equal(WorkspaceBody.RecentListState, move.Code);
     }
+
+    /// <summary>
+    /// Verifies that returning from delete confirmation clears transient status.
+    /// </summary>
+    [Fact(DisplayName = "Returns from recent delete confirmation with sanitized detail state")]
+    public void Returns_delete()
+    {
+        WorkspaceBody body = new();
+        WorkspaceRecent item = new(body);
+        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))), new ChoicesData([new OptionData(1, "c2", "Travel", "travel")], []), new StatusData("Use the buttons to confirm or go back", string.Empty), false));
+        WorkspaceMove move = item.Return(data, WorkspaceBody.RecentDeleteState);
+        Assert.Equal(WorkspaceBody.RecentDetailState, move.Code);
+        Assert.Equal(string.Empty, move.Body.Status.Error);
+        Assert.Equal(string.Empty, move.Body.Status.Notice);
+        Assert.Empty(move.Body.Choices.Accounts);
+    }
+
+    /// <summary>
+    /// Verifies that returning from recategorize confirmation clears transient status.
+    /// </summary>
+    [Fact(DisplayName = "Returns from recent recategorize confirmation with sanitized detail state")]
+    public void Returns_recategorize()
+    {
+        WorkspaceBody body = new();
+        WorkspaceRecent item = new(body);
+        WorkspaceData data = new([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData(new FinancialData(), new ExpenseData(), new IncomeData(), new RecentData(0, false, false, [new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 10m, "USD", when))], new RecentItemData(1, new RecentEntryData("t1", "expense", new PickData("a1", "Cash", "USD"), new PickData("c2", "Travel", "travel"), 10m, "USD", when))), new ChoicesData([], [new OptionData(1, "c2", "Travel", "travel")]), new StatusData("Use the buttons to confirm or go back", string.Empty), false));
+        WorkspaceMove move = item.Return(data, WorkspaceBody.RecentRecategorizeState);
+        Assert.Equal(WorkspaceBody.RecentDetailState, move.Code);
+        Assert.Equal(string.Empty, move.Body.Status.Error);
+        Assert.Equal(string.Empty, move.Body.Status.Notice);
+        Assert.Empty(move.Body.Choices.Categories);
+        Assert.Equal("c2", move.Body.Recent.Selected.Category.Id);
+    }
 }
