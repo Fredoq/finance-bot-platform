@@ -54,6 +54,8 @@ internal sealed class WorkspaceHtml
         return string.IsNullOrWhiteSpace(sign) ? $"{Money(value)} {code}" : $"{Money(value)} {sign}";
     }
 
+    internal static string Percent(decimal value) => $"{(value * 100m).ToString("0.##", CultureInfo.InvariantCulture)}%";
+
     internal static string Month(int year, int month)
     {
         DateTime item = new(year, month, 1, 0, 0, 0, DateTimeKind.Utc);

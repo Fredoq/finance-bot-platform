@@ -30,7 +30,7 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(2026, Year(view.Payload.Frame.StateData));
         Assert.Equal(4, Month(view.Payload.Frame.StateData));
         Assert.Equal(0, CurrencyCount(view.Payload.Frame.StateData));
-        Assert.Equal(["summary.month.prev", "summary.month.back"], view.Payload.Frame.Actions);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.back"], view.Payload.Frame.Actions);
     }
 
     /// <summary>
@@ -102,18 +102,18 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         await Record(queue, "actor-summary-nav", "room-summary-nav", new EntryNote("income", "Cash", "11", "Salary", "summary-nav-march", new DateTimeOffset(2026, 3, 15, 10, 0, 0, TimeSpan.Zero)));
         await Record(queue, "actor-summary-nav", "room-summary-nav", new EntryNote("income", "Cash", "13", "Salary", "summary-nav-april", new DateTimeOffset(2026, 4, 15, 10, 0, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> april = await Open(queue, "actor-summary-nav", "room-summary-nav", "summary-nav-open", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero));
-        Assert.Equal(["summary.month.prev", "summary.month.back"], april.Payload.Frame.Actions);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.back"], april.Payload.Frame.Actions);
         await Publish(InputAt("actor-summary-nav", "room-summary-nav", "action", "summary.month.prev", "summary-nav-prev", new DateTimeOffset(2026, 4, 20, 12, 1, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> march = await Take(queue, "summary-nav-prev");
         Assert.Equal(2026, Year(march.Payload.Frame.StateData));
         Assert.Equal(3, Month(march.Payload.Frame.StateData));
-        Assert.Equal(["summary.month.prev", "summary.month.next", "summary.month.back"], march.Payload.Frame.Actions);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.next", "summary.month.back"], march.Payload.Frame.Actions);
         Assert.Equal(11m, Total(march.Payload.Frame.StateData, "USD", "income"));
         await Publish(InputAt("actor-summary-nav", "room-summary-nav", "action", "summary.month.next", "summary-nav-next", new DateTimeOffset(2026, 4, 20, 12, 2, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> current = await Take(queue, "summary-nav-next");
         Assert.Equal(2026, Year(current.Payload.Frame.StateData));
         Assert.Equal(4, Month(current.Payload.Frame.StateData));
-        Assert.Equal(["summary.month.prev", "summary.month.back"], current.Payload.Frame.Actions);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.back"], current.Payload.Frame.Actions);
     }
 
     /// <summary>

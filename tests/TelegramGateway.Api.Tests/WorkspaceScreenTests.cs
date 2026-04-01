@@ -158,12 +158,12 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the monthly summary screen for Telegram delivery")]
     public void Builds_summary_screen()
     {
-        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("summary.month", WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a2", "Card", 0m, 40m), WorkspaceStateNote.Account("a1", "Cash", 100m, 0m))]), "summary.month.prev", "summary.month.back");
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("summary.month", WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a2", "Card", 0m, 40m), WorkspaceStateNote.Account("a1", "Cash", 100m, 0m))]), "category.month.show", "summary.month.prev", "summary.month.back");
         TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Monthly summary</b>", data.Text, StringComparison.Ordinal);
         Assert.Contains("April 2026", data.Text, StringComparison.Ordinal);
         Assert.Contains("Income: <b>100 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
-        Assert.Equal(["◀ Previous month", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        Assert.Equal(["🗂 Category breakdown", "◀ Previous month", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
 
     /// <summary>
@@ -175,6 +175,20 @@ public sealed class WorkspaceScreenTests
         WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("summary.month", WorkspaceStateNote.Summary(2026, 4, []), "summary.month.prev", "summary.month.back");
         TelegramText data = screen.Message(100, note);
         Assert.Contains("No transactions in this month", data.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Verifies that the breakdown screen renders totals and month navigation.
+    /// </summary>
+    [Fact(DisplayName = "Builds the category breakdown screen for Telegram delivery")]
+    public void Builds_breakdown_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("category.month", WorkspaceStateNote.Breakdown(2026, 4, [WorkspaceStateNote.BreakdownCurrency("USD", 40m, WorkspaceStateNote.BreakdownCategory("Food", "food", 30m, 0.75m), WorkspaceStateNote.BreakdownCategory("Travel", "travel", 10m, 0.25m))]), "category.month.prev", "category.month.back");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("<b>Category breakdown</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Expense total: <b>40 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("75%", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["◀ Previous month", "↩ Back"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that unknown currencies keep the code without a symbol.

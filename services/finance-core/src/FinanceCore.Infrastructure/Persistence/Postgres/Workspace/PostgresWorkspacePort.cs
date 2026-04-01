@@ -32,7 +32,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         var draft = new WorkspaceDraft(body, amount);
         var recent = new WorkspaceRecent(body);
         var summary = new WorkspaceSummary(body);
-        input = new WorkspaceInput(body, draft, recent, summary);
+        var breakdown = new WorkspaceBreakdown(body);
+        input = new WorkspaceInput(body, draft, recent, summary, breakdown);
         sql = new WorkspaceSql(body);
     }
 
@@ -149,6 +150,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         {
             SummaryData item = await sql.Summary(link, lane, userId, move.Body.Summary.Year, move.Body.Summary.Month, token);
             return new WorkspaceMove(WorkspaceBody.SummaryState, body.Summary(move.Body, item, move.Body.Status), null, string.Empty, null);
+        }
+        if (move.Code == WorkspaceBody.BreakdownState && move.Body.Breakdown.Year > 0 && move.Body.Breakdown.Month > 0 && move.Body.Breakdown.Currencies.Count == 0)
+        {
+            BreakdownData item = await sql.Breakdown(link, lane, userId, move.Body.Breakdown.Year, move.Body.Breakdown.Month, token);
+            return new WorkspaceMove(WorkspaceBody.BreakdownState, body.Breakdown(move.Body, item, move.Body.Status), null, string.Empty, null);
         }
         if (!body.TransactionCategoryState(move.Code) || move.Body.Choices.Categories.Count > 0)
         {
@@ -294,7 +300,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private async ValueTask Outbox<TMessage>(NpgsqlConnection link, NpgsqlTransaction lane, MessageEnvelope<TMessage> message, WorkspaceItem item, WorkspaceViewNote note, CancellationToken token) where TMessage : class
     {
         var state = new WorkspaceState(item.Snapshot.State, item.Snapshot.Data, item.Snapshot.Revision);
-        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(body.Data(state.Data), note.When)), note.IsNewUser, note.IsNewWorkspace, note.When);
+        var view = new WorkspaceView(note.Identity, note.Profile, state, policy.Codes(state.Code, body.Context(state.Code, body.Data(state.Data), note.When)), note.IsNewUser, note.IsNewWorkspace, note.When);
         var data = new WorkspaceViewRequestedCommand(view.Identity, view.Profile, new WorkspaceViewFrame(view.State.Code, view.State.Data, view.Actions), new WorkspaceViewFreshness(view.IsNewUser, view.IsNewWorkspace), view.OccurredUtc);
         var envelope = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), ViewContract, note.When, new MessageContext(message.Context.CorrelationId, message.MessageId.ToString(), $"{message.Context.IdempotencyKey}:workspace-view"), ViewSource, data);
         string raw = JsonSerializer.Serialize(envelope, json);

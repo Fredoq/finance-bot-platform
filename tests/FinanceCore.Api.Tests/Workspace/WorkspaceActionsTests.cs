@@ -67,8 +67,21 @@ public sealed class WorkspaceActionsTests
         var item = new WorkspaceActions();
         IReadOnlyList<string> current = item.Codes("summary.month", new WorkspaceActionContext(1, 0, 0, 0, page, false, false));
         IReadOnlyList<string> past = item.Codes("summary.month", new WorkspaceActionContext(1, 0, 0, 0, page, true, false));
-        Assert.Equal(["summary.month.prev", "summary.month.back"], current);
-        Assert.Equal(["summary.month.prev", "summary.month.next", "summary.month.back"], past);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.back"], current);
+        Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.next", "summary.month.back"], past);
+    }
+
+    /// <summary>
+    /// Verifies that category breakdown state returns navigation actions based on the selected month.
+    /// </summary>
+    [Fact(DisplayName = "Returns category breakdown navigation actions with and without next month")]
+    public void Returns_codes_for_breakdown()
+    {
+        var item = new WorkspaceActions();
+        IReadOnlyList<string> current = item.Codes("category.month", new WorkspaceActionContext(1, 0, 0, 0, page, false, false));
+        IReadOnlyList<string> past = item.Codes("category.month", new WorkspaceActionContext(1, 0, 0, 0, page, true, false));
+        Assert.Equal(["category.month.prev", "category.month.back"], current);
+        Assert.Equal(["category.month.prev", "category.month.next", "category.month.back"], past);
     }
     /// <summary>
     /// Verifies that empty states are rejected.

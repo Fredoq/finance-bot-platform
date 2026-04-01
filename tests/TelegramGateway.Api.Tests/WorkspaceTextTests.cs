@@ -40,4 +40,17 @@ public sealed class WorkspaceTextTests
         Assert.Contains("April 2026", data, StringComparison.Ordinal);
         Assert.Contains("Income: <b>100 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Verifies that breakdown text renders the month label and category percentages.
+    /// </summary>
+    [Fact(DisplayName = "Builds category breakdown text with grouped totals")]
+    public void Builds_breakdown()
+    {
+        var text = new WorkspaceText(new WorkspaceHtml());
+        string data = text.Text("category.month", false, WorkspaceStateNote.Breakdown(2026, 4, [WorkspaceStateNote.BreakdownCurrency("USD", 40m, WorkspaceStateNote.BreakdownCategory("Food", "food", 30m, 0.75m), WorkspaceStateNote.BreakdownCategory("Travel", "travel", 10m, 0.25m))]));
+        Assert.Contains("April 2026", data, StringComparison.Ordinal);
+        Assert.Contains("Expense total: <b>40 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
+        Assert.Contains("75%", data, StringComparison.Ordinal);
+    }
 }

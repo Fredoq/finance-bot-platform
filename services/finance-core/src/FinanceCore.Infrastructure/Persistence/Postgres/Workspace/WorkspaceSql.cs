@@ -257,6 +257,60 @@ internal sealed class WorkspaceSql
         return new SummaryData(year, month, currencies);
     }
 
+    internal async ValueTask<BreakdownData> Breakdown(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, CancellationToken token)
+    {
+        DateTimeOffset start = new(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset end = start.AddMonths(1);
+        await using NpgsqlCommand note = new("""
+                                             with category_total as
+                                             (
+                                                 select account.currency_code,
+                                                        category.name,
+                                                        coalesce(category.code, '') as code,
+                                                        sum(item.amount) as amount
+                                                 from finance.transaction_entry item
+                                                 join finance.account account on account.id = item.account_id
+                                                 join finance.category category on category.id = item.category_id
+                                                 where item.user_id = @user_id and item.kind = 'expense' and item.occurred_utc >= @start_utc and item.occurred_utc < @end_utc
+                                                 group by account.currency_code, category.name, coalesce(category.code, '')
+                                             )
+                                             select currency_code,
+                                                    name,
+                                                    code,
+                                                    amount,
+                                                    sum(amount) over(partition by currency_code) as total
+                                             from category_total
+                                             order by currency_code, amount desc, name
+                                             """, link, lane);
+        note.Parameters.AddWithValue(map.UserId, userId);
+        note.Parameters.AddWithValue("start_utc", start);
+        note.Parameters.AddWithValue("end_utc", end);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        List<BreakdownCurrencyData> currencies = [];
+        List<BreakdownCategoryData> categories = [];
+        string current = string.Empty;
+        decimal total = 0m;
+        while (await row.ReadAsync(token))
+        {
+            string currency = row.GetString(0);
+            if (!string.Equals(current, currency, StringComparison.Ordinal) && categories.Count > 0)
+            {
+                currencies.Add(new BreakdownCurrencyData(current, total, categories));
+                categories = [];
+            }
+            current = currency;
+            decimal amount = row.GetDecimal(3);
+            total = row.GetDecimal(4);
+            decimal share = total == 0m ? 0m : amount / total;
+            categories.Add(new BreakdownCategoryData(row.GetString(1), row.GetString(2), amount, share));
+        }
+        if (categories.Count > 0)
+        {
+            currencies.Add(new BreakdownCurrencyData(current, total, categories));
+        }
+        return new BreakdownData(year, month, currencies);
+    }
+
     internal async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, DateTimeOffset when, CancellationToken token)
     {
         string text = value.Trim();

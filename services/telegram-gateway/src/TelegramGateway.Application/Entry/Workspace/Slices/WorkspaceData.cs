@@ -25,6 +25,7 @@ internal sealed record WorkspaceData
         Income = new TransactionData();
         Recent = new RecentData();
         Summary = new SummaryData();
+        Breakdown = new BreakdownData();
         Choices = new ChoicesData();
         Status = new StatusData();
     }
@@ -34,6 +35,7 @@ internal sealed record WorkspaceData
     public TransactionData Income { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
+    public BreakdownData Breakdown { get; init; }
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
@@ -144,6 +146,39 @@ internal sealed record SummaryAccountData
     public decimal Income { get; init; }
     public decimal Expense { get; init; }
     public decimal Net { get; init; }
+}
+
+internal sealed record BreakdownData
+{
+    public BreakdownData() => Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
+    public int Year { get; init; }
+    public int Month { get; init; }
+    public IReadOnlyList<BreakdownCurrencyData> Currencies { get; init; }
+}
+
+internal sealed record BreakdownCurrencyData
+{
+    public BreakdownCurrencyData()
+    {
+        Currency = string.Empty;
+        Categories = Array.AsReadOnly<BreakdownCategoryData>([]);
+    }
+    public string Currency { get; init; }
+    public decimal Total { get; init; }
+    public IReadOnlyList<BreakdownCategoryData> Categories { get; init; }
+}
+
+internal sealed record BreakdownCategoryData
+{
+    public BreakdownCategoryData()
+    {
+        Name = string.Empty;
+        Code = string.Empty;
+    }
+    public string Name { get; init; }
+    public string Code { get; init; }
+    public decimal Amount { get; init; }
+    public decimal Share { get; init; }
 }
 
 internal sealed record ChoicesData

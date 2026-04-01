@@ -194,6 +194,33 @@ public sealed class WebhookApiTests
         Assert.Equal(2, gate.Items.Count);
         Assert.IsType<TelegramEditText>(gate.Items.Last());
     }
+
+    /// <summary>
+    /// Verifies that breakdown delivery edits the callback message when a transport context exists.
+    /// </summary>
+    [Fact(DisplayName = "Edits the category breakdown panel after a callback-driven workspace view")]
+    public async Task Edits_breakdown_panel()
+    {
+        var bus = new RecordingWorkspacePort();
+        var gate = new RecordingTelegramPort();
+        await using var host = new GatewayApiFactory(Note(), bus, new ReadyBrokerState(), data =>
+        {
+            data.RemoveAll<ITelegramPort>();
+            data.AddSingleton<ITelegramPort>(gate);
+        }, false);
+        using HttpClient client = Client(host);
+        HttpResponseMessage response = await client.PostAsJsonAsync("/telegram/webhook", WebhookUpdate.Callback("category.month.show"));
+        MessageEnvelope<WorkspaceInputRequestedCommand> item = bus.Items.Single().Note<WorkspaceInputRequestedCommand>();
+        ITelegramDeliveryFlow flow = host.Services.GetRequiredService<ITelegramDeliveryFlow>();
+        var key = new TelegramGateway.Application.Keys.OpaqueKey("test-current-secret", []);
+        WorkspaceData data = WorkspaceStateNote.Breakdown(2026, 4, [WorkspaceStateNote.BreakdownCurrency("USD", 40m, WorkspaceStateNote.BreakdownCategory("Food", "food", 30m, 0.75m))]);
+        var body = new WorkspaceViewRequestedCommand(new WorkspaceIdentity(key.Text("actor", "telegram:user", 42), key.Text("conversation", "telegram:chat", 100)), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("category.month", JsonSerializer.Serialize(data), ["category.month.prev", "category.month.back"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new MessageEnvelope<WorkspaceViewRequestedCommand>(Guid.CreateVersion7(), "workspace.view.requested", DateTimeOffset.UtcNow, new MessageContext($"trace-{Guid.CreateVersion7():N}", item.MessageId.ToString(), $"view-{Guid.CreateVersion7():N}"), "finance-core", body);
+        await flow.Run("workspace.view.requested", JsonSerializer.SerializeToUtf8Bytes(note), default);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, gate.Items.Count);
+        Assert.IsType<TelegramEditText>(gate.Items.Last());
+    }
     /// <summary>
     /// Verifies that publish faults become service unavailable responses.
     /// </summary>

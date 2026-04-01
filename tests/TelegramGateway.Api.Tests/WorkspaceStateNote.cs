@@ -32,6 +32,14 @@ internal static class WorkspaceStateNote
             Choices = new ChoicesData(),
             Status = new StatusData { Error = string.Empty, Notice = notice }
         };
+    public static WorkspaceData Breakdown(int year, int month, IReadOnlyList<BreakdownCurrencyData> currencies, string notice = "")
+        => new()
+        {
+            Accounts = [Account()],
+            Breakdown = new BreakdownData { Year = year, Month = month, Currencies = currencies },
+            Choices = new ChoicesData(),
+            Status = new StatusData { Error = string.Empty, Notice = notice }
+        };
     public static SummaryCurrencyData Currency(string currency, decimal income, decimal expense, params SummaryAccountData[] accounts)
         => new()
         {
@@ -40,6 +48,21 @@ internal static class WorkspaceStateNote
             Expense = expense,
             Net = income - expense,
             Accounts = accounts
+        };
+    public static BreakdownCurrencyData BreakdownCurrency(string currency, decimal total, params BreakdownCategoryData[] categories)
+        => new()
+        {
+            Currency = currency,
+            Total = total,
+            Categories = categories
+        };
+    public static BreakdownCategoryData BreakdownCategory(string name, string code, decimal amount, decimal share)
+        => new()
+        {
+            Name = name,
+            Code = code,
+            Amount = amount,
+            Share = share
         };
     public static SummaryAccountData Account(string id, string name, decimal income, decimal expense)
         => new()

@@ -28,6 +28,7 @@ internal sealed class WorkspaceText
         "transaction.recent.category" => RecentCategory(data),
         "transaction.recent.recategorize.confirm" => RecentRecategorize(data),
         "summary.month" => Summary(data),
+        "category.month" => Breakdown(data),
         _ => Home(fresh, data)
     };
 
@@ -270,6 +271,43 @@ internal sealed class WorkspaceText
             foreach (SummaryAccountData account in item.Accounts)
             {
                 text.AppendLine($"- <b>{WorkspaceHtml.Escape(account.Name)}</b>: +{html.Label(account.Income, item.Currency)} / -{html.Label(account.Expense, item.Currency)} / {html.Label(account.Net, item.Currency)}");
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+        {
+            text.AppendLine();
+            text.Append(WorkspaceHtml.Escape(data.Status.Notice));
+        }
+        return text.ToString().TrimEnd();
+    }
+
+    private string Breakdown(WorkspaceData data)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Category breakdown</b>");
+        text.AppendLine(WorkspaceHtml.Escape(WorkspaceHtml.Month(data.Breakdown.Year, data.Breakdown.Month)));
+        if (data.Breakdown.Currencies.Count == 0)
+        {
+            if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+            {
+                text.AppendLine(WorkspaceHtml.Escape(data.Status.Notice));
+            }
+            text.Append("No expense categories in this month");
+            return text.ToString().TrimEnd();
+        }
+        foreach (BreakdownCurrencyData item in data.Breakdown.Currencies)
+        {
+            text.AppendLine();
+            text.AppendLine($"<b>{WorkspaceHtml.Escape(item.Currency)}</b>");
+            text.AppendLine($"Expense total: <b>{html.Amount(item.Total, item.Currency)}</b>");
+            foreach (BreakdownCategoryData category in item.Categories)
+            {
+                string code = string.IsNullOrWhiteSpace(category.Code) ? string.Empty : $" <code>{WorkspaceHtml.Escape(category.Code)}</code>";
+                text.AppendLine($"- <b>{WorkspaceHtml.Escape(html.Category(category.Name, category.Code))}</b>{code}: {html.Label(category.Amount, item.Currency)} · {WorkspaceHtml.Percent(category.Share)}");
             }
         }
         if (!string.IsNullOrWhiteSpace(data.Status.Notice))

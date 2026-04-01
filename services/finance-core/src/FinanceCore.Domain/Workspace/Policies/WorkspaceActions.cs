@@ -16,6 +16,10 @@ public sealed class WorkspaceActions : IWorkspaceActions
     private const string SummaryPrevious = "summary.month.prev";
     private const string SummaryNext = "summary.month.next";
     private const string SummaryBack = "summary.month.back";
+    private const string ShowBreakdown = "category.month.show";
+    private const string BreakdownPrevious = "category.month.prev";
+    private const string BreakdownNext = "category.month.next";
+    private const string BreakdownBack = "category.month.back";
     /// <summary>
     /// Gets the supported action codes for the workspace state.
     /// </summary>
@@ -49,18 +53,30 @@ public sealed class WorkspaceActions : IWorkspaceActions
             "transaction.recent.category" => [.. Enumerable.Range(1, context.CategoryChoiceCount).Select(item => $"transaction.recent.category.{item}"), RecentBack],
             "transaction.recent.recategorize.confirm" => ["transaction.recent.recategorize.apply", RecentBack],
             "summary.month" => Summary(context),
+            "category.month" => Breakdown(context),
             _ => throw new InvalidOperationException($"WorkspaceActions.Codes does not support state '{state}' and cannot fall back to {Cancel}")
         };
     }
 
     private static List<string> Summary(WorkspaceActionContext context)
     {
-        var list = new List<string>(3) { SummaryPrevious };
+        var list = new List<string>(4) { ShowBreakdown, SummaryPrevious };
         if (context.SummaryHasNext)
         {
             list.Add(SummaryNext);
         }
         list.Add(SummaryBack);
+        return list;
+    }
+
+    private static List<string> Breakdown(WorkspaceActionContext context)
+    {
+        var list = new List<string>(3) { BreakdownPrevious };
+        if (context.SummaryHasNext)
+        {
+            list.Add(BreakdownNext);
+        }
+        list.Add(BreakdownBack);
         return list;
     }
 
