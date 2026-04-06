@@ -141,6 +141,7 @@ internal sealed class WorkspaceSql
                                                     category.id::text,
                                                     category.name,
                                                     coalesce(category.code, ''),
+                                                    coalesce(item.source_text, ''),
                                                     item.amount,
                                                     item.occurred_utc
                                              from finance.transaction_entry item
@@ -157,13 +158,13 @@ internal sealed class WorkspaceSql
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         while (await row.ReadAsync(token))
         {
-            list.Add(new RecentItemData(list.Count + 1, new RecentEntryData(row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token))));
+            list.Add(new RecentItemData(list.Count + 1, new RecentEntryData(row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(9), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(10, token)) { Source = row.GetString(8) }));
         }
         bool hasNext = list.Count > WorkspaceBody.RecentPageSize;
         RecentItemData[] items = hasNext ? [.. list.Take(WorkspaceBody.RecentPageSize)] : [.. list];
         for (int item = 0; item < items.Length; item += 1)
         {
-            items[item] = new RecentItemData(item + 1, new RecentEntryData(items[item].Id, items[item].Kind, items[item].Account, items[item].Category, items[item].Amount, items[item].Currency, items[item].OccurredUtc));
+            items[item] = new RecentItemData(item + 1, new RecentEntryData(items[item].Id, items[item].Kind, items[item].Account, items[item].Category, items[item].Amount, items[item].Currency, items[item].OccurredUtc) { Source = items[item].Source });
         }
         return new RecentData(index, index > 0, hasNext, items, new RecentItemData());
     }
@@ -180,6 +181,7 @@ internal sealed class WorkspaceSql
                                                     category.id::text,
                                                     category.name,
                                                     coalesce(category.code, ''),
+                                                    coalesce(item.source_text, ''),
                                                     item.amount,
                                                     item.occurred_utc
                                              from finance.transaction_entry item
@@ -195,7 +197,7 @@ internal sealed class WorkspaceSql
         {
             return null;
         }
-        return new RecentItemData(0, new RecentEntryData(row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(8), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(9, token)));
+        return new RecentItemData(0, new RecentEntryData(row.GetString(0), row.GetString(1), new PickData(row.GetString(2), row.GetString(3), row.GetString(4)), new PickData(row.GetString(5), row.GetString(6), row.GetString(7)), row.GetDecimal(9), row.GetString(4), await row.GetFieldValueAsync<DateTimeOffset>(10, token)) { Source = row.GetString(8) });
     }
 
     internal async ValueTask<RecentData> Current(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int page, CancellationToken token)
@@ -353,6 +355,27 @@ internal sealed class WorkspaceSql
         throw new InvalidOperationException("Category upsert failed");
     }
 
+    internal async ValueTask<PickData?> Rule(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, CancellationToken token)
+    {
+        string key = Normalize(value);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+        await using NpgsqlCommand note = new("""
+                                             select c.id::text, c.name, coalesce(c.code, '')
+                                             from finance.category_rule r
+                                             join finance.category c on c.id = r.category_id
+                                             where r.user_id = @user_id and r.kind = @kind and r.source_key = @source_key
+                                             limit 1
+                                             """, link, lane);
+        note.Parameters.AddWithValue(map.UserId, userId);
+        note.Parameters.AddWithValue("kind", kind);
+        note.Parameters.AddWithValue("source_key", key);
+        await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
+        return await row.ReadAsync(token) ? new PickData(row.GetString(0), row.GetString(1), row.GetString(2)) : null;
+    }
+
     internal async ValueTask<bool> Delete(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string transactionId, string kind, DateTimeOffset when, CancellationToken token)
     {
         Guid itemId = Parse(transactionId, nameof(transactionId));
@@ -397,12 +420,27 @@ internal sealed class WorkspaceSql
         {
             return false;
         }
-        await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id", link, lane);
+        await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id returning coalesce(source_text, ''), coalesce(source_key, '')", link, lane);
         item.Parameters.AddWithValue("category_id", Parse(categoryId, nameof(note.CategoryId)));
         item.Parameters.AddWithValue(map.UpdatedUtc, when);
         item.Parameters.AddWithValue("id", itemId);
         item.Parameters.AddWithValue(map.UserId, userId);
-        return await item.ExecuteNonQueryAsync(token) == 1;
+        string sourceText;
+        string sourceKey;
+        await using (NpgsqlDataReader row = await item.ExecuteReaderAsync(token))
+        {
+            if (!await row.ReadAsync(token))
+            {
+                return false;
+            }
+            sourceText = row.GetString(0);
+            sourceKey = row.GetString(1);
+        }
+        if (!string.IsNullOrWhiteSpace(sourceKey))
+        {
+            await Learn(link, lane, new RuleNote(userId, note.TransactionKind, sourceText, sourceKey, Parse(categoryId, nameof(note.CategoryId))), when, token);
+        }
+        return true;
     }
 
     internal async ValueTask Transaction(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TransactionNote note, DateTimeOffset when, CancellationToken token)
@@ -411,13 +449,17 @@ internal sealed class WorkspaceSql
         Guid categoryId = Parse(note.CategoryId, nameof(note.CategoryId));
         string kind = body.Supported(note.TransactionKind);
         string sign = body.Change(kind);
-        await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
+        string sourceText = note.SourceText.Trim();
+        string sourceKey = Normalize(sourceText);
+        await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, source_text, source_key, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @source_text, @source_key, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
         {
             item.Parameters.AddWithValue("id", Guid.CreateVersion7());
             item.Parameters.AddWithValue(map.UserId, userId);
             item.Parameters.AddWithValue("account_id", accountId);
             item.Parameters.AddWithValue("category_id", categoryId);
             item.Parameters.AddWithValue("kind", kind);
+            item.Parameters.Add("source_text", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(sourceText) ? DBNull.Value : sourceText;
+            item.Parameters.Add("source_key", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(sourceKey) ? DBNull.Value : sourceKey;
             item.Parameters.AddWithValue("amount", note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
             item.Parameters.AddWithValue(map.CreatedUtc, when);
@@ -436,6 +478,52 @@ internal sealed class WorkspaceSql
         {
             throw new InvalidOperationException("Account balance update failed");
         }
+        if (!string.IsNullOrWhiteSpace(sourceKey))
+        {
+            await Learn(link, lane, new RuleNote(userId, kind, sourceText, sourceKey, categoryId), when, token);
+        }
+    }
+
+    private async ValueTask Learn(NpgsqlConnection link, NpgsqlTransaction lane, RuleNote note, DateTimeOffset when, CancellationToken token)
+    {
+        await using NpgsqlCommand item = new("""
+                                             insert into finance.category_rule(id, user_id, kind, source_text, source_key, category_id, created_utc, updated_utc)
+                                             values (@id, @user_id, @kind, @source_text, @source_key, @category_id, @created_utc, @updated_utc)
+                                             on conflict (user_id, kind, source_key)
+                                             do update set source_text = excluded.source_text, category_id = excluded.category_id, updated_utc = excluded.updated_utc
+                                             """, link, lane);
+        item.Parameters.AddWithValue("id", Guid.CreateVersion7());
+        item.Parameters.AddWithValue(map.UserId, note.UserId);
+        item.Parameters.AddWithValue("kind", note.Kind);
+        item.Parameters.AddWithValue("source_text", note.SourceText);
+        item.Parameters.AddWithValue("source_key", note.SourceKey);
+        item.Parameters.AddWithValue("category_id", note.CategoryId);
+        item.Parameters.AddWithValue(map.CreatedUtc, when);
+        item.Parameters.AddWithValue(map.UpdatedUtc, when);
+        _ = await item.ExecuteNonQueryAsync(token);
+    }
+
+    private static string Normalize(string value)
+    {
+        string text = value.Trim();
+        return string.IsNullOrWhiteSpace(text) ? string.Empty : string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+    }
+
+    private sealed record RuleNote
+    {
+        internal RuleNote(Guid userId, string kind, string sourceText, string sourceKey, Guid categoryId)
+        {
+            UserId = userId;
+            Kind = kind ?? throw new ArgumentNullException(nameof(kind));
+            SourceText = sourceText ?? throw new ArgumentNullException(nameof(sourceText));
+            SourceKey = sourceKey ?? throw new ArgumentNullException(nameof(sourceKey));
+            CategoryId = categoryId;
+        }
+        internal Guid UserId { get; }
+        internal string Kind { get; }
+        internal string SourceText { get; }
+        internal string SourceKey { get; }
+        internal Guid CategoryId { get; }
     }
 
     private int Page(int page, int shift) => map.Page(page, shift);

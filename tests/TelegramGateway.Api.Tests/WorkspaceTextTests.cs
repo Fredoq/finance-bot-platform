@@ -14,8 +14,9 @@ public sealed class WorkspaceTextTests
     public void Builds_recent_detail()
     {
         var text = new WorkspaceText(new WorkspaceHtml());
-        string data = text.Text("transaction.recent.detail", false, WorkspaceStateNote.RecentDetail(WorkspaceStateNote.RecentItem(1, "t1", "income", "Salary", "salary", 25.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero))));
+        string data = text.Text("transaction.recent.detail", false, WorkspaceStateNote.RecentDetail(WorkspaceStateNote.RecentItem(1, "t1", "income", "Salary", "salary", 25.5m, new DateTimeOffset(2026, 3, 29, 20, 28, 0, TimeSpan.Zero)) with { Source = "Client payment" }));
         Assert.Contains("<b>Transaction</b>", data, StringComparison.Ordinal);
+        Assert.Contains("Source: <b>Client payment</b>", data, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -59,10 +59,12 @@ internal sealed record TransactionData
     {
         Account = new PickData();
         Category = new PickData();
+        Source = string.Empty;
     }
     public PickData Account { get; init; }
     public PickData Category { get; init; }
     public decimal? Amount { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record PickData
@@ -101,6 +103,7 @@ internal sealed record RecentItemData
         Account = new PickData();
         Category = new PickData();
         Currency = string.Empty;
+        Source = string.Empty;
     }
     public int Slot { get; init; }
     public string Id { get; init; }
@@ -110,6 +113,7 @@ internal sealed record RecentItemData
     public decimal Amount { get; init; }
     public string Currency { get; init; }
     public DateTimeOffset OccurredUtc { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record SummaryData

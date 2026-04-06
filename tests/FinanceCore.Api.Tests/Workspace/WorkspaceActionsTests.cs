@@ -49,12 +49,16 @@ public sealed class WorkspaceActionsTests
     {
         var item = new WorkspaceActions();
         IReadOnlyList<string> account = item.Codes("transaction.expense.account", new WorkspaceActionContext(2, 2, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> source = item.Codes("transaction.expense.source", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
         IReadOnlyList<string> category = item.Codes("transaction.expense.category", new WorkspaceActionContext(2, 0, 3, 0, page, new MonthPaging(false, false), false));
         IReadOnlyList<string> incomeAccount = item.Codes("transaction.income.account", new WorkspaceActionContext(2, 2, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> incomeSource = item.Codes("transaction.income.source", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
         IReadOnlyList<string> incomeCategory = item.Codes("transaction.income.category", new WorkspaceActionContext(2, 0, 3, 0, page, new MonthPaging(false, false), false));
         Assert.Equal(["transaction.expense.account.1", "transaction.expense.account.2", "transaction.expense.cancel"], account);
+        Assert.Equal(["transaction.expense.cancel"], source);
         Assert.Equal(["transaction.expense.category.1", "transaction.expense.category.2", "transaction.expense.category.3", "transaction.expense.cancel"], category);
         Assert.Equal(["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"], incomeAccount);
+        Assert.Equal(["transaction.income.cancel"], incomeSource);
         Assert.Equal(["transaction.income.category.1", "transaction.income.category.2", "transaction.income.category.3", "transaction.income.cancel"], incomeCategory);
     }
 

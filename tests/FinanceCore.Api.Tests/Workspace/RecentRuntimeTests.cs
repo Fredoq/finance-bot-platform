@@ -42,7 +42,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Create(queue, "actor-recent-page", "room-recent-page", "Cash", "USD", "100", "recent-page");
         for (int item = 0; item < 6; item += 1)
         {
-            await Record(queue, "actor-recent-page", "room-recent-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Coffee {item}", $"recent-page-{item}");
+            await Record(queue, "actor-recent-page", "room-recent-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Note {item}", $"Coffee {item}", $"recent-page-{item}");
         }
         await Publish(Input("actor-recent-page", "room-recent-page", "action", "transaction.recent.show", "recent-page-open"));
         MessageEnvelope<WorkspaceViewRequestedCommand> list = await Take(queue, "recent-page-open");
@@ -70,7 +70,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Create(queue, "actor-recent-delete-page", "room-recent-delete-page", "Cash", "USD", "100", "recent-delete-page");
         for (int item = 0; item < 10; item += 1)
         {
-            await Record(queue, "actor-recent-delete-page", "room-recent-delete-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Coffee {item}", $"recent-delete-page-{item}");
+            await Record(queue, "actor-recent-delete-page", "room-recent-delete-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Note {item}", $"Coffee {item}", $"recent-delete-page-{item}");
         }
         await Publish(Input("actor-recent-delete-page", "room-recent-delete-page", "action", "transaction.recent.show", "recent-delete-page-open"));
         _ = await Take(queue, "recent-delete-page-open");
@@ -103,7 +103,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Create(queue, actor, "room-recent-delete", "Cash", "USD", "100", "recent-delete");
-        await Record(queue, actor, "room-recent-delete", "10", "Coffee", "recent-delete-entry");
+        await Record(queue, actor, "room-recent-delete", "10", "Morning coffee", "Coffee", "recent-delete-entry");
         await Publish(Input(actor, "room-recent-delete", "action", "transaction.recent.show", "recent-delete-open"));
         _ = await Take(queue, "recent-delete-open");
         await Publish(Input(actor, "room-recent-delete", "action", "transaction.recent.item.1", "recent-delete-item"));
@@ -131,7 +131,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Create(queue, actor, "room-recent-recategorize", "Cash", "USD", "100", "recent-recategorize");
-        await Record(queue, actor, "room-recent-recategorize", "10", "Coffee", "recent-recategorize-entry");
+        await Record(queue, actor, "room-recent-recategorize", "10", "Morning coffee", "Coffee", "recent-recategorize-entry");
         await Publish(Input(actor, "room-recent-recategorize", "action", "transaction.recent.show", "recent-recategorize-open"));
         _ = await Take(queue, "recent-recategorize-open");
         await Publish(Input(actor, "room-recent-recategorize", "action", "transaction.recent.item.1", "recent-recategorize-item"));
@@ -145,6 +145,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("transaction.recent.list", list.Payload.Frame.State);
         Assert.Equal("Category was updated", Notice(list.Payload.Frame.StateData));
         Assert.Equal("Tea", await Scalar("select c.name from finance.transaction_entry t join finance.category c on c.id = t.category_id where t.user_id = (select id from finance.user_account where actor_key = @actor)", ("actor", actor)));
+        Assert.Equal("Tea", await Scalar("select c.name from finance.category_rule r join finance.category c on c.id = r.category_id where r.user_id = (select id from finance.user_account where actor_key = @actor) and r.kind = 'expense' and r.source_key = 'morning coffee'", ("actor", actor)));
         Assert.Equal(90m, await Balance(actor, "Cash"));
     }
     /// <summary>
@@ -161,7 +162,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Create(queue, actor, "room-recent-stale", "Cash", "USD", "100", "recent-stale");
-        await Record(queue, actor, "room-recent-stale", "10", "Coffee", "recent-stale-entry");
+        await Record(queue, actor, "room-recent-stale", "10", "Morning coffee", "Coffee", "recent-stale-entry");
         await Publish(Input(actor, "room-recent-stale", "action", "transaction.recent.show", "recent-stale-open"));
         _ = await Take(queue, "recent-stale-open");
         await Publish(Input(actor, "room-recent-stale", "action", "transaction.recent.item.1", "recent-stale-item"));
@@ -188,7 +189,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Create(queue, actor, "room-recent-stale-recategorize", "Cash", "USD", "100", "recent-stale-recategorize");
-        await Record(queue, actor, "room-recent-stale-recategorize", "10", "Coffee", "recent-stale-recategorize-entry");
+        await Record(queue, actor, "room-recent-stale-recategorize", "10", "Morning coffee", "Coffee", "recent-stale-recategorize-entry");
         await Publish(Input(actor, "room-recent-stale-recategorize", "action", "transaction.recent.show", "recent-stale-recategorize-open"));
         _ = await Take(queue, "recent-stale-recategorize-open");
         await Publish(Input(actor, "room-recent-stale-recategorize", "action", "transaction.recent.item.1", "recent-stale-recategorize-item"));
@@ -218,7 +219,7 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         await Create(queue, actor, "room-recent-stale-page", "Cash", "USD", "100", "recent-stale-page");
         for (int item = 0; item < 6; item += 1)
         {
-            await Record(queue, actor, "room-recent-stale-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Coffee {item}", $"recent-stale-page-{item}");
+            await Record(queue, actor, "room-recent-stale-page", (item + 1).ToString(CultureInfo.InvariantCulture), $"Note {item}", $"Coffee {item}", $"recent-stale-page-{item}");
         }
         await Publish(Input(actor, "room-recent-stale-page", "action", "transaction.recent.show", "recent-stale-page-open"));
         _ = await Take(queue, "recent-stale-page-open");
@@ -234,14 +235,55 @@ public sealed class RecentRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(5, Count(list.Payload.Frame.StateData, "items"));
         Assert.Equal("Coffee 5", CategoryName(list.Payload.Frame.StateData, 0));
     }
-    private async Task Record(string queue, string actor, string room, string amount, string category, string id)
+    /// <summary>
+    /// Verifies that recategorizing a legacy transaction without source text does not create a source rule.
+    /// </summary>
+    [Fact(DisplayName = "Does not learn a rule when recategorizing a legacy transaction without source text")]
+    public async Task Does_not_learn_rule_from_legacy_transaction()
+    {
+        const string actor = "actor-recent-legacy-rule";
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-recent-legacy-rule"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, actor, "room-recent-legacy-rule", "Cash", "USD", "100", "recent-legacy-rule");
+        await Record(queue, actor, "room-recent-legacy-rule", "10", "Morning coffee", "Coffee", "recent-legacy-rule-entry");
+        await Execute("delete from finance.category_rule where user_id = (select id from finance.user_account where actor_key = @actor)", ("actor", actor));
+        await Execute("update finance.transaction_entry set source_text = null, source_key = null where user_id = (select id from finance.user_account where actor_key = @actor)", ("actor", actor));
+        await Publish(Input(actor, "room-recent-legacy-rule", "action", "transaction.recent.show", "recent-legacy-rule-open"));
+        _ = await Take(queue, "recent-legacy-rule-open");
+        await Publish(Input(actor, "room-recent-legacy-rule", "action", "transaction.recent.item.1", "recent-legacy-rule-item"));
+        _ = await Take(queue, "recent-legacy-rule-item");
+        await Publish(Input(actor, "room-recent-legacy-rule", "action", "transaction.recent.recategorize", "recent-legacy-rule-category"));
+        _ = await Take(queue, "recent-legacy-rule-category");
+        await Publish(Input(actor, "room-recent-legacy-rule", "text", "Tea", "recent-legacy-rule-text"));
+        _ = await Take(queue, "recent-legacy-rule-text");
+        await Publish(Input(actor, "room-recent-legacy-rule", "action", "transaction.recent.recategorize.apply", "recent-legacy-rule-apply"));
+        _ = await Take(queue, "recent-legacy-rule-apply");
+        Assert.Equal(0, await Number("select count(*) from finance.category_rule where user_id = (select id from finance.user_account where actor_key = @actor)", ("actor", actor)));
+    }
+    private async Task Record(string queue, string actor, string room, string amount, string source, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.expense.add", $"{id}-1"));
         _ = await Take(queue, $"{id}-1");
         await Publish(Input(actor, room, "text", amount, $"{id}-2"));
         _ = await Take(queue, $"{id}-2");
-        await Publish(Input(actor, room, "text", category, $"{id}-3"));
-        _ = await Take(queue, $"{id}-3");
+        await Publish(Input(actor, room, "text", source, $"{id}-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> view = await Take(queue, $"{id}-3");
+        if (string.Equals(view.Payload.Frame.State, "transaction.expense.category", StringComparison.Ordinal))
+        {
+            await Publish(Input(actor, room, "text", category, $"{id}-4"));
+            _ = await Take(queue, $"{id}-4");
+            await Publish(Input(actor, room, "action", "transaction.expense.create", $"{id}-5"));
+            _ = await Take(queue, $"{id}-5");
+            return;
+        }
+        if (!string.Equals(view.Payload.Frame.State, "transaction.expense.confirm", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Unexpected workspace state '{view.Payload.Frame.State}'");
+        }
         await Publish(Input(actor, room, "action", "transaction.expense.create", $"{id}-4"));
         _ = await Take(queue, $"{id}-4");
     }

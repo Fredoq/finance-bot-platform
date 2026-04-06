@@ -13,10 +13,12 @@ internal sealed class WorkspaceBody
     internal const string ConfirmState = "account.confirm";
     internal const string ExpenseAccountState = "transaction.expense.account";
     internal const string ExpenseAmountState = "transaction.expense.amount";
+    internal const string ExpenseSourceState = "transaction.expense.source";
     internal const string ExpenseCategoryState = "transaction.expense.category";
     internal const string ExpenseConfirmState = "transaction.expense.confirm";
     internal const string IncomeAccountState = "transaction.income.account";
     internal const string IncomeAmountState = "transaction.income.amount";
+    internal const string IncomeSourceState = "transaction.income.source";
     internal const string IncomeCategoryState = "transaction.income.category";
     internal const string IncomeConfirmState = "transaction.income.confirm";
     internal const string RecentListState = "transaction.recent.list";
@@ -126,12 +128,23 @@ internal sealed class WorkspaceBody
 
     internal WorkspaceData Transaction(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData
     {
-        Expense = kinds.Income(income) ? new ExpenseData() : new ExpenseData(account, category, amount),
-        Income = kinds.Income(income) ? new IncomeData(account, category, amount) : new IncomeData(),
+        Expense = kinds.Income(income) ? new ExpenseData() : new ExpenseData(account, category, amount, string.Empty),
+        Income = kinds.Income(income) ? new IncomeData(account, category, amount, string.Empty) : new IncomeData(),
         Summary = body.Summary,
         Breakdown = body.Breakdown,
         Choices = choices ?? new ChoicesData(),
         Status = status ?? new StatusData(),
+        Custom = codes.Custom(false)
+    });
+
+    internal WorkspaceData Source(WorkspaceData body, string source, bool income) => new(body.Accounts, new WorkspaceStateData
+    {
+        Expense = kinds.Income(income) ? body.Expense : new ExpenseData(body.Expense.Account, body.Expense.Category, body.Expense.Amount, source),
+        Income = kinds.Income(income) ? new IncomeData(body.Income.Account, body.Income.Category, body.Income.Amount, source) : body.Income,
+        Summary = body.Summary,
+        Breakdown = body.Breakdown,
+        Choices = body.Choices,
+        Status = body.Status,
         Custom = codes.Custom(false)
     });
 
@@ -144,6 +157,8 @@ internal sealed class WorkspaceBody
     internal PickData Pick(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Account : body.Expense.Account;
 
     internal PickData Category(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Category : body.Expense.Category;
+
+    internal string Value(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Source : body.Expense.Source;
 
     internal decimal? Total(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Amount : body.Expense.Amount;
 
@@ -180,6 +195,8 @@ internal sealed class WorkspaceBody
     internal bool BreakdownScreen(string state) => states.Breakdown(state);
 
     internal bool TransactionCategoryState(string state) => states.Category(state);
+
+    internal bool TransactionSourceState(string state) => states.Source(state);
 
     internal OptionData Option(IReadOnlyList<OptionData> list, int slot)
     {
@@ -227,6 +244,8 @@ internal sealed class WorkspaceBody
     internal string AmountCode(bool income) => codes.Amount(income);
 
     internal string CategoryCode(bool income) => codes.Category(income);
+
+    internal string SourceCode(bool income) => codes.Source(income);
 
     internal string ConfirmCode(bool income) => codes.Confirm(income);
 
@@ -281,8 +300,8 @@ internal sealed class WorkspaceBody
         internal WorkspaceStateSet()
         {
             accounts = new HashSet<string>(StringComparer.Ordinal) { NameState, CurrencyState, BalanceState, ConfirmState };
-            expenses = new HashSet<string>(StringComparer.Ordinal) { ExpenseAccountState, ExpenseAmountState, ExpenseCategoryState, ExpenseConfirmState };
-            incomes = new HashSet<string>(StringComparer.Ordinal) { IncomeAccountState, IncomeAmountState, IncomeCategoryState, IncomeConfirmState };
+            expenses = new HashSet<string>(StringComparer.Ordinal) { ExpenseAccountState, ExpenseAmountState, ExpenseSourceState, ExpenseCategoryState, ExpenseConfirmState };
+            incomes = new HashSet<string>(StringComparer.Ordinal) { IncomeAccountState, IncomeAmountState, IncomeSourceState, IncomeCategoryState, IncomeConfirmState };
             recents = new HashSet<string>(StringComparer.Ordinal) { RecentListState, RecentDetailState, RecentDeleteState, RecentCategoryState, RecentRecategorizeState };
             summaries = new HashSet<string>(StringComparer.Ordinal) { SummaryState };
             breakdowns = new HashSet<string>(StringComparer.Ordinal) { BreakdownState };
@@ -291,6 +310,8 @@ internal sealed class WorkspaceBody
         internal bool Account(string state) => accounts.Contains(state);
 
         internal bool Category(string state) => expenses.Contains(state) && state == ExpenseCategoryState || incomes.Contains(state) && state == IncomeCategoryState || recents.Contains(state) && state == RecentCategoryState;
+
+        internal bool Source(string state) => expenses.Contains(state) && state == ExpenseSourceState || incomes.Contains(state) && state == IncomeSourceState;
 
         internal bool Expense(string state) => expenses.Contains(state);
 
@@ -354,8 +375,8 @@ internal sealed class WorkspaceBody
 
         internal WorkspaceCodeSet()
         {
-            expense = new WorkspacePath([ExpenseAccountState, ExpenseAmountState, ExpenseCategoryState, ExpenseConfirmState, CreateExpenseCode], ExpenseAccountSlot, ExpenseCategorySlot);
-            income = new WorkspacePath([IncomeAccountState, IncomeAmountState, IncomeCategoryState, IncomeConfirmState, CreateIncomeCode], IncomeAccountSlot, IncomeCategorySlot);
+            expense = new WorkspacePath([ExpenseAccountState, ExpenseAmountState, ExpenseSourceState, ExpenseCategoryState, ExpenseConfirmState, CreateExpenseCode], ExpenseAccountSlot, ExpenseCategorySlot);
+            income = new WorkspacePath([IncomeAccountState, IncomeAmountState, IncomeSourceState, IncomeCategoryState, IncomeConfirmState, CreateIncomeCode], IncomeAccountSlot, IncomeCategorySlot);
             scalar = new WorkspaceScalar();
         }
 
@@ -374,6 +395,8 @@ internal sealed class WorkspaceBody
         internal string Amount(bool value) => Path(value).Amount;
 
         internal string Category(bool value) => Path(value).Category;
+
+        internal string Source(bool value) => Path(value).Source;
 
         internal string Confirm(bool value) => Path(value).Confirm;
 
@@ -405,13 +428,15 @@ internal sealed class WorkspaceBody
 
         internal string Amount => States[1];
 
-        internal string Category => States[2];
+        internal string Source => States[2];
+
+        internal string Category => States[3];
 
         internal string CategorySlot { get; }
 
-        internal string Confirm => States[3];
+        internal string Confirm => States[4];
 
-        internal string Create => States[4];
+        internal string Create => States[5];
     }
 
     private sealed class WorkspaceScalar

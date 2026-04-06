@@ -38,10 +38,12 @@ internal sealed class WorkspaceBody
             "account.confirm" => Confirm(item),
             "transaction.expense.account" => ExpenseAccount(item),
             "transaction.expense.amount" => ExpenseAmount(item),
+            "transaction.expense.source" => ExpenseSource(item),
             "transaction.expense.category" => ExpenseCategory(item),
             "transaction.expense.confirm" => ExpenseConfirm(item),
             "transaction.income.account" => IncomeAccount(item),
             "transaction.income.amount" => IncomeAmount(item),
+            "transaction.income.source" => IncomeSource(item),
             "transaction.income.category" => IncomeCategory(item),
             "transaction.income.confirm" => IncomeConfirm(item),
             "transaction.recent.list" => item,
@@ -92,13 +94,23 @@ internal sealed class WorkspaceBody
 
     private static WorkspaceData ExpenseCategory(WorkspaceData item)
     {
-        ExpenseAmount(item);
-        return item.Expense.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.category' requires amount");
+        ExpenseSource(item);
+        if (!item.Expense.Amount.HasValue)
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.expense.category' requires amount");
+        }
+        return !string.IsNullOrWhiteSpace(item.Expense.Source) ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.category' requires source");
     }
+
+    private static WorkspaceData ExpenseSource(WorkspaceData item) => ExpenseAmount(item);
 
     private static WorkspaceData ExpenseConfirm(WorkspaceData item)
     {
         ExpenseCategory(item);
+        if (string.IsNullOrWhiteSpace(item.Expense.Source))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.expense.confirm' requires source");
+        }
         return !string.IsNullOrWhiteSpace(item.Expense.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.confirm' requires category");
     }
 
@@ -115,13 +127,23 @@ internal sealed class WorkspaceBody
 
     private static WorkspaceData IncomeCategory(WorkspaceData item)
     {
-        IncomeAmount(item);
-        return item.Income.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires amount");
+        IncomeSource(item);
+        if (!item.Income.Amount.HasValue)
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires amount");
+        }
+        return !string.IsNullOrWhiteSpace(item.Income.Source) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires source");
     }
+
+    private static WorkspaceData IncomeSource(WorkspaceData item) => IncomeAmount(item);
 
     private static WorkspaceData IncomeConfirm(WorkspaceData item)
     {
         IncomeCategory(item);
+        if (string.IsNullOrWhiteSpace(item.Income.Source))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires source");
+        }
         return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
     }
 

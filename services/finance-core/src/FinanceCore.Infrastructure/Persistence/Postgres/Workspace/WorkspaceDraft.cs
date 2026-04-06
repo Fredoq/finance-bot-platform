@@ -58,7 +58,8 @@ internal sealed class WorkspaceDraft
     {
         int slot = body.Slot(code, body.CategorySlot(income));
         OptionData item = body.Option(data.Choices.Categories, slot);
-        return Move(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income));
+        WorkspaceData state = body.Source(body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income), body.Value(data, income), income);
+        return Move(body.ConfirmCode(income), state);
     }
 
     internal WorkspaceMove Finish(WorkspaceData data, string code, bool income)
@@ -68,7 +69,8 @@ internal sealed class WorkspaceDraft
             return Record(data, income);
         }
         string text = income ? "Confirm the income or cancel" : "Confirm the expense or cancel";
-        return Move(body.ConfirmCode(income), body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income, new ChoicesData(), new StatusData(text, string.Empty)));
+        WorkspaceData item = body.Source(body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income), body.Value(data, income), income);
+        return Move(body.ConfirmCode(income), body.Model(item, choices: new ChoicesData(), status: new StatusData(text, string.Empty)));
     }
 
     internal WorkspaceMove Name(WorkspaceData data, string value)
@@ -127,7 +129,16 @@ internal sealed class WorkspaceDraft
         {
             return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)));
         }
-        return Move(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income));
+        return Move(body.SourceCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income));
+    }
+
+    internal WorkspaceMove Source(WorkspaceData data, string value, bool income)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        string text = value.Trim();
+        return string.IsNullOrWhiteSpace(text)
+            ? Move(body.SourceCode(income), body.Model(body.Source(body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income), string.Empty, income), choices: new ChoicesData(), status: new StatusData("Merchant or description is required", string.Empty)))
+            : Move(body.SourceCode(income), body.Source(body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income), text, income), text);
     }
 
     internal WorkspaceMove Text(WorkspaceData data, string value, bool income)
@@ -135,8 +146,8 @@ internal sealed class WorkspaceDraft
         ArgumentNullException.ThrowIfNull(value);
         string text = value.Trim();
         return string.IsNullOrWhiteSpace(text)
-            ? Move(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData("Category name is required", string.Empty)))
-            : Move(body.CategoryCode(income), body.Model(data, new FinancialData(), data.Choices, new StatusData()), text);
+            ? Move(body.CategoryCode(income), body.Model(body.Source(body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income), body.Value(data, income), income), choices: data.Choices, status: new StatusData("Category name is required", string.Empty)))
+            : Move(body.CategoryCode(income), body.Model(body.Source(body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income), body.Value(data, income), income), choices: data.Choices, status: new StatusData()), text);
     }
 
     private WorkspaceMove Start(WorkspaceData data, bool income)
@@ -182,14 +193,21 @@ internal sealed class WorkspaceDraft
         {
             return Move(body.AmountCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Amount must be greater than zero", string.Empty)));
         }
+        string source = body.Value(data, income).Trim();
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            WorkspaceData state = body.Source(body.Transaction(data, body.Pick(data, income), new PickData(), total, income), string.Empty, income);
+            return Move(body.SourceCode(income), body.Model(state, choices: new ChoicesData(), status: new StatusData("Merchant or description is required", string.Empty)));
+        }
         PickData category = body.Category(data, income);
         if (string.IsNullOrWhiteSpace(category.Id))
         {
-            return Move(body.CategoryCode(income), body.Transaction(data, body.Pick(data, income), new PickData(), total, income, new ChoicesData(), new StatusData("Choose one category or send a new name", string.Empty)));
+            WorkspaceData state = body.Source(body.Transaction(data, body.Pick(data, income), new PickData(), total, income), source, income);
+            return Move(body.CategoryCode(income), body.Model(state, choices: new ChoicesData(), status: new StatusData("Choose one category or send a new name", string.Empty)));
         }
         PickData account = body.Pick(data, income);
-        WorkspaceData item = body.Transaction(data, new PickData(accountId, account.Name, account.Note), category, total, income);
-        return Move(body.ConfirmCode(income), item, new TransactionNote(accountId, category.Id, total.Value, body.Kind(income)));
+        WorkspaceData item = body.Source(body.Transaction(data, new PickData(accountId, account.Name, account.Note), category, total, income), source, income);
+        return Move(body.ConfirmCode(income), item, new TransactionNote(accountId, category.Id, total.Value, body.Kind(income), source));
     }
 
     private static WorkspaceMove Move(string code, WorkspaceData data) => new(code, data);
