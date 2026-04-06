@@ -68,33 +68,6 @@ The system should have a small number of services with explicit ownership. The g
 - inbox/outbox patterns for reliable integration boundaries
 - explicit domain contracts for commands, events, and queries
 
-## `job-worker`
-
-### Responsibility
-
-`job-worker` is a future extraction target for asynchronous and scheduled processing that should not compete with edge traffic.
-
-### Owns
-
-- reminders
-- scheduled summaries
-- delayed execution
-- batch exports and reporting workloads
-- future delivery or retry flows only if they outgrow the gateway runtime
-
-### Does Not Own
-
-- direct Telegram ingress
-- Telegram delivery in the current runtime model
-- authoritative business data model
-
-### Key Requirements
-
-- safe retries
-- dead-letter handling or equivalent failure isolation
-- clear job observability
-- separate scaling from request-handling services
-
 ## Shared Platform Components
 
 These are required platform dependencies but are not treated as domain services in this repository model:
@@ -124,8 +97,7 @@ The intended topology is:
 2. `telegram-gateway` hands ingress commands to RabbitMQ
 3. `finance-core` processes application commands and publishes semantic delivery intents
 4. `telegram-gateway` consumes delivery intents and calls the Telegram Bot API
-5. `job-worker` remains available for future delayed and scheduled work
-6. all services publish logs, metrics, and traces into a shared observability stack
+5. all services publish logs, metrics, and traces into a shared observability stack
 
 ## Contract Evolution
 

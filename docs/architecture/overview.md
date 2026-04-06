@@ -44,8 +44,6 @@ The current runtime model uses two active services:
 1. `telegram-gateway`
 2. `finance-core`
 
-`job-worker` remains a planned extraction target for scheduled and batch work when that load becomes materially different from the gateway runtime.
-
 Supporting platform components:
 
 - `PostgreSQL`
@@ -62,7 +60,6 @@ Supporting platform components:
 3. `finance-core` performs business logic, persists state changes, and stores semantic outbound intents in its outbox.
 4. `finance-core` publishes user-visible contracts such as `WorkspaceViewRequestedCommand` to the delivery exchange.
 5. `telegram-gateway` consumes delivery contracts, renders the Telegram response, and sends it through the Bot API.
-6. `job-worker` is reserved for future scheduled reporting, reminders, and batch flows that should not run inside the gateway.
 
 ## Reliability Baseline
 
@@ -95,7 +92,6 @@ Target structure inside this monorepo:
 services/
   telegram-gateway/
   finance-core/
-  job-worker/
 libs/
   contracts/
   building-blocks/

@@ -71,4 +71,3 @@ Next ADRs should define:
 
 - callback query contracts and delivery behavior
 - edit and delete delivery operations
-- when scheduled or batch workloads justify extracting `job-worker`

@@ -97,4 +97,3 @@ Next reporting increments may define:
 
 - category breakdown for the selected month
 - user-configured time zones
-- scheduled monthly summaries in `job-worker`

@@ -15,11 +15,10 @@ Two decisions are foundational:
 
 ## Decision
 
-The platform will start with three application services:
+The platform will start with two application services:
 
 - `telegram-gateway`
 - `finance-core`
-- `job-worker`
 
 The application code for these services will live in a single monorepo.
 
@@ -27,11 +26,10 @@ Infrastructure delivery will live in a separate repository.
 
 ## Rationale
 
-### Why three services
+### Why two services
 
 - `telegram-gateway` isolates external ingress, validation, and request hardening.
 - `finance-core` owns business logic and persistence.
-- `job-worker` isolates asynchronous and scheduled work from edge request handling.
 
 This split gives meaningful operational separation without over-engineering the system.
 
@@ -47,10 +45,10 @@ At the current scale, separate repositories would add coordination and release o
 
 ### Positive
 
-- clean separation between ingress, business logic, and background work
+- clean separation between ingress and business logic
 - simpler coordination of shared contracts and schema evolution
 - architecture decisions remain close to the codebase
-- clear path to independent scaling and extraction later
+- clear path to scale the two service boundaries independently
 
 ### Negative
 

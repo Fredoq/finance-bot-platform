@@ -22,11 +22,10 @@ C4Container
     System_Boundary(finance_platform, "Finance Platform") {
         Container(bot_gateway, "telegram-gateway", "Application service", "Receives Telegram webhook updates, validates secrets, normalizes supported intents, consumes delivery contracts, and sends Bot API responses.")
         Container(finance_core, "finance-core", "Application service", "Owns business logic, transactions, categories, reporting queries, and persistence consistency.")
-        Container(job_worker, "job-worker", "Future application service", "Reserved extraction target for scheduled summaries, reminders, batch workloads, and other future background processing.")
 
         ContainerDb(postgres, "PostgreSQL", "Relational database", "System of record for users, transactions, categories, rules, and durable application state.")
         Container(redis, "Redis", "In-memory data store", "Stores transient conversational state, throttling state, and short-lived cache data.")
-        ContainerQueue(rabbitmq, "RabbitMQ", "Durable async transport", "Buffers ingress commands, semantic delivery contracts, retries, and future background work between services.")
+        ContainerQueue(rabbitmq, "RabbitMQ", "Durable async transport", "Buffers ingress commands, semantic delivery contracts, and retries between services.")
     }
 
     Rel(telegram_platform, bot_gateway, "Delivers updates", "HTTPS / webhook")
@@ -36,15 +35,10 @@ C4Container
     Rel(finance_core, postgres, "Reads and writes business data", "SQL")
     Rel(finance_core, redis, "Uses short-lived cache or state where justified", "Redis protocol")
     Rel(finance_core, rabbitmq, "Consumes commands and publishes semantic delivery intents", "AMQP 0-9-1")
-
-    Rel(job_worker, rabbitmq, "Consumes future delayed and scheduled work", "AMQP 0-9-1")
-    Rel(job_worker, postgres, "Reads and updates durable state when jobs require it", "SQL")
-    Rel(job_worker, redis, "Uses ephemeral coordination state when needed", "Redis protocol")
 ```
 
 ## Notes
 
 - `telegram-gateway` and `finance-core` are the active runtime containers in v1
-- `job-worker` remains in the model as a future extraction target instead of a current delivery participant
 - `PostgreSQL`, `Redis`, and `RabbitMQ` are shown inside the platform boundary as required runtime containers, even though they are infrastructure components rather than domain services
 - Telegram is external to the platform, while the Telegram-specific ingress boundary lives inside `telegram-gateway`

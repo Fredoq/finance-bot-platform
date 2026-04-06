@@ -5,7 +5,7 @@ This diagram shows the finance platform at the highest level of abstraction toge
 ## Context
 
 - The platform is a Telegram personal finance system
-- Internal services such as `telegram-gateway`, `finance-core`, and `job-worker` are intentionally hidden at this level
+- Internal services such as `telegram-gateway` and `finance-core` are intentionally hidden at this level
 - The Telegram-facing ingress boundary is part of the finance platform, not an external service
 
 ```mermaid

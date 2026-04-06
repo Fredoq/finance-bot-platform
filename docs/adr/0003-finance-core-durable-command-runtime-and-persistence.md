@@ -34,7 +34,7 @@ Inbound message handling uses an inbox table with a unique `(contract, idempoten
 
 Outbound delivery uses an outbox table and a separate publish loop with broker confirms.
 
-The outbox relay lives inside `finance-core` in v1 and may be moved to `job-worker` later without changing the transactional write path.
+The outbox relay lives inside `finance-core` in v1 and remains part of the service runtime unless an explicit architecture decision changes that boundary.
 
 PostgreSQL schema changes use SQL-first migrations with `DbUp` and a journal table in `finance.schema_journal`.
 
@@ -81,4 +81,3 @@ Next ADRs should define:
 
 - the first financial transaction command set
 - the ledger schema increment
-- whether the outbox relay should move to `job-worker`
