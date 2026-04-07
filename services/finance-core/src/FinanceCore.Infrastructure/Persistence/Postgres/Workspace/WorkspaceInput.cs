@@ -113,6 +113,10 @@ internal sealed class WorkspaceInput
 
     private WorkspaceMove ExpenseConfirm(WorkspaceData data)
     {
+        if (string.IsNullOrWhiteSpace(body.Value(data, false)))
+        {
+            return Source(data, false);
+        }
         WorkspaceData transaction = body.Transaction(data, body.Pick(data, false), body.Category(data, false), body.Total(data, false), false);
         WorkspaceData sourced = body.Source(transaction, body.Value(data, false), false);
         WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
@@ -121,9 +125,21 @@ internal sealed class WorkspaceInput
 
     private WorkspaceMove IncomeConfirm(WorkspaceData data)
     {
+        if (string.IsNullOrWhiteSpace(body.Value(data, true)))
+        {
+            return Source(data, true);
+        }
         WorkspaceData transaction = body.Transaction(data, body.Pick(data, true), body.Category(data, true), body.Total(data, true), true);
         WorkspaceData sourced = body.Source(transaction, body.Value(data, true), true);
         WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
         return new WorkspaceMove(WorkspaceBody.IncomeConfirmState, model, null, string.Empty, null);
+    }
+
+    private WorkspaceMove Source(WorkspaceData data, bool income)
+    {
+        WorkspaceData transaction = body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income);
+        WorkspaceData sourced = body.Source(transaction, string.Empty, income);
+        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Merchant or description is required", string.Empty));
+        return new WorkspaceMove(body.SourceCode(income), model, null, string.Empty, null);
     }
 }

@@ -290,6 +290,45 @@ public sealed class IncomeRuntimeTests : FinanceCoreRuntimeSuite
         _ = await Take(queue, "income-rule-two-4");
         Assert.Equal(2, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-income-rule') and kind = 'income'"));
     }
+
+    /// <summary>
+    /// Verifies that a legacy category snapshot without source returns to the source step before confirm.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Routes a legacy income category snapshot without source back to source")]
+    public async Task Routes_legacy_income_category_to_source()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-income-legacy-category"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-income-legacy-category", "room-income-legacy-category", "Cash", "USD", "100", "income-legacy-category-account");
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "action", "transaction.income.add", "income-legacy-category-1"));
+        _ = await Take(queue, "income-legacy-category-1");
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "text", "11", "income-legacy-category-2"));
+        _ = await Take(queue, "income-legacy-category-2");
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "text", "Bonus", "income-legacy-category-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "income-legacy-category-3");
+        Assert.Equal("transaction.income.category", category.Payload.Frame.State);
+        await Execute("update finance.workspace set state_data = state_data #- '{income,source}' where conversation_key = 'room-income-legacy-category'");
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "action", "transaction.income.category.1", "income-legacy-category-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "income-legacy-category-4");
+        Assert.Equal("transaction.income.source", source.Payload.Frame.State);
+        Assert.Equal("Merchant or description is required", Error(source.Payload.Frame.StateData));
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "text", "Bonus", "income-legacy-category-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> resumed = await Take(queue, "income-legacy-category-5");
+        Assert.Equal("transaction.income.category", resumed.Payload.Frame.State);
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "action", "transaction.income.category.1", "income-legacy-category-6"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "income-legacy-category-6");
+        Assert.Equal("transaction.income.confirm", confirm.Payload.Frame.State);
+        await Publish(Input("actor-income-legacy-category", "room-income-legacy-category", "action", "transaction.income.create", "income-legacy-category-7"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "income-legacy-category-7");
+        Assert.Equal("home", home.Payload.Frame.State);
+        Assert.Equal(1, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-income-legacy-category') and kind = 'income'"));
+    }
+
     private async Task Record(string queue, string actor, string room, string amount, string source, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.income.add", $"{id}-1"));

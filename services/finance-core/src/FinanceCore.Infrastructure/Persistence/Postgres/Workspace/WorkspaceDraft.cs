@@ -58,6 +58,10 @@ internal sealed class WorkspaceDraft
     {
         int slot = body.Slot(code, body.CategorySlot(income));
         OptionData item = body.Option(data.Choices.Categories, slot);
+        if (string.IsNullOrWhiteSpace(body.Value(data, income)))
+        {
+            return Source(data, income);
+        }
         WorkspaceData state = body.Source(body.Transaction(data, body.Pick(data, income), new PickData(item.Id, item.Name, item.Note), body.Total(data, income), income), body.Value(data, income), income);
         return Move(body.ConfirmCode(income), state);
     }
@@ -67,6 +71,10 @@ internal sealed class WorkspaceDraft
         if (code == body.CreateCode(income))
         {
             return Record(data, income);
+        }
+        if (string.IsNullOrWhiteSpace(body.Value(data, income)))
+        {
+            return Source(data, income);
         }
         string text = income ? "Confirm the income or cancel" : "Confirm the expense or cancel";
         WorkspaceData item = body.Source(body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income), body.Value(data, income), income);
@@ -144,6 +152,10 @@ internal sealed class WorkspaceDraft
     internal WorkspaceMove Text(WorkspaceData data, string value, bool income)
     {
         ArgumentNullException.ThrowIfNull(value);
+        if (string.IsNullOrWhiteSpace(body.Value(data, income)))
+        {
+            return Source(data, income);
+        }
         string text = value.Trim();
         return string.IsNullOrWhiteSpace(text)
             ? Move(body.CategoryCode(income), body.Model(body.Source(body.Transaction(data, body.Pick(data, income), body.Category(data, income), body.Total(data, income), income), body.Value(data, income), income), choices: data.Choices, status: new StatusData("Category name is required", string.Empty)))
@@ -208,6 +220,12 @@ internal sealed class WorkspaceDraft
         PickData account = body.Pick(data, income);
         WorkspaceData item = body.Source(body.Transaction(data, new PickData(accountId, account.Name, account.Note), category, total, income), source, income);
         return Move(body.ConfirmCode(income), item, new TransactionNote(accountId, category.Id, total.Value, body.Kind(income), source));
+    }
+
+    private WorkspaceMove Source(WorkspaceData data, bool income)
+    {
+        WorkspaceData state = body.Source(body.Transaction(data, body.Pick(data, income), new PickData(), body.Total(data, income), income), string.Empty, income);
+        return Move(body.SourceCode(income), body.Model(state, choices: new ChoicesData(), status: new StatusData("Merchant or description is required", string.Empty)));
     }
 
     private static WorkspaceMove Move(string code, WorkspaceData data) => new(code, data);

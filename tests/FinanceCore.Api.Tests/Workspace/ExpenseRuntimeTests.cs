@@ -266,6 +266,45 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(2, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
         Assert.Equal(1, await Number("select count(distinct source_key) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
     }
+
+    /// <summary>
+    /// Verifies that a legacy category snapshot without source returns to the source step before confirm.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Routes a legacy expense category snapshot without source back to source")]
+    public async Task Routes_legacy_expense_category_to_source()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-expense-legacy-category"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-expense-legacy-category", "room-expense-legacy-category", "Cash", "USD", "100", "expense-legacy-category-account");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.add", "expense-legacy-category-1"));
+        _ = await Take(queue, "expense-legacy-category-1");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "11", "expense-legacy-category-2"));
+        _ = await Take(queue, "expense-legacy-category-2");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "Taxi", "expense-legacy-category-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-legacy-category-3");
+        Assert.Equal("transaction.expense.category", category.Payload.Frame.State);
+        await Execute("update finance.workspace set state_data = state_data #- '{expense,source}' where conversation_key = 'room-expense-legacy-category'");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.category.1", "expense-legacy-category-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-legacy-category-4");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        Assert.Equal("Merchant or description is required", Error(source.Payload.Frame.StateData));
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "Taxi", "expense-legacy-category-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> resumed = await Take(queue, "expense-legacy-category-5");
+        Assert.Equal("transaction.expense.category", resumed.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.category.1", "expense-legacy-category-6"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-legacy-category-6");
+        Assert.Equal("transaction.expense.confirm", confirm.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.create", "expense-legacy-category-7"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-legacy-category-7");
+        Assert.Equal("home", home.Payload.Frame.State);
+        Assert.Equal(1, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-legacy-category') and kind = 'expense'"));
+    }
+
     private async Task Record(string queue, string actor, string room, string amount, string source, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.expense.add", $"{id}-1"));
