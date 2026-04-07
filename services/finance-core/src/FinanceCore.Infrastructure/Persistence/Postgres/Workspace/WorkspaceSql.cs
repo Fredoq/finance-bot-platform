@@ -420,11 +420,12 @@ internal sealed class WorkspaceSql
         {
             return false;
         }
-        await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id returning coalesce(source_text, ''), coalesce(source_key, '')", link, lane);
+        await using NpgsqlCommand item = new("update finance.transaction_entry set category_id = @category_id, updated_utc = @updated_utc where id = @id and user_id = @user_id returning kind, coalesce(source_text, ''), coalesce(source_key, '')", link, lane);
         item.Parameters.AddWithValue("category_id", Parse(categoryId, nameof(note.CategoryId)));
         item.Parameters.AddWithValue(map.UpdatedUtc, when);
         item.Parameters.AddWithValue("id", itemId);
         item.Parameters.AddWithValue(map.UserId, userId);
+        string kind;
         string text;
         string key;
         await using (NpgsqlDataReader row = await item.ExecuteReaderAsync(token))
@@ -433,12 +434,13 @@ internal sealed class WorkspaceSql
             {
                 return false;
             }
-            text = row.GetString(0);
-            key = row.GetString(1);
+            kind = row.GetString(0);
+            text = row.GetString(1);
+            key = row.GetString(2);
         }
         if (!string.IsNullOrWhiteSpace(key))
         {
-            await Learn(link, lane, new RuleNote(userId, note.TransactionKind, text, key, Parse(categoryId, nameof(note.CategoryId))), when, token);
+            await Learn(link, lane, new RuleNote(userId, kind, text, key, Parse(categoryId, nameof(note.CategoryId))), when, token);
         }
         return true;
     }

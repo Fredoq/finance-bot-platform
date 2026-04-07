@@ -95,14 +95,21 @@ internal sealed class WorkspaceBody
     private static WorkspaceData ExpenseCategory(WorkspaceData item)
     {
         ExpenseSource(item);
-        if (!item.Expense.Amount.HasValue)
-        {
-            throw new InvalidOperationException("Workspace screen 'transaction.expense.category' requires amount");
-        }
         return !string.IsNullOrWhiteSpace(item.Expense.Source) ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.category' requires source");
     }
 
-    private static WorkspaceData ExpenseSource(WorkspaceData item) => ExpenseAmount(item);
+    private static WorkspaceData ExpenseSource(WorkspaceData item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Expense.Account.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.expense.source' requires account");
+        }
+        if (string.IsNullOrWhiteSpace(item.Expense.Account.Note))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.expense.source' requires currency");
+        }
+        return item.Expense.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.source' requires amount");
+    }
 
     private static WorkspaceData ExpenseConfirm(WorkspaceData item)
     {
@@ -124,14 +131,21 @@ internal sealed class WorkspaceBody
     private static WorkspaceData IncomeCategory(WorkspaceData item)
     {
         IncomeSource(item);
-        if (!item.Income.Amount.HasValue)
-        {
-            throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires amount");
-        }
         return !string.IsNullOrWhiteSpace(item.Income.Source) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.category' requires source");
     }
 
-    private static WorkspaceData IncomeSource(WorkspaceData item) => IncomeAmount(item);
+    private static WorkspaceData IncomeSource(WorkspaceData item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Income.Account.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.income.source' requires account");
+        }
+        if (string.IsNullOrWhiteSpace(item.Income.Account.Note))
+        {
+            throw new InvalidOperationException("Workspace screen 'transaction.income.source' requires currency");
+        }
+        return item.Income.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.source' requires amount");
+    }
 
     private static WorkspaceData IncomeConfirm(WorkspaceData item)
     {

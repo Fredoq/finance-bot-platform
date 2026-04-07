@@ -39,6 +39,19 @@ public sealed class WorkspaceBodyTests
     }
 
     /// <summary>
+    /// Verifies that source screens reject missing amounts with source-specific validation.
+    /// </summary>
+    [Fact(DisplayName = "Rejects source states when amount is missing")]
+    public void Rejects_source_without_amount()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException expense = Assert.Throws<InvalidOperationException>(() => body.Data("transaction.expense.source", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null,\"source\":\"\"},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException income = Assert.Throws<InvalidOperationException>(() => body.Data("transaction.income.source", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null,\"source\":\"\"},\"income\":{\"account\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null,\"source\":\"\"},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.Contains("transaction.expense.source' requires amount", expense.Message, StringComparison.Ordinal);
+        Assert.Contains("transaction.income.source' requires amount", income.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Verifies that summary state requires year and month.
     /// </summary>
     [Fact(DisplayName = "Rejects monthly summary state when year or month is missing")]
