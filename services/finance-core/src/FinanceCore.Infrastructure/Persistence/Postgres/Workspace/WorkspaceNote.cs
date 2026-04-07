@@ -12,7 +12,7 @@ internal sealed record WorkspaceMove
     {
     }
 
-    internal WorkspaceMove(string code, WorkspaceData body, string category) : this(code, body, null, category, null)
+    internal WorkspaceMove(string code, WorkspaceData body, string text) : this(code, body, null, text, null)
     {
     }
 
@@ -28,19 +28,19 @@ internal sealed record WorkspaceMove
     {
     }
 
-    internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string category, TransactionNote? transaction, CorrectionNote? correction = null)
+    internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string text, TransactionNote? transaction, CorrectionNote? correction = null)
     {
         Code = code ?? throw new ArgumentNullException(nameof(code));
         Body = body ?? throw new ArgumentNullException(nameof(body));
         AccountValue = account;
-        CategoryEntry = category ?? throw new ArgumentNullException(nameof(category));
+        TextEntry = text ?? throw new ArgumentNullException(nameof(text));
         RecordValue = transaction;
         CorrectValue = correction;
     }
     internal string Code { get; }
     internal WorkspaceData Body { get; }
     internal AccountDraft? AccountValue { get; }
-    internal string CategoryEntry { get; }
+    internal string TextEntry { get; }
     internal TransactionNote? RecordValue { get; }
     internal CorrectionNote? CorrectValue { get; }
 }
@@ -60,17 +60,19 @@ internal sealed record AccountDraft
 
 internal sealed record TransactionNote
 {
-    internal TransactionNote(string accountId, string categoryId, decimal total, string kind)
+    internal TransactionNote(string accountId, string categoryId, decimal total, string kind, string sourceText)
     {
         AccountId = accountId ?? throw new ArgumentNullException(nameof(accountId));
         CategoryId = categoryId ?? throw new ArgumentNullException(nameof(categoryId));
         Total = total;
         TransactionKind = kind ?? throw new ArgumentNullException(nameof(kind));
+        SourceText = sourceText ?? throw new ArgumentNullException(nameof(sourceText));
     }
     internal string AccountId { get; }
     internal string CategoryId { get; }
     internal decimal Total { get; }
     internal string TransactionKind { get; }
+    internal string SourceText { get; }
 }
 
 internal sealed record CorrectionNote

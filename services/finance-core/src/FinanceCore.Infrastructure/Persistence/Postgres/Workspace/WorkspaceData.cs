@@ -115,16 +115,19 @@ internal sealed record ExpenseData
     {
         Account = new PickData();
         Category = new PickData();
+        Source = string.Empty;
     }
-    internal ExpenseData(PickData account, PickData category, decimal? amount)
+    internal ExpenseData(PickData account, PickData category, decimal? amount, string source)
     {
         Account = account ?? throw new ArgumentNullException(nameof(account));
         Category = category ?? throw new ArgumentNullException(nameof(category));
         Amount = amount;
+        Source = source ?? throw new ArgumentNullException(nameof(source));
     }
     public PickData Account { get; init; }
     public PickData Category { get; init; }
     public decimal? Amount { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record IncomeData
@@ -133,16 +136,19 @@ internal sealed record IncomeData
     {
         Account = new PickData();
         Category = new PickData();
+        Source = string.Empty;
     }
-    internal IncomeData(PickData account, PickData category, decimal? amount)
+    internal IncomeData(PickData account, PickData category, decimal? amount, string source)
     {
         Account = account ?? throw new ArgumentNullException(nameof(account));
         Category = category ?? throw new ArgumentNullException(nameof(category));
         Amount = amount;
+        Source = source ?? throw new ArgumentNullException(nameof(source));
     }
     public PickData Account { get; init; }
     public PickData Category { get; init; }
     public decimal? Amount { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record RecentData
@@ -182,6 +188,7 @@ internal sealed record RecentItemData
         Account = new PickData();
         Category = new PickData();
         Currency = string.Empty;
+        Source = string.Empty;
     }
     internal RecentItemData(int slot, RecentEntryData entry)
     {
@@ -194,6 +201,7 @@ internal sealed record RecentItemData
         Amount = entry.Amount;
         Currency = entry.Currency;
         OccurredUtc = entry.OccurredUtc;
+        Source = entry.Source;
         Slot = slot;
     }
     public int Slot { get; init; }
@@ -204,10 +212,20 @@ internal sealed record RecentItemData
     public decimal Amount { get; init; }
     public string Currency { get; init; }
     public DateTimeOffset OccurredUtc { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record RecentEntryData
 {
+    public RecentEntryData()
+    {
+        Id = string.Empty;
+        Kind = string.Empty;
+        Account = new PickData();
+        Category = new PickData();
+        Currency = string.Empty;
+        Source = string.Empty;
+    }
     internal RecentEntryData(string id, string kind, PickData account, PickData category, decimal amount, string currency, DateTimeOffset occurredUtc)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
@@ -217,14 +235,16 @@ internal sealed record RecentEntryData
         Amount = amount;
         Currency = currency ?? throw new ArgumentNullException(nameof(currency));
         OccurredUtc = occurredUtc;
+        Source = string.Empty;
     }
-    public string Id { get; }
-    public string Kind { get; }
-    public PickData Account { get; }
-    public PickData Category { get; }
-    public decimal Amount { get; }
-    public string Currency { get; }
-    public DateTimeOffset OccurredUtc { get; }
+    public string Id { get; init; }
+    public string Kind { get; init; }
+    public PickData Account { get; init; }
+    public PickData Category { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; }
+    public DateTimeOffset OccurredUtc { get; init; }
+    public string Source { get; init; }
 }
 
 internal sealed record SummaryData

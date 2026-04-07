@@ -46,18 +46,23 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> amount = await Take(queue, "expense-single-1");
         Assert.Equal("transaction.expense.amount", amount.Payload.Frame.State);
         await Publish(Input("actor-expense-single", "room-expense-single", "text", "12.5", "expense-single-2"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-single-2");
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-single-2");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        await Publish(Input("actor-expense-single", "room-expense-single", "text", "Coffee", "expense-single-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-single-3");
         Assert.Equal("transaction.expense.category", category.Payload.Frame.State);
         Assert.Contains("transaction.expense.category.1", category.Payload.Frame.Actions, StringComparer.Ordinal);
-        await Publish(Input("actor-expense-single", "room-expense-single", "action", "transaction.expense.category.1", "expense-single-3"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-single-3");
+        await Publish(Input("actor-expense-single", "room-expense-single", "action", "transaction.expense.category.1", "expense-single-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-single-4");
         Assert.Equal("transaction.expense.confirm", confirm.Payload.Frame.State);
-        await Publish(Input("actor-expense-single", "room-expense-single", "action", "transaction.expense.create", "expense-single-4"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-single-4");
+        await Publish(Input("actor-expense-single", "room-expense-single", "action", "transaction.expense.create", "expense-single-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-single-5");
         Assert.Equal("home", home.Payload.Frame.State);
         Assert.Equal("Expense was recorded", Notice(home.Payload.Frame.StateData));
         Assert.Equal(1, await Number("select count(*) from finance.transaction_entry"));
         Assert.Equal(87.5m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
+        Assert.Equal("Coffee", await Scalar("select coalesce(source_text, '') from finance.transaction_entry"));
+        Assert.Equal("coffee", await Scalar("select coalesce(source_key, '') from finance.transaction_entry"));
     }
     /// <summary>
     /// Verifies that a multi-account expense lets the user choose the account before saving.
@@ -83,13 +88,16 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> amount = await Take(queue, "expense-multi-2");
         Assert.Equal("transaction.expense.amount", amount.Payload.Frame.State);
         await Publish(Input("actor-expense-multi", "room-expense-multi", "text", "7.5", "expense-multi-3"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-multi-3");
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-multi-3");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        await Publish(Input("actor-expense-multi", "room-expense-multi", "text", "Morning coffee", "expense-multi-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-multi-4");
         Assert.Equal("transaction.expense.category", category.Payload.Frame.State);
-        await Publish(Input("actor-expense-multi", "room-expense-multi", "text", "Coffee", "expense-multi-4"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-multi-4");
+        await Publish(Input("actor-expense-multi", "room-expense-multi", "text", "Coffee", "expense-multi-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-multi-5");
         Assert.Equal("transaction.expense.confirm", confirm.Payload.Frame.State);
-        await Publish(Input("actor-expense-multi", "room-expense-multi", "action", "transaction.expense.create", "expense-multi-5"));
-        _ = await Take(queue, "expense-multi-5");
+        await Publish(Input("actor-expense-multi", "room-expense-multi", "action", "transaction.expense.create", "expense-multi-6"));
+        _ = await Take(queue, "expense-multi-6");
         Assert.Equal(100m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
         Assert.Equal(42.5m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Card'"), CultureInfo.InvariantCulture));
         Assert.Equal(1, await Number("select count(*) from finance.transaction_entry where account_id = (select id from finance.account where name = 'Card')"));
@@ -163,12 +171,14 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         _ = await Take(queue, "expense-dedupe-1");
         await Publish(Input("actor-expense-dedupe", "room-expense-dedupe", "text", "10", "expense-dedupe-2"));
         _ = await Take(queue, "expense-dedupe-2");
-        await Publish(Input("actor-expense-dedupe", "room-expense-dedupe", "action", "transaction.expense.category.1", "expense-dedupe-3"));
+        await Publish(Input("actor-expense-dedupe", "room-expense-dedupe", "text", "Lunch", "expense-dedupe-3"));
         _ = await Take(queue, "expense-dedupe-3");
-        MessageEnvelope<WorkspaceInputRequestedCommand> item = Input("actor-expense-dedupe", "room-expense-dedupe", "action", "transaction.expense.create", "expense-dedupe-4");
-        await Publish(item);
-        await Publish(item);
+        await Publish(Input("actor-expense-dedupe", "room-expense-dedupe", "action", "transaction.expense.category.1", "expense-dedupe-4"));
         _ = await Take(queue, "expense-dedupe-4");
+        MessageEnvelope<WorkspaceInputRequestedCommand> item = Input("actor-expense-dedupe", "room-expense-dedupe", "action", "transaction.expense.create", "expense-dedupe-5");
+        await Publish(item);
+        await Publish(item);
+        _ = await Take(queue, "expense-dedupe-5");
         Assert.Equal(1, await Number("select count(*) from finance.transaction_entry"));
         Assert.Equal(90m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
         Assert.Null(await View(queue, TimeSpan.FromSeconds(1)));
@@ -187,8 +197,8 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         await Reset();
         await Bind(queue, "workspace.view.requested");
         await Create(queue, "actor-expense-category", "room-expense-category", "Cash", "USD", "100", "expense-category-account");
-        await Record(queue, "actor-expense-category", "room-expense-category", "15", "Coffee", "expense-category-one");
-        await Record(queue, "actor-expense-category", "room-expense-category", "5", "coffee", "expense-category-two");
+        await Record(queue, "actor-expense-category", "room-expense-category", "15", "Morning coffee", "Coffee", "expense-category-one");
+        await Record(queue, "actor-expense-category", "room-expense-category", "5", "Afternoon coffee", "coffee", "expense-category-two");
         Assert.Equal(1, await Number("select count(*) from finance.category where scope = 'user' and user_id = (select id from finance.user_account where actor_key = 'actor-expense-category')"));
         Assert.Equal(2, await Number("select count(*) from finance.transaction_entry"));
     }
@@ -211,23 +221,110 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> amount = await Take(queue, "expense-legacy-1");
         Assert.Equal("transaction.expense.amount", amount.Payload.Frame.State);
         await Publish(Input("actor-expense-legacy", "room-expense-legacy", "text", "11", "expense-legacy-2"));
-        _ = await Take(queue, "expense-legacy-2");
-        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.category.1", "expense-legacy-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-legacy-2");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "text", "Taxi", "expense-legacy-3"));
         _ = await Take(queue, "expense-legacy-3");
-        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.create", "expense-legacy-4"));
-        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-legacy-4");
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.category.1", "expense-legacy-4"));
+        _ = await Take(queue, "expense-legacy-4");
+        await Publish(Input("actor-expense-legacy", "room-expense-legacy", "action", "transaction.expense.create", "expense-legacy-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-legacy-5");
         Assert.Equal("home", home.Payload.Frame.State);
         Assert.Equal(1, await Number("select count(*) from finance.transaction_entry"));
         Assert.Equal(89m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
     }
-    private async Task Record(string queue, string actor, string room, string amount, string category, string id)
+    /// <summary>
+    /// Verifies that a confirmed expense creates a rule and the next matching source skips category selection.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Learns one expense category rule from confirmed source text")]
+    public async Task Learns_expense_rule()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-expense-rule"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-expense-rule", "room-expense-rule", "Cash", "USD", "100", "expense-rule-account");
+        await Record(queue, "actor-expense-rule", "room-expense-rule", "15", "Coffee Shop", "Coffee", "expense-rule-one");
+        Assert.Equal(1, await Number("select count(*) from finance.category_rule where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
+        Assert.Equal("Coffee Shop", await Scalar("select source_text from finance.category_rule where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
+        Assert.Equal("coffee shop", await Scalar("select source_key from finance.category_rule where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
+        await Publish(Input("actor-expense-rule", "room-expense-rule", "action", "transaction.expense.add", "expense-rule-two-1"));
+        _ = await Take(queue, "expense-rule-two-1");
+        await Publish(Input("actor-expense-rule", "room-expense-rule", "text", "5", "expense-rule-two-2"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-rule-two-2");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        await Publish(Input("actor-expense-rule", "room-expense-rule", "text", "  coffee   shop  ", "expense-rule-two-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-rule-two-3");
+        Assert.Equal("transaction.expense.confirm", confirm.Payload.Frame.State);
+        Assert.Equal("Category was selected automatically", Notice(confirm.Payload.Frame.StateData));
+        Assert.Equal("Coffee", Category(confirm.Payload.Frame.StateData));
+        await Publish(Input("actor-expense-rule", "room-expense-rule", "action", "transaction.expense.create", "expense-rule-two-4"));
+        _ = await Take(queue, "expense-rule-two-4");
+        Assert.Equal(2, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
+        Assert.Equal(1, await Number("select count(distinct source_key) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-rule') and kind = 'expense'"));
+    }
+
+    /// <summary>
+    /// Verifies that a legacy category snapshot without source returns to the source step before confirm.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Routes a legacy expense category snapshot without source back to source")]
+    public async Task Routes_legacy_expense_category_to_source()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-expense-legacy-category"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-expense-legacy-category", "room-expense-legacy-category", "Cash", "USD", "100", "expense-legacy-category-account");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.add", "expense-legacy-category-1"));
+        _ = await Take(queue, "expense-legacy-category-1");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "11", "expense-legacy-category-2"));
+        _ = await Take(queue, "expense-legacy-category-2");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "Taxi", "expense-legacy-category-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> category = await Take(queue, "expense-legacy-category-3");
+        Assert.Equal("transaction.expense.category", category.Payload.Frame.State);
+        await Execute("update finance.workspace set state_data = state_data #- '{expense,source}' where conversation_key = 'room-expense-legacy-category'");
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.category.1", "expense-legacy-category-4"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> source = await Take(queue, "expense-legacy-category-4");
+        Assert.Equal("transaction.expense.source", source.Payload.Frame.State);
+        Assert.Equal("Merchant or description is required", Error(source.Payload.Frame.StateData));
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "text", "Taxi", "expense-legacy-category-5"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> resumed = await Take(queue, "expense-legacy-category-5");
+        Assert.Equal("transaction.expense.category", resumed.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.category.1", "expense-legacy-category-6"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> confirm = await Take(queue, "expense-legacy-category-6");
+        Assert.Equal("transaction.expense.confirm", confirm.Payload.Frame.State);
+        await Publish(Input("actor-expense-legacy-category", "room-expense-legacy-category", "action", "transaction.expense.create", "expense-legacy-category-7"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "expense-legacy-category-7");
+        Assert.Equal("home", home.Payload.Frame.State);
+        Assert.Equal(1, await Number("select count(*) from finance.transaction_entry where user_id = (select id from finance.user_account where actor_key = 'actor-expense-legacy-category') and kind = 'expense'"));
+    }
+
+    private async Task Record(string queue, string actor, string room, string amount, string source, string category, string id)
     {
         await Publish(Input(actor, room, "action", "transaction.expense.add", $"{id}-1"));
         _ = await Take(queue, $"{id}-1");
         await Publish(Input(actor, room, "text", amount, $"{id}-2"));
         _ = await Take(queue, $"{id}-2");
-        await Publish(Input(actor, room, "text", category, $"{id}-3"));
-        _ = await Take(queue, $"{id}-3");
+        await Publish(Input(actor, room, "text", source, $"{id}-3"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> view = await Take(queue, $"{id}-3");
+        if (string.Equals(view.Payload.Frame.State, "transaction.expense.category", StringComparison.Ordinal))
+        {
+            await Publish(Input(actor, room, "text", category, $"{id}-4"));
+            _ = await Take(queue, $"{id}-4");
+            await Publish(Input(actor, room, "action", "transaction.expense.create", $"{id}-5"));
+            _ = await Take(queue, $"{id}-5");
+            return;
+        }
+        if (!string.Equals(view.Payload.Frame.State, "transaction.expense.confirm", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Unexpected workspace state '{view.Payload.Frame.State}'");
+        }
         await Publish(Input(actor, room, "action", "transaction.expense.create", $"{id}-4"));
         _ = await Take(queue, $"{id}-4");
     }
@@ -271,6 +368,11 @@ public sealed class ExpenseRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(data);
         return item.RootElement.GetProperty("status").GetProperty("error").GetString() ?? string.Empty;
+    }
+    private static string Category(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("expense").GetProperty("category").GetProperty("name").GetString() ?? string.Empty;
     }
     private static string Account(string data, string name)
     {

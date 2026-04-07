@@ -119,6 +119,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
 
     private async ValueTask<WorkspaceMove> Flow(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
+        move = await Source(link, lane, userId, move, token);
         move = await Pick(link, lane, userId, move, when, token);
         move = await Store(link, lane, userId, move, when, token);
         move = await Fill(link, lane, userId, move, token);
@@ -127,7 +128,24 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         return await Finish(link, lane, userId, move, token);
     }
 
-    private async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.CategoryEntry) ? move : await CategoryPick(link, lane, userId, move, when, token);
+    private async ValueTask<WorkspaceMove> Source(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(move.TextEntry) || !body.TransactionSourceState(move.Code))
+        {
+            return move;
+        }
+        bool income = body.Kind(move.Code) == WorkspaceBody.IncomeKind;
+        PickData? item = await sql.Rule(link, lane, userId, move.TextEntry, body.Kind(income), token);
+        if (item is null)
+        {
+            WorkspaceData state = body.Model(body.Source(body.Transaction(move.Body, body.Pick(move.Body, income), new PickData(), body.Total(move.Body, income), income), move.TextEntry, income), choices: new ChoicesData(), status: new StatusData());
+            return new WorkspaceMove(body.CategoryCode(income), state);
+        }
+        WorkspaceData data = body.Model(body.Source(body.Transaction(move.Body, body.Pick(move.Body, income), item, body.Total(move.Body, income), income), move.TextEntry, income), choices: new ChoicesData(), status: new StatusData(string.Empty, "Category was selected automatically"));
+        return new WorkspaceMove(body.ConfirmCode(income), data);
+    }
+
+    private async ValueTask<WorkspaceMove> Pick(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token) => string.IsNullOrWhiteSpace(move.TextEntry) || body.TransactionSourceState(move.Code) ? move : await CategoryPick(link, lane, userId, move, when, token);
 
     private async ValueTask<WorkspaceMove> Store(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
     {
@@ -226,13 +244,13 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
                 RecentData page = await sql.Current(link, lane, userId, move.Body.Recent.Page, token);
                 return new WorkspaceMove(WorkspaceBody.RecentListState, body.Recent(move.Body, page, new ChoicesData(), new StatusData(string.Empty, WorkspaceBody.TransactionMissingNotice)), null, string.Empty, null);
             }
-            PickData pick = await sql.Category(link, lane, userId, move.CategoryEntry, move.CorrectValue.TransactionKind, when, token);
-            WorkspaceData state = body.Recent(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(current.Slot, new RecentEntryData(current.Id, current.Kind, current.Account, pick, current.Amount, current.Currency, current.OccurredUtc))), move.Body.Choices, move.Body.Status);
+            PickData pick = await sql.Category(link, lane, userId, move.TextEntry, move.CorrectValue.TransactionKind, when, token);
+            WorkspaceData state = body.Recent(move.Body, new RecentData(move.Body.Recent.Page, move.Body.Recent.HasPrevious, move.Body.Recent.HasNext, move.Body.Recent.Items, new RecentItemData(current.Slot, new RecentEntryData(current.Id, current.Kind, current.Account, pick, current.Amount, current.Currency, current.OccurredUtc) { Source = current.Source })), move.Body.Choices, move.Body.Status);
             return new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, state, null, string.Empty, null);
         }
         bool income = body.Kind(move.Code) == WorkspaceBody.IncomeKind;
-        PickData item = await sql.Category(link, lane, userId, move.CategoryEntry, body.Kind(income), when, token);
-        WorkspaceData data = body.Transaction(move.Body, body.Pick(move.Body, income), item, body.Total(move.Body, income), income);
+        PickData item = await sql.Category(link, lane, userId, move.TextEntry, body.Kind(income), when, token);
+        WorkspaceData data = body.Source(body.Transaction(move.Body, body.Pick(move.Body, income), item, body.Total(move.Body, income), income), body.Value(move.Body, income), income);
         return new WorkspaceMove(body.ConfirmCode(income), data, null, string.Empty, null);
     }
 

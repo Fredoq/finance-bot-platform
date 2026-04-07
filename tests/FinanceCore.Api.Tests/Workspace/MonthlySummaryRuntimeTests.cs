@@ -185,17 +185,20 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
     {
         string add;
         string prefix;
+        string category;
         string create;
         switch (note.Kind)
         {
             case "income":
                 add = "transaction.income.add";
                 prefix = "transaction.income.account.";
+                category = "transaction.income.category";
                 create = "transaction.income.create";
                 break;
             case "expense":
                 add = "transaction.expense.add";
                 prefix = "transaction.expense.account.";
+                category = "transaction.expense.category";
                 create = "transaction.expense.create";
                 break;
             default:
@@ -210,16 +213,32 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
             _ = await Take(queue, $"{note.Id}-2");
             await Publish(Input(actor, room, "text", note.Amount, $"{note.Id}-3"));
             _ = await Take(queue, $"{note.Id}-3");
-            await Publish(Input(actor, room, "text", note.Category, $"{note.Id}-4"));
-            _ = await Take(queue, $"{note.Id}-4");
+            await Publish(Input(actor, room, "text", note.Id, $"{note.Id}-4"));
+            view = await Take(queue, $"{note.Id}-4");
+            if (string.Equals(view.Payload.Frame.State, category, StringComparison.Ordinal))
+            {
+                await Publish(Input(actor, room, "text", note.Category, $"{note.Id}-5"));
+                _ = await Take(queue, $"{note.Id}-5");
+                await Publish(InputAt(actor, room, "action", create, $"{note.Id}-6", note.When));
+                _ = await Take(queue, $"{note.Id}-6");
+                return;
+            }
             await Publish(InputAt(actor, room, "action", create, $"{note.Id}-5", note.When));
             _ = await Take(queue, $"{note.Id}-5");
             return;
         }
         await Publish(Input(actor, room, "text", note.Amount, $"{note.Id}-2"));
         _ = await Take(queue, $"{note.Id}-2");
-        await Publish(Input(actor, room, "text", note.Category, $"{note.Id}-3"));
-        _ = await Take(queue, $"{note.Id}-3");
+        await Publish(Input(actor, room, "text", note.Id, $"{note.Id}-3"));
+        view = await Take(queue, $"{note.Id}-3");
+        if (string.Equals(view.Payload.Frame.State, category, StringComparison.Ordinal))
+        {
+            await Publish(Input(actor, room, "text", note.Category, $"{note.Id}-4"));
+            _ = await Take(queue, $"{note.Id}-4");
+            await Publish(InputAt(actor, room, "action", create, $"{note.Id}-5", note.When));
+            _ = await Take(queue, $"{note.Id}-5");
+            return;
+        }
         await Publish(InputAt(actor, room, "action", create, $"{note.Id}-4", note.When));
         _ = await Take(queue, $"{note.Id}-4");
     }

@@ -4,6 +4,8 @@ namespace TelegramGateway.Application.Entry.Workspace.Slices;
 
 internal sealed class WorkspaceText
 {
+    private const string NewExpense = "New expense";
+    private const string NewIncome = "New income";
     private readonly WorkspaceHtml html;
 
     public WorkspaceText(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
@@ -16,10 +18,12 @@ internal sealed class WorkspaceText
         "account.confirm" => Confirm(data),
         "transaction.expense.account" => ExpenseAccount(data),
         "transaction.expense.amount" => ExpenseAmount(data),
+        "transaction.expense.source" => ExpenseSource(data),
         "transaction.expense.category" => ExpenseCategory(data),
         "transaction.expense.confirm" => ExpenseConfirm(data),
         "transaction.income.account" => IncomeAccount(data),
         "transaction.income.amount" => IncomeAmount(data),
+        "transaction.income.source" => IncomeSource(data),
         "transaction.income.category" => IncomeCategory(data),
         "transaction.income.confirm" => IncomeConfirm(data),
         "transaction.recent.list" => RecentList(data),
@@ -111,48 +115,66 @@ internal sealed class WorkspaceText
         return text.ToString().TrimEnd();
     }
 
-    private static string ExpenseAccount(WorkspaceData data) => Transaction("New expense", data, data.Expense, static (text, _) => text.Append("Choose the account"));
+    private static string ExpenseAccount(WorkspaceData data) => Transaction(NewExpense, data, data.Expense, static (text, _) => text.Append("Choose the account"));
 
-    private static string ExpenseAmount(WorkspaceData data) => Transaction("New expense", data, data.Expense, (text, item) =>
+    private static string ExpenseAmount(WorkspaceData data) => Transaction(NewExpense, data, data.Expense, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
         text.AppendLine($"Currency: {WorkspaceHtml.Code(item.Account.Note)}");
         text.Append("Send the amount");
     });
 
-    private string ExpenseCategory(WorkspaceData data) => Transaction("New expense", data, data.Expense, (text, item) =>
+    private string ExpenseSource(WorkspaceData data) => Transaction(NewExpense, data, data.Expense, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
         text.AppendLine($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
+        text.Append("Send the merchant or description");
+    });
+
+    private string ExpenseCategory(WorkspaceData data) => Transaction(NewExpense, data, data.Expense, (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
+        text.AppendLine($"Source: <b>{WorkspaceHtml.Escape(item.Source)}</b>");
         text.Append("Choose the category or send a new name");
     });
 
     private string ExpenseConfirm(WorkspaceData data) => Transaction("Confirm expense", data, data.Expense, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Source: <b>{WorkspaceHtml.Escape(item.Source)}</b>");
         text.AppendLine($"Category: <b>{WorkspaceHtml.Escape(html.Category(item.Category.Name, item.Category.Note))}</b>");
         text.Append($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
     });
 
-    private static string IncomeAccount(WorkspaceData data) => Transaction("New income", data, data.Income, static (text, _) => text.Append("Choose the account"));
+    private static string IncomeAccount(WorkspaceData data) => Transaction(NewIncome, data, data.Income, static (text, _) => text.Append("Choose the account"));
 
-    private static string IncomeAmount(WorkspaceData data) => Transaction("New income", data, data.Income, (text, item) =>
+    private static string IncomeAmount(WorkspaceData data) => Transaction(NewIncome, data, data.Income, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
         text.AppendLine($"Currency: {WorkspaceHtml.Code(item.Account.Note)}");
         text.Append("Send the amount");
     });
 
-    private string IncomeCategory(WorkspaceData data) => Transaction("New income", data, data.Income, (text, item) =>
+    private string IncomeSource(WorkspaceData data) => Transaction(NewIncome, data, data.Income, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
         text.AppendLine($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
+        text.Append("Send the merchant or description");
+    });
+
+    private string IncomeCategory(WorkspaceData data) => Transaction(NewIncome, data, data.Income, (text, item) =>
+    {
+        text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
+        text.AppendLine($"Source: <b>{WorkspaceHtml.Escape(item.Source)}</b>");
         text.Append("Choose the category or send a new name");
     });
 
     private string IncomeConfirm(WorkspaceData data) => Transaction("Confirm income", data, data.Income, (text, item) =>
     {
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
+        text.AppendLine($"Source: <b>{WorkspaceHtml.Escape(item.Source)}</b>");
         text.AppendLine($"Category: <b>{WorkspaceHtml.Escape(html.Category(item.Category.Name, item.Category.Note))}</b>");
         text.Append($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
     });
@@ -163,6 +185,10 @@ internal sealed class WorkspaceText
         if (!string.IsNullOrWhiteSpace(data.Status.Error))
         {
             text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
+        }
+        if (!string.IsNullOrWhiteSpace(data.Status.Notice))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Notice));
         }
         text.AppendLine($"<b>{title}</b>");
         note(text, item);
@@ -203,6 +229,10 @@ internal sealed class WorkspaceText
     {
         text.AppendLine($"Kind: <b>{WorkspaceHtml.Escape(WorkspaceHtml.Title(item.Kind))}</b>");
         text.AppendLine($"Account: <b>{WorkspaceHtml.Escape(item.Account.Name)}</b>");
+        if (!string.IsNullOrWhiteSpace(item.Source))
+        {
+            text.AppendLine($"Source: <b>{WorkspaceHtml.Escape(item.Source)}</b>");
+        }
         text.AppendLine($"Category: <b>{WorkspaceHtml.Escape(html.Category(item.Category.Name, item.Category.Note))}</b>");
         text.AppendLine($"Amount: <b>{html.Amount(item.Amount, item.Currency)}</b>");
         text.Append($"Recorded: <code>{WorkspaceHtml.Escape(WorkspaceHtml.When(item.OccurredUtc))}</code>");

@@ -56,8 +56,22 @@ create table if not exists finance.transaction_entry
     account_id uuid not null references finance.account(id) on delete cascade,
     category_id uuid not null references finance.category(id) on delete cascade,
     kind text not null,
+    source_text text null,
+    source_key text null,
     amount numeric(19, 4) not null,
     occurred_utc timestamptz not null,
+    created_utc timestamptz not null,
+    updated_utc timestamptz not null
+);
+
+create table if not exists finance.category_rule
+(
+    id uuid primary key,
+    user_id uuid not null references finance.user_account(id) on delete cascade,
+    kind text not null,
+    source_text text not null,
+    source_key text not null,
+    category_id uuid not null references finance.category(id) on delete cascade,
     created_utc timestamptz not null,
     updated_utc timestamptz not null
 );
@@ -103,6 +117,8 @@ create index if not exists idx_category_user on finance.category(user_id) where 
 create unique index if not exists ux_category_system_code on finance.category(kind, code) where user_id is null;
 create unique index if not exists ux_category_user_name on finance.category(user_id, kind, lower(name)) where user_id is not null;
 create index if not exists idx_transaction_entry_user_occurred on finance.transaction_entry(user_id, occurred_utc desc);
+create unique index if not exists ux_category_rule_user_kind_source on finance.category_rule(user_id, kind, source_key);
+create index if not exists idx_category_rule_user_kind on finance.category_rule(user_id, kind);
 drop index if exists finance.idx_inbox_pending;
 drop index if exists finance.idx_outbox_pending;
 create index if not exists idx_inbox_pending on finance.inbox_message(received_utc) where processed_utc is null;

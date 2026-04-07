@@ -24,7 +24,7 @@ public sealed class WorkspaceBodyTests
     public void Resolves_account()
     {
         var item = new WorkspaceBody();
-        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Expense = new ExpenseData(new PickData(string.Empty, "Cash", "USD"), new PickData(), 5m) });
+        var data = new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData { Expense = new ExpenseData(new PickData(string.Empty, "Cash", "USD"), new PickData(), 5m, string.Empty) });
         string value = item.Resolve(data, false);
         Assert.Equal("a1", value);
     }

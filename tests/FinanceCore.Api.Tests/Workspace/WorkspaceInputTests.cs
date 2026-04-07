@@ -36,4 +36,34 @@ public sealed class WorkspaceInputTests
         WorkspaceMove move = item.Move(WorkspaceBody.NameState, body.Account(new WorkspaceData(), new FinancialData()), new WorkspaceInputRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "action", WorkspaceBody.AccountCancel, DateTimeOffset.UtcNow), DateTimeOffset.UtcNow);
         Assert.Equal(WorkspaceBody.HomeState, move.Code);
     }
+
+    /// <summary>
+    /// Verifies that legacy expense confirm snapshots without source return to the source step.
+    /// </summary>
+    [Fact(DisplayName = "Routes a legacy expense confirm snapshot without source back to source")]
+    public void Expense_source()
+    {
+        WorkspaceBody body = new();
+        WorkspaceDraft draft = new(body, new WorkspaceAmount());
+        WorkspaceRecent recent = new(body);
+        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body), new WorkspaceBreakdown(body));
+        WorkspaceData data = body.Transaction(new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData()), new PickData("a1", "Cash", "USD"), new PickData("c1", "Food", "food"), 5m, false);
+        WorkspaceMove move = item.Move(WorkspaceBody.ExpenseConfirmState, data, new WorkspaceInputRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "text", "hello", DateTimeOffset.UtcNow), DateTimeOffset.UtcNow);
+        Assert.Equal(WorkspaceBody.ExpenseSourceState, move.Code);
+    }
+
+    /// <summary>
+    /// Verifies that legacy income confirm snapshots without source return to the source step.
+    /// </summary>
+    [Fact(DisplayName = "Routes a legacy income confirm snapshot without source back to source")]
+    public void Income_source()
+    {
+        WorkspaceBody body = new();
+        WorkspaceDraft draft = new(body, new WorkspaceAmount());
+        WorkspaceRecent recent = new(body);
+        WorkspaceInput item = new(body, draft, recent, new WorkspaceSummary(body), new WorkspaceBreakdown(body));
+        WorkspaceData data = body.Transaction(new WorkspaceData([new AccountData("a1", "Cash", "USD", 10m)], new WorkspaceStateData()), new PickData("a1", "Cash", "USD"), new PickData("c1", "Salary", "salary"), 5m, true);
+        WorkspaceMove move = item.Move(WorkspaceBody.IncomeConfirmState, data, new WorkspaceInputRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), "text", "hello", DateTimeOffset.UtcNow), DateTimeOffset.UtcNow);
+        Assert.Equal(WorkspaceBody.IncomeSourceState, move.Code);
+    }
 }

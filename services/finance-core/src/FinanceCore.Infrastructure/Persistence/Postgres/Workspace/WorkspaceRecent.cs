@@ -20,7 +20,7 @@ internal sealed class WorkspaceRecent
         }
         int slot = body.Slot(code, WorkspaceBody.RecentItemSlot);
         RecentItemData item = body.Item(data.Recent.Items, slot);
-        return Move(WorkspaceBody.RecentDetailState, body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc)))));
+        return Move(WorkspaceBody.RecentDetailState, body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(item.Slot, new RecentEntryData(item.Id, item.Kind, item.Account, item.Category, item.Amount, item.Currency, item.OccurredUtc) { Source = item.Source }))));
     }
 
     internal WorkspaceMove Detail(WorkspaceData data, string code) => code switch
@@ -47,7 +47,7 @@ internal sealed class WorkspaceRecent
         int slot = body.Slot(code, WorkspaceBody.RecentCategorySlot);
         OptionData item = body.Option(data.Choices.Categories, slot);
         RecentItemData selected = data.Recent.Selected;
-        WorkspaceData state = body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc))));
+        WorkspaceData state = body.Recent(data, new RecentData(data.Recent.Page, data.Recent.HasPrevious, data.Recent.HasNext, data.Recent.Items, new RecentItemData(selected.Slot, new RecentEntryData(selected.Id, selected.Kind, selected.Account, new PickData(item.Id, item.Name, item.Note), selected.Amount, selected.Currency, selected.OccurredUtc) { Source = selected.Source })));
         return Move(WorkspaceBody.RecentRecategorizeState, state);
     }
 
