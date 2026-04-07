@@ -1,4 +1,5 @@
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
+using TelegramGateway.Api.Tests.Infrastructure;
 using TelegramGateway.Application.Telegram.Delivery;
 using TelegramGateway.Infrastructure.Telegram;
 
@@ -15,8 +16,7 @@ public sealed class TelegramContextPortTests
     [Fact(DisplayName = "Stores envelope and conversation notes")]
     public void Store()
     {
-        using var cache = new MemoryCache(new MemoryCacheOptions());
-        var item = new TelegramContextPort(cache);
+        var item = new TelegramContextPort(new MemoryContextStore(), NullLogger<TelegramContextPort>.Instance);
         var id = Guid.CreateVersion7();
         item.Save(id, "room", 100, 7, "callback-1");
         TelegramContextNote? envelope = item.Envelope(id.ToString());
@@ -33,13 +33,26 @@ public sealed class TelegramContextPortTests
     [Fact(DisplayName = "Updates and clears the conversation note")]
     public void Clear()
     {
-        using var cache = new MemoryCache(new MemoryCacheOptions());
-        var item = new TelegramContextPort(cache);
+        var item = new TelegramContextPort(new MemoryContextStore(), NullLogger<TelegramContextPort>.Instance);
         item.Update("room", 100, 7);
         TelegramContextNote? conversation = item.Conversation("room");
         Assert.Equal(7, conversation?.MessageId);
         Assert.True(string.IsNullOrEmpty(conversation?.QueryId));
         item.Clear("room");
         Assert.Null(item.Conversation("room"));
+    }
+
+    /// <summary>
+    /// Verifies that store faults degrade to cache misses instead of bubbling to callers.
+    /// </summary>
+    [Fact(DisplayName = "Treats context store faults as misses")]
+    public void Miss()
+    {
+        var item = new TelegramContextPort(new FaultContextStore(), NullLogger<TelegramContextPort>.Instance);
+        item.Save(Guid.CreateVersion7(), "room", 100, 7, "callback-1");
+        Assert.Null(item.Envelope("envelope"));
+        Assert.Null(item.Conversation("room"));
+        item.Update("room", 100, 7);
+        item.Clear("room");
     }
 }

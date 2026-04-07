@@ -26,7 +26,7 @@ Ensure the Aspire CLI is installed and available in your `PATH`.
 aspire run --project aspire/FinanceBot.AppHost --non-interactive
 ```
 
-The AppHost starts `PostgreSQL`, `RabbitMQ`, `finance-core`, and `telegram-gateway`. `telegram-gateway` is exposed locally on `http://127.0.0.1:8082`.
+The AppHost starts `PostgreSQL`, `RabbitMQ`, `Redis`, `finance-core`, and `telegram-gateway`. `telegram-gateway` is exposed locally on `http://127.0.0.1:8082`.
 
 Expose the webhook endpoint through a temporary HTTPS tunnel for development:
 
@@ -66,6 +66,7 @@ curl -X POST "https://api.telegram.org/bot${BOT}/deleteWebhook" \
 - [Service boundaries](docs/architecture/services.md)
 - [Delivery ADR](docs/adr/0005-telegram-gateway-outbound-delivery-and-reversible-opaque-keys.md)
 - [Recent transactions ADR](docs/adr/0007-recent-transactions-corrective-flow-and-editable-delivery.md)
+- [Shared transport context cache ADR](docs/adr/0009-telegram-gateway-shared-transport-context-cache.md)
 - [Repository strategy](docs/architecture/repository-strategy.md)
 - [ADR-0001: Monorepo and service boundaries](docs/adr/0001-monorepo-and-service-boundaries.md)
 - [ADR-0002: Telegram gateway boundary and entry contracts](docs/adr/0002-telegram-gateway-telegram-boundary-and-entry-contracts.md)

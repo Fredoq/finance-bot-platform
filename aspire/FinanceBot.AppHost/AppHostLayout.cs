@@ -16,6 +16,7 @@ internal sealed class AppHostLayout : IAppHostLayout
         IResourceBuilder<PostgresServerResource> postgres = builder.AddPostgres("postgres", port: 5432);
         IResourceBuilder<PostgresDatabaseResource> database = postgres.AddDatabase("finance-db", "finance");
         IResourceBuilder<RabbitMQServerResource> rabbit = builder.AddRabbitMQ("rabbitmq", port: 5672).WithManagementPlugin();
+        IResourceBuilder<RedisResource> redis = builder.AddRedis("redis", port: 6379);
         IResourceBuilder<ProjectResource> core = builder.AddProject<Projects.FinanceCore_Api>("finance-core")
             .WithEnvironment("Postgres__ConnectionString", database)
             .WithEnvironment("RabbitMq__ConnectionString", rabbit)
@@ -24,11 +25,13 @@ internal sealed class AppHostLayout : IAppHostLayout
             .WaitFor(rabbit);
         builder.AddProject<Projects.TelegramGateway_Api>("telegram-gateway")
             .WithEnvironment("RabbitMq__ConnectionString", rabbit)
+            .WithEnvironment("Redis__ConnectionString", redis)
             .WithEnvironment("Telegram__Bot__Token", bot)
             .WithEnvironment("Telegram__Webhook__SecretToken", hook)
             .WithEnvironment("Telegram__Keys__CurrentSecret", key)
             .WithHttpEndpoint(port: 8082, name: "http")
             .WaitFor(rabbit)
+            .WaitFor(redis)
             .WaitFor(core);
     }
 

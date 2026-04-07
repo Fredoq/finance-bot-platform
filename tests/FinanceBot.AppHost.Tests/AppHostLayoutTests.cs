@@ -31,6 +31,7 @@ public sealed class AppHostLayoutTests
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "postgres", StringComparison.Ordinal));
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "finance-db", StringComparison.Ordinal));
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "rabbitmq", StringComparison.Ordinal));
+        Assert.Contains(item.Resources, note => string.Equals(note.Name, "redis", StringComparison.Ordinal));
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "finance-core", StringComparison.Ordinal));
         Assert.Contains(item.Resources, note => string.Equals(note.Name, "telegram-gateway", StringComparison.Ordinal));
     }
