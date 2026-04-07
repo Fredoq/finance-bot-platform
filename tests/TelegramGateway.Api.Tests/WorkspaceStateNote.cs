@@ -24,19 +24,19 @@ internal static class WorkspaceStateNote
             Choices = new ChoicesData(),
             Status = new StatusData()
         };
-    public static WorkspaceData Summary(int year, int month, IReadOnlyList<SummaryCurrencyData> currencies, string notice = "")
+    public static WorkspaceData Summary(int year, int month, IReadOnlyList<SummaryCurrencyData> currencies, string notice = "", string timeZone = "Etc/UTC")
         => new()
         {
             Accounts = [Account()],
-            Summary = new SummaryData { Year = year, Month = month, Currencies = currencies },
+            Summary = new SummaryData { Year = year, Month = month, TimeZone = timeZone, Currencies = currencies },
             Choices = new ChoicesData(),
             Status = new StatusData { Error = string.Empty, Notice = notice }
         };
-    public static WorkspaceData Breakdown(int year, int month, IReadOnlyList<BreakdownCurrencyData> currencies, string notice = "")
+    public static WorkspaceData Breakdown(int year, int month, IReadOnlyList<BreakdownCurrencyData> currencies, string notice = "", string timeZone = "Etc/UTC")
         => new()
         {
             Accounts = [Account()],
-            Breakdown = new BreakdownData { Year = year, Month = month, Currencies = currencies },
+            Breakdown = new BreakdownData { Year = year, Month = month, TimeZone = timeZone, Currencies = currencies },
             Choices = new ChoicesData(),
             Status = new StatusData { Error = string.Empty, Notice = notice }
         };

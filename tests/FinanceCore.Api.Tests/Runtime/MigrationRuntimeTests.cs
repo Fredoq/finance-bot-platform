@@ -20,6 +20,7 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         await Ready(client);
         Assert.Equal(1, await Number("select count(*) from finance.schema_journal"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'user_account'"));
+        Assert.Equal(1, await Number("select count(*) from information_schema.columns where table_schema = 'finance' and table_name = 'user_account' and column_name = 'time_zone' and is_nullable = 'NO'"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
@@ -66,6 +67,31 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
+    }
+    /// <summary>
+    /// Verifies that startup repairs the user time zone column after the baseline was already journaled.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Repairs the user time zone column after a journaled baseline startup")]
+    public async Task Repairs_time_zone()
+    {
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-zone-a")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        await Execute("""
+                      alter table finance.user_account drop column if exists time_zone;
+                      insert into finance.user_account(id, actor_key, name, locale, created_utc, updated_utc)
+                      values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'actor-zone-repair', 'Alex', 'en', '2026-01-01 00:00:00+00'::timestamptz, '2026-01-01 00:00:00+00'::timestamptz);
+                      """);
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-zone-b")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        Assert.Equal(1, await Number("select count(*) from information_schema.columns where table_schema = 'finance' and table_name = 'user_account' and column_name = 'time_zone' and is_nullable = 'NO'"));
+        Assert.Equal(1, await Number("select count(*) from finance.user_account where actor_key = 'actor-zone-repair' and time_zone = 'Etc/UTC'"));
     }
     /// <summary>
     /// Verifies that startup restores a drifted system category code after the baseline was already journaled.

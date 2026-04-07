@@ -281,6 +281,7 @@ internal sealed class WorkspaceText
         }
         text.AppendLine("<b>Monthly summary</b>");
         text.AppendLine(WorkspaceHtml.Escape(WorkspaceHtml.Month(data.Summary.Year, data.Summary.Month)));
+        text.AppendLine($"Time zone: {WorkspaceHtml.Code(data.Summary.TimeZone)}");
         if (data.Summary.Currencies.Count == 0)
         {
             if (!string.IsNullOrWhiteSpace(data.Status.Notice))
@@ -320,6 +321,7 @@ internal sealed class WorkspaceText
         }
         text.AppendLine("<b>Category breakdown</b>");
         text.AppendLine(WorkspaceHtml.Escape(WorkspaceHtml.Month(data.Breakdown.Year, data.Breakdown.Month)));
+        text.AppendLine($"Time zone: {WorkspaceHtml.Code(data.Breakdown.TimeZone)}");
         if (data.Breakdown.Currencies.Count == 0)
         {
             if (!string.IsNullOrWhiteSpace(data.Status.Notice))

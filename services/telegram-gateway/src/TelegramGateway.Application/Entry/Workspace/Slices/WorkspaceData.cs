@@ -118,9 +118,14 @@ internal sealed record RecentItemData
 
 internal sealed record SummaryData
 {
-    public SummaryData() => Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
+    public SummaryData()
+    {
+        TimeZone = "Etc/UTC";
+        Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
+    }
     public int Year { get; init; }
     public int Month { get; init; }
+    public string TimeZone { get; init; }
     public IReadOnlyList<SummaryCurrencyData> Currencies { get; init; }
 }
 
@@ -154,9 +159,14 @@ internal sealed record SummaryAccountData
 
 internal sealed record BreakdownData
 {
-    public BreakdownData() => Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
+    public BreakdownData()
+    {
+        TimeZone = "Etc/UTC";
+        Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
+    }
     public int Year { get; init; }
     public int Month { get; init; }
+    public string TimeZone { get; init; }
     public IReadOnlyList<BreakdownCurrencyData> Currencies { get; init; }
 }
 

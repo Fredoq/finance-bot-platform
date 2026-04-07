@@ -19,18 +19,18 @@ internal sealed class WorkspaceInput
         this.breakdown = breakdown ?? throw new ArgumentNullException(nameof(breakdown));
     }
 
-    internal WorkspaceMove Move(string state, WorkspaceData data, WorkspaceInputRequestedCommand command, DateTimeOffset when)
+    internal WorkspaceMove Move(string state, WorkspaceData data, WorkspaceInputRequestedCommand command, DateTimeOffset when, string timeZone)
     {
         string kind = command.Kind.Trim();
         return kind switch
         {
-            "action" => Action(state, data, command.Value, when),
+            "action" => Action(state, data, command.Value, when, timeZone),
             "text" => Text(state, data, command.Value),
             _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("Input kind is not supported", data.Status.Notice)), null, string.Empty, null)
         };
     }
 
-    private WorkspaceMove Action(string state, WorkspaceData data, string value, DateTimeOffset when)
+    private WorkspaceMove Action(string state, WorkspaceData data, string value, DateTimeOffset when, string timeZone)
     {
         string code = value.Trim();
         if (code == WorkspaceBody.AccountCancel && body.AccountState(state))
@@ -63,7 +63,7 @@ internal sealed class WorkspaceInput
         }
         return state switch
         {
-            WorkspaceBody.HomeState => draft.Home(data, code, when),
+            WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
             WorkspaceBody.CurrencyState => draft.Currency(data, code),
             WorkspaceBody.ConfirmState => draft.Confirm(data, code),
             WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),

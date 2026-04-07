@@ -50,7 +50,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             await lane.CommitAsync(token);
             return;
         }
-        (Guid userId, bool isNewUser) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
+        (Guid userId, bool isNewUser, _) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
         WorkspaceWrite state = await Start(link, lane, userId, message.Payload, when, token);
         await Outbox(link, lane, message, state.State, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, state.IsNew, when), token);
         await Processed(link, lane, message, token);
@@ -70,8 +70,8 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             await lane.CommitAsync(token);
             return;
         }
-        (Guid userId, bool isNewUser) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
-        WorkspaceWrite state = await Input(link, lane, userId, message.Payload, when, token);
+        (Guid userId, bool isNewUser, string timeZone) = await User(link, lane, message.Payload.Identity, message.Payload.Profile, when, token);
+        WorkspaceWrite state = await Input(link, lane, userId, message.Payload, when, timeZone, token);
         await Outbox(link, lane, message, state.State, new WorkspaceViewNote(message.Payload.Identity, message.Payload.Profile, isNewUser, state.IsNew, when), token);
         await Processed(link, lane, message, token);
         await lane.CommitAsync(token);
@@ -94,7 +94,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         throw new InvalidOperationException($"Workspace save exceeded retry limit for conversation '{command.Identity.ConversationKey}'");
     }
 
-    private async ValueTask<WorkspaceWrite> Input(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceInputRequestedCommand command, DateTimeOffset when, CancellationToken token)
+    private async ValueTask<WorkspaceWrite> Input(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceInputRequestedCommand command, DateTimeOffset when, string timeZone, CancellationToken token)
     {
         for (int item = 0; item < RetryCount; item += 1)
         {
@@ -104,7 +104,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
             IReadOnlyList<AccountData> list = await sql.Accounts(link, lane, userId, token);
             WorkspaceData state = current is null ? body.Home(list, string.Empty) : body.Sync(body.Data(current.Snapshot.Data), list);
             string code = current?.Snapshot.State ?? WorkspaceBody.HomeState;
-            WorkspaceMove move = await Flow(link, lane, userId, input.Move(code, state, command, when), when, token);
+            WorkspaceMove move = await Flow(link, lane, userId, input.Move(code, state, command, when, timeZone), when, token);
             var frame = new WorkspaceFrame(userId, command.Identity.ConversationKey, move.Code, body.Json(move.Body), string.Empty, command.Value, when);
             WorkspaceItem? next = current is null ? await sql.Add(link, lane, frame, token) : await sql.Write(link, lane, new WorkspaceMark(current.Id, current.Snapshot.Revision, frame), token);
             if (next is not null)
@@ -166,12 +166,12 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         if (move.Code == WorkspaceBody.SummaryState && move.Body.Summary.Year > 0 && move.Body.Summary.Month > 0 && move.Body.Summary.Currencies.Count == 0)
         {
-            SummaryData item = await sql.Summary(link, lane, userId, move.Body.Summary.Year, move.Body.Summary.Month, token);
+            SummaryData item = await sql.Summary(link, lane, userId, move.Body.Summary.Year, move.Body.Summary.Month, move.Body.Summary.TimeZone, token);
             return new WorkspaceMove(WorkspaceBody.SummaryState, body.Summary(move.Body, item, move.Body.Status), null, string.Empty, null);
         }
         if (move.Code == WorkspaceBody.BreakdownState && move.Body.Breakdown.Year > 0 && move.Body.Breakdown.Month > 0 && move.Body.Breakdown.Currencies.Count == 0)
         {
-            BreakdownData item = await sql.Breakdown(link, lane, userId, move.Body.Breakdown.Year, move.Body.Breakdown.Month, token);
+            BreakdownData item = await sql.Breakdown(link, lane, userId, move.Body.Breakdown.Year, move.Body.Breakdown.Month, move.Body.Breakdown.TimeZone, token);
             return new WorkspaceMove(WorkspaceBody.BreakdownState, body.Breakdown(move.Body, item, move.Body.Status), null, string.Empty, null);
         }
         if (!body.TransactionCategoryState(move.Code) || move.Body.Choices.Categories.Count > 0)
@@ -288,29 +288,30 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         return await note.ExecuteNonQueryAsync(token) == 1;
     }
 
-    private static async ValueTask<(Guid UserId, bool IsNewUser)> User(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceIdentity identity, WorkspaceProfile profile, DateTimeOffset when, CancellationToken token)
+    private static async ValueTask<(Guid UserId, bool IsNewUser, string TimeZone)> User(NpgsqlConnection link, NpgsqlTransaction lane, WorkspaceIdentity identity, WorkspaceProfile profile, DateTimeOffset when, CancellationToken token)
     {
-        await using NpgsqlCommand add = new("insert into finance.user_account(id, actor_key, name, locale, created_utc, updated_utc) values (@id, @actor_key, @name, @locale, @created_utc, @updated_utc) on conflict do nothing returning id", link, lane);
+        await using NpgsqlCommand add = new("insert into finance.user_account(id, actor_key, name, locale, time_zone, created_utc, updated_utc) values (@id, @actor_key, @name, @locale, @time_zone, @created_utc, @updated_utc) on conflict do nothing returning id, time_zone", link, lane);
         add.Parameters.AddWithValue("id", Guid.CreateVersion7());
         add.Parameters.AddWithValue("actor_key", identity.ActorKey);
         add.Parameters.AddWithValue("name", profile.Name);
         add.Parameters.AddWithValue("locale", profile.Locale);
+        add.Parameters.AddWithValue("time_zone", WorkspaceZone.Default);
         add.Parameters.AddWithValue(CreatedUtc, when);
         add.Parameters.AddWithValue(UpdatedUtc, when);
-        Guid? userId = await Id(add, token);
+        (Guid? userId, string? timeZone) = await UserRow(add, token);
         if (userId.HasValue)
         {
-            return (userId.Value, true);
+            return (userId.Value, true, timeZone ?? WorkspaceZone.Default);
         }
-        await using NpgsqlCommand note = new("update finance.user_account set name = @name, locale = @locale, updated_utc = @updated_utc where actor_key = @actor_key returning id", link, lane);
+        await using NpgsqlCommand note = new("update finance.user_account set name = @name, locale = @locale, updated_utc = @updated_utc where actor_key = @actor_key returning id, time_zone", link, lane);
         note.Parameters.AddWithValue("actor_key", identity.ActorKey);
         note.Parameters.AddWithValue("name", profile.Name);
         note.Parameters.AddWithValue("locale", profile.Locale);
         note.Parameters.AddWithValue(UpdatedUtc, when);
-        userId = await Id(note, token);
+        (userId, timeZone) = await UserRow(note, token);
         if (userId.HasValue)
         {
-            return (userId.Value, false);
+            return (userId.Value, false, timeZone ?? WorkspaceZone.Default);
         }
         throw new InvalidOperationException("User upsert failed");
     }
@@ -354,9 +355,9 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
     }
 
-    private static async ValueTask<Guid?> Id(NpgsqlCommand note, CancellationToken token)
+    private static async ValueTask<(Guid? UserId, string? TimeZone)> UserRow(NpgsqlCommand note, CancellationToken token)
     {
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-        return await row.ReadAsync(token) ? row.GetGuid(0) : null;
+        return await row.ReadAsync(token) ? (row.GetGuid(0), row.GetString(1)) : (null, null);
     }
 }

@@ -169,6 +169,10 @@ internal sealed class WorkspaceBody
         {
             throw new InvalidOperationException("Workspace screen 'summary.month' requires month");
         }
+        if (string.IsNullOrWhiteSpace(item.Summary.TimeZone))
+        {
+            throw new InvalidOperationException("Workspace screen 'summary.month' requires time zone");
+        }
         return item;
     }
 
@@ -181,6 +185,10 @@ internal sealed class WorkspaceBody
         if (item.Breakdown.Month is < 1 or > 12)
         {
             throw new InvalidOperationException("Workspace screen 'category.month' requires month");
+        }
+        if (string.IsNullOrWhiteSpace(item.Breakdown.TimeZone))
+        {
+            throw new InvalidOperationException("Workspace screen 'category.month' requires time zone");
         }
         if (item.Breakdown.Currencies is null)
         {
