@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TelegramGateway.Application.Messaging;
 using TelegramGateway.Infrastructure.Messaging;
+using TelegramGateway.Infrastructure.Telegram;
 
 namespace TelegramGateway.Api.Tests.Infrastructure;
 
@@ -30,6 +31,8 @@ internal sealed class GatewayApiFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, data) => data.AddInMemoryCollection(note));
         builder.ConfigureServices(data =>
         {
+            data.RemoveAll<ITelegramContextStore>();
+            data.AddSingleton<ITelegramContextStore, MemoryContextStore>();
             if (!hosted)
             {
                 data.RemoveAll<IHostedService>();

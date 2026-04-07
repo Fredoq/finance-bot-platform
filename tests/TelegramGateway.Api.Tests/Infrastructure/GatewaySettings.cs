@@ -22,7 +22,9 @@ internal static class GatewaySettings
         ["RabbitMq:Client"] = name,
         ["RabbitMq:DeliveryPrefetch"] = "16",
         ["RabbitMq:DeliveryRetryDelaySeconds"] = "1",
-        ["RabbitMq:DeliveryMaxAttempts"] = "5"
+        ["RabbitMq:DeliveryMaxAttempts"] = "5",
+        ["Redis:ConnectionString"] = "localhost:6379",
+        ["Redis:KeyPrefix"] = ""
     };
     internal static Dictionary<string, string?> Note(string name, Uri address)
     {
