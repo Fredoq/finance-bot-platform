@@ -95,12 +95,12 @@ internal sealed class WorkspaceInput
         WorkspaceBody.ExpenseAmountState => draft.Total(data, value, false),
         WorkspaceBody.ExpenseSourceState => draft.Source(data, value, false),
         WorkspaceBody.ExpenseCategoryState => draft.Text(data, value, false),
-        WorkspaceBody.ExpenseConfirmState => new WorkspaceMove(WorkspaceBody.ExpenseConfirmState, body.Model(body.Source(body.Transaction(data, body.Pick(data, false), body.Category(data, false), body.Total(data, false), false), body.Value(data, false), false), choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        WorkspaceBody.ExpenseConfirmState => ExpenseConfirm(data),
         WorkspaceBody.IncomeAccountState => new WorkspaceMove(WorkspaceBody.IncomeAccountState, body.Model(data, new FinancialData(), data.Choices, new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
         WorkspaceBody.IncomeAmountState => draft.Total(data, value, true),
         WorkspaceBody.IncomeSourceState => draft.Source(data, value, true),
         WorkspaceBody.IncomeCategoryState => draft.Text(data, value, true),
-        WorkspaceBody.IncomeConfirmState => new WorkspaceMove(WorkspaceBody.IncomeConfirmState, body.Model(body.Source(body.Transaction(data, body.Pick(data, true), body.Category(data, true), body.Total(data, true), true), body.Value(data, true), true), choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        WorkspaceBody.IncomeConfirmState => IncomeConfirm(data),
         WorkspaceBody.RecentCategoryState => recent.Text(data, value),
         WorkspaceBody.RecentListState => new WorkspaceMove(WorkspaceBody.RecentListState, body.Model(data, status: new StatusData("Use the buttons to choose one transaction or go back", string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentDetailState => new WorkspaceMove(WorkspaceBody.RecentDetailState, body.Model(data, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null),
@@ -110,4 +110,20 @@ internal sealed class WorkspaceInput
         WorkspaceBody.BreakdownState => breakdown.Text(data),
         _ => new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null)
     };
+
+    private WorkspaceMove ExpenseConfirm(WorkspaceData data)
+    {
+        WorkspaceData transaction = body.Transaction(data, body.Pick(data, false), body.Category(data, false), body.Total(data, false), false);
+        WorkspaceData sourced = body.Source(transaction, body.Value(data, false), false);
+        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
+        return new WorkspaceMove(WorkspaceBody.ExpenseConfirmState, model, null, string.Empty, null);
+    }
+
+    private WorkspaceMove IncomeConfirm(WorkspaceData data)
+    {
+        WorkspaceData transaction = body.Transaction(data, body.Pick(data, true), body.Category(data, true), body.Total(data, true), true);
+        WorkspaceData sourced = body.Source(transaction, body.Value(data, true), true);
+        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
+        return new WorkspaceMove(WorkspaceBody.IncomeConfirmState, model, null, string.Empty, null);
+    }
 }

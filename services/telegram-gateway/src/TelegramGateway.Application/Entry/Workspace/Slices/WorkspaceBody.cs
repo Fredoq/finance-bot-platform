@@ -107,10 +107,6 @@ internal sealed class WorkspaceBody
     private static WorkspaceData ExpenseConfirm(WorkspaceData item)
     {
         ExpenseCategory(item);
-        if (string.IsNullOrWhiteSpace(item.Expense.Source))
-        {
-            throw new InvalidOperationException("Workspace screen 'transaction.expense.confirm' requires source");
-        }
         return !string.IsNullOrWhiteSpace(item.Expense.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.expense.confirm' requires category");
     }
 
@@ -140,10 +136,6 @@ internal sealed class WorkspaceBody
     private static WorkspaceData IncomeConfirm(WorkspaceData item)
     {
         IncomeCategory(item);
-        if (string.IsNullOrWhiteSpace(item.Income.Source))
-        {
-            throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires source");
-        }
         return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
     }
 

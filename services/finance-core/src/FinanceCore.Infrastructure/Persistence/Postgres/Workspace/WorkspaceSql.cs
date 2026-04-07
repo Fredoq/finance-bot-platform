@@ -425,20 +425,20 @@ internal sealed class WorkspaceSql
         item.Parameters.AddWithValue(map.UpdatedUtc, when);
         item.Parameters.AddWithValue("id", itemId);
         item.Parameters.AddWithValue(map.UserId, userId);
-        string sourceText;
-        string sourceKey;
+        string text;
+        string key;
         await using (NpgsqlDataReader row = await item.ExecuteReaderAsync(token))
         {
             if (!await row.ReadAsync(token))
             {
                 return false;
             }
-            sourceText = row.GetString(0);
-            sourceKey = row.GetString(1);
+            text = row.GetString(0);
+            key = row.GetString(1);
         }
-        if (!string.IsNullOrWhiteSpace(sourceKey))
+        if (!string.IsNullOrWhiteSpace(key))
         {
-            await Learn(link, lane, new RuleNote(userId, note.TransactionKind, sourceText, sourceKey, Parse(categoryId, nameof(note.CategoryId))), when, token);
+            await Learn(link, lane, new RuleNote(userId, note.TransactionKind, text, key, Parse(categoryId, nameof(note.CategoryId))), when, token);
         }
         return true;
     }
@@ -449,8 +449,8 @@ internal sealed class WorkspaceSql
         Guid categoryId = Parse(note.CategoryId, nameof(note.CategoryId));
         string kind = body.Supported(note.TransactionKind);
         string sign = body.Change(kind);
-        string sourceText = note.SourceText.Trim();
-        string sourceKey = Normalize(sourceText);
+        string text = note.SourceText.Trim();
+        string key = Normalize(text);
         await using (NpgsqlCommand item = new("insert into finance.transaction_entry(id, user_id, account_id, category_id, kind, source_text, source_key, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @account_id, @category_id, @kind, @source_text, @source_key, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
         {
             item.Parameters.AddWithValue("id", Guid.CreateVersion7());
@@ -458,8 +458,8 @@ internal sealed class WorkspaceSql
             item.Parameters.AddWithValue("account_id", accountId);
             item.Parameters.AddWithValue("category_id", categoryId);
             item.Parameters.AddWithValue("kind", kind);
-            item.Parameters.Add("source_text", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(sourceText) ? DBNull.Value : sourceText;
-            item.Parameters.Add("source_key", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(sourceKey) ? DBNull.Value : sourceKey;
+            item.Parameters.Add("source_text", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(text) ? DBNull.Value : text;
+            item.Parameters.Add("source_key", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(key) ? DBNull.Value : key;
             item.Parameters.AddWithValue("amount", note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
             item.Parameters.AddWithValue(map.CreatedUtc, when);
@@ -478,9 +478,9 @@ internal sealed class WorkspaceSql
         {
             throw new InvalidOperationException("Account balance update failed");
         }
-        if (!string.IsNullOrWhiteSpace(sourceKey))
+        if (!string.IsNullOrWhiteSpace(key))
         {
-            await Learn(link, lane, new RuleNote(userId, kind, sourceText, sourceKey, categoryId), when, token);
+            await Learn(link, lane, new RuleNote(userId, kind, text, key, categoryId), when, token);
         }
     }
 
