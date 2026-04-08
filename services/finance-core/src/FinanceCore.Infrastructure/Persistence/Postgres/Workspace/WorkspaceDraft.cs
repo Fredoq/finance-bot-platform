@@ -33,7 +33,21 @@ internal sealed class WorkspaceDraft
         {
             return Move(WorkspaceBody.SummaryState, body.Summary(data, WorkspaceBody.Month(when, timeZone)));
         }
+        if (code == WorkspaceBody.ShowTimeZone)
+        {
+            return Move(WorkspaceBody.TimeZoneState, body.Profile(data, new ProfileData(WorkspaceZone.Id(timeZone))));
+        }
         return Move(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt));
+    }
+
+    internal WorkspaceMove TimeZone(WorkspaceData data, string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (!WorkspaceZone.Try(value, out string zoneId))
+        {
+            return Move(WorkspaceBody.TimeZoneState, body.Profile(data, new ProfileData(data.Profile.TimeZone), new StatusData("Send a valid IANA time zone id", string.Empty)));
+        }
+        return Move(WorkspaceBody.TimeZoneState, body.Profile(data, new ProfileData(zoneId)), new TimeZoneNote(zoneId));
     }
 
     internal WorkspaceMove Currency(WorkspaceData data, string code) => code switch
@@ -235,4 +249,6 @@ internal sealed class WorkspaceDraft
     private static WorkspaceMove Move(string code, WorkspaceData data, string category) => new(code, data, category);
 
     private static WorkspaceMove Move(string code, WorkspaceData data, TransactionNote note) => new(code, data, note);
+
+    private static WorkspaceMove Move(string code, WorkspaceData data, TimeZoneNote note) => new(code, data, note);
 }

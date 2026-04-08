@@ -20,6 +20,10 @@ internal sealed record WorkspaceMove
     {
     }
 
+    internal WorkspaceMove(string code, WorkspaceData body, TimeZoneNote zone) : this(code, body, null, string.Empty, null, null, zone)
+    {
+    }
+
     internal WorkspaceMove(string code, WorkspaceData body, CorrectionNote correction) : this(code, body, null, string.Empty, null, correction)
     {
     }
@@ -28,7 +32,7 @@ internal sealed record WorkspaceMove
     {
     }
 
-    internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string text, TransactionNote? transaction, CorrectionNote? correction = null)
+    internal WorkspaceMove(string code, WorkspaceData body, AccountDraft? account, string text, TransactionNote? transaction, CorrectionNote? correction = null, TimeZoneNote? zone = null)
     {
         Code = code ?? throw new ArgumentNullException(nameof(code));
         Body = body ?? throw new ArgumentNullException(nameof(body));
@@ -36,6 +40,7 @@ internal sealed record WorkspaceMove
         TextEntry = text ?? throw new ArgumentNullException(nameof(text));
         RecordValue = transaction;
         CorrectValue = correction;
+        TimeZoneValue = zone;
     }
     internal string Code { get; }
     internal WorkspaceData Body { get; }
@@ -43,6 +48,7 @@ internal sealed record WorkspaceMove
     internal string TextEntry { get; }
     internal TransactionNote? RecordValue { get; }
     internal CorrectionNote? CorrectValue { get; }
+    internal TimeZoneNote? TimeZoneValue { get; }
 }
 
 internal sealed record AccountDraft
@@ -93,6 +99,20 @@ internal sealed record CorrectionNote
     internal string TransactionKind { get; }
     internal string Mode { get; }
     internal string CategoryId { get; }
+}
+
+internal sealed record TimeZoneNote
+{
+    internal TimeZoneNote(string zoneId)
+    {
+        ArgumentNullException.ThrowIfNull(zoneId);
+        if (!WorkspaceZone.Try(zoneId, out string value))
+        {
+            throw new ArgumentException("Workspace time zone is not supported", nameof(zoneId));
+        }
+        ZoneId = value;
+    }
+    internal string ZoneId { get; }
 }
 
 internal sealed record WorkspaceFrame

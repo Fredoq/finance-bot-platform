@@ -47,6 +47,19 @@ public sealed class WorkspaceKeysTests
     }
 
     /// <summary>
+    /// Verifies that time zone action codes map to the expected button labels.
+    /// </summary>
+    [Fact(DisplayName = "Builds time zone action buttons")]
+    public void Builds_time_zone_buttons()
+    {
+        WorkspaceHtml html = new();
+        WorkspaceKeys keys = new(html);
+        WorkspaceData data = WorkspaceStateNote.TimeZone("Etc/UTC");
+        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["profile.timezone.show", "profile.timezone.cancel"], data);
+        Assert.Equal(["🕒 Time zone", "✖ Cancel"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+
+    /// <summary>
     /// Verifies that unknown actions fail fast.
     /// </summary>
     [Fact(DisplayName = "Rejects unknown workspace action codes")]

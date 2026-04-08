@@ -67,6 +67,18 @@ internal sealed class WorkspaceSql
         return (await Id(note, token)).HasValue;
     }
 
+    internal async ValueTask TimeZone(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TimeZoneNote note, DateTimeOffset when, CancellationToken token)
+    {
+        await using NpgsqlCommand item = new("update finance.user_account set time_zone = @time_zone, updated_utc = @updated_utc where id = @user_id", link, lane);
+        item.Parameters.AddWithValue("time_zone", note.ZoneId);
+        item.Parameters.AddWithValue(map.UpdatedUtc, when);
+        item.Parameters.AddWithValue(map.UserId, userId);
+        if (await item.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("User account time zone update failed");
+        }
+    }
+
     internal async ValueTask<IReadOnlyList<AccountData>> Accounts(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {
         await using NpgsqlCommand note = new("select id::text, name, currency_code, current_amount from finance.account where user_id = @user_id order by created_utc, name", link, lane);

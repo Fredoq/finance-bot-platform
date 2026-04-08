@@ -17,13 +17,12 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen for Telegram delivery")]
     public void Builds_home_screen()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(true, true), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add", "profile.timezone.show"]), new WorkspaceViewFreshness(true, true), DateTimeOffset.UtcNow);
         TelegramText data = screen.Message(100, note);
         Assert.Equal("sendMessage", data.Method);
         Assert.Equal("HTML", data.ParseMode);
         Assert.Contains("<b>Finance workspace</b>", data.Text, StringComparison.Ordinal);
-        Assert.Single(data.Keys.SelectMany(item => item.Cells));
-        Assert.Equal("➕ Add account", data.Keys.SelectMany(item => item.Cells).Single().Text);
+        Assert.Equal(["➕ Add account", "🕒 Time zone"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that the home screen includes transaction actions when accounts exist.
@@ -31,10 +30,10 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen with transaction actions")]
     public void Builds_home_screen_with_expense()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"summary\":{\"year\":0,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"id\":\"a1\",\"name\":\"Cash\",\"currency\":\"USD\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"expense\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"income\":{\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"recent\":{\"page\":0,\"hasPrevious\":false,\"hasNext\":false,\"items\":[],\"selected\":{\"id\":\"\",\"kind\":\"\",\"account\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"category\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":0,\"currency\":\"\",\"occurredUtc\":\"0001-01-01T00:00:00+00:00\"}},\"summary\":{\"year\":0,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "profile.timezone.show", "account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = screen.Message(100, note);
         Assert.Contains("<b>Your accounts</b>", data.Text, StringComparison.Ordinal);
-        Assert.Equal(["➖ Add expense", "➕ Add income", "🧾 Recent transactions", "📊 Monthly summary", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+        Assert.Equal(["➖ Add expense", "➕ Add income", "🧾 Recent transactions", "📊 Monthly summary", "🕒 Time zone", "➕ Add account"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that the confirmation screen includes the account draft summary.
@@ -225,9 +224,22 @@ public sealed class WorkspaceScreenTests
     [Fact(DisplayName = "Builds the home workspace screen for unknown currency codes")]
     public void Builds_code()
     {
-        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
+        var note = new WorkspaceViewRequestedCommand(new WorkspaceIdentity("actor", "room"), new WorkspaceProfile("Alex", "en"), new WorkspaceViewFrame("home", "{\"accounts\":[{\"name\":\"Vault\",\"currency\":\"ABC\",\"amount\":1200}],\"financial\":{\"name\":\"\",\"currency\":\"\",\"amount\":null},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}", ["account.add", "profile.timezone.show"]), new WorkspaceViewFreshness(false, false), DateTimeOffset.UtcNow);
         TelegramText data = screen.Message(100, note);
         Assert.Contains("- <b>Vault</b>: 1 200 <code>ABC</code>", data.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Verifies that the time zone edit screen renders the current value and cancel action.
+    /// </summary>
+    [Fact(DisplayName = "Builds the time zone workspace screen for Telegram delivery")]
+    public void Builds_time_zone_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("profile.timezone.edit", WorkspaceStateNote.TimeZone("Europe/Moscow"), "profile.timezone.cancel");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("<b>Time zone</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Current: <code>Europe/Moscow</code>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
     /// Verifies that user input is escaped for HTML rendering.

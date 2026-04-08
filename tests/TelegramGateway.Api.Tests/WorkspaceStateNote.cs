@@ -40,6 +40,14 @@ internal static class WorkspaceStateNote
             Choices = new ChoicesData(),
             Status = new StatusData { Error = string.Empty, Notice = notice }
         };
+    public static WorkspaceData TimeZone(string timeZone, string error = "")
+        => new()
+        {
+            Accounts = [Account()],
+            Profile = new ProfileData { TimeZone = timeZone },
+            Choices = new ChoicesData(),
+            Status = new StatusData { Error = error, Notice = string.Empty }
+        };
     public static SummaryCurrencyData Currency(string currency, decimal income, decimal expense, params SummaryAccountData[] accounts)
         => new()
         {

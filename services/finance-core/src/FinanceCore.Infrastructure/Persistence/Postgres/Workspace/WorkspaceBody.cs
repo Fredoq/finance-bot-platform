@@ -28,15 +28,18 @@ internal sealed class WorkspaceBody
     internal const string RecentRecategorizeState = "transaction.recent.recategorize.confirm";
     internal const string SummaryState = "summary.month";
     internal const string BreakdownState = "category.month";
+    internal const string TimeZoneState = "profile.timezone.edit";
     internal const string AddAccount = "account.add";
     internal const string AddExpense = "transaction.expense.add";
     internal const string AddIncome = "transaction.income.add";
     internal const string ShowRecent = "transaction.recent.show";
     internal const string ShowSummary = "summary.month.show";
     internal const string ShowBreakdown = "category.month.show";
+    internal const string ShowTimeZone = "profile.timezone.show";
     internal const string AccountCancel = "account.cancel";
     internal const string ExpenseCancel = "transaction.expense.cancel";
     internal const string IncomeCancel = "transaction.income.cancel";
+    internal const string TimeZoneCancel = "profile.timezone.cancel";
     internal const string CreateAccountCode = "account.create";
     internal const string CreateExpenseCode = "transaction.expense.create";
     internal const string CreateIncomeCode = "transaction.income.create";
@@ -85,11 +88,11 @@ internal sealed class WorkspaceBody
         codes = new WorkspaceCodeSet();
     }
 
-    internal WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new WorkspaceStateData { Status = new StatusData(codes.Empty, notice), Custom = codes.Custom(false) });
+    internal WorkspaceData Reset(WorkspaceData body, string notice) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Status = new StatusData(codes.Empty, notice), Custom = codes.Custom(false) });
 
     internal WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new WorkspaceStateData { Status = new StatusData(error, notice), Custom = codes.Custom(false) });
 
-    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData { Financial = body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = body.Choices, Status = body.Status, Custom = codes.Custom(body.Custom) });
+    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData { Profile = body.Profile, Financial = body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = body.Choices, Status = body.Status, Custom = codes.Custom(body.Custom) });
 
     internal WorkspaceData Data(string value)
     {
@@ -100,6 +103,7 @@ internal sealed class WorkspaceBody
         WorkspaceData? item = JsonSerializer.Deserialize<WorkspaceData>(value, json);
         return new WorkspaceData(item?.Accounts ?? [], new WorkspaceStateData
         {
+            Profile = item?.Profile ?? new ProfileData(),
             Financial = item?.Financial ?? new FinancialData(),
             Expense = item?.Expense ?? new ExpenseData(),
             Income = item?.Income ?? new IncomeData(),
@@ -122,12 +126,13 @@ internal sealed class WorkspaceBody
         return value.Offset == codes.Utc ? value : throw new ArgumentException("Workspace occurrence time must be UTC", name);
     }
 
-    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Financial = financial ?? body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? body.Choices, Status = status ?? body.Status, Custom = codes.Custom(body.Custom) });
+    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Financial = financial ?? body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? body.Choices, Status = status ?? body.Status, Custom = codes.Custom(body.Custom) });
 
-    internal WorkspaceData Account(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData { Financial = financial, Status = status ?? new StatusData(), Custom = codes.Custom(custom) });
+    internal WorkspaceData Account(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Financial = financial, Status = status ?? new StatusData(), Custom = codes.Custom(custom) });
 
     internal WorkspaceData Transaction(WorkspaceData body, PickData account, PickData category, decimal? amount, bool income, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData
     {
+        Profile = body.Profile,
         Expense = kinds.Income(income) ? new ExpenseData() : new ExpenseData(account, category, amount, string.Empty),
         Income = kinds.Income(income) ? new IncomeData(account, category, amount, string.Empty) : new IncomeData(),
         Summary = body.Summary,
@@ -139,6 +144,7 @@ internal sealed class WorkspaceBody
 
     internal WorkspaceData Source(WorkspaceData body, string source, bool income) => new(body.Accounts, new WorkspaceStateData
     {
+        Profile = body.Profile,
         Expense = kinds.Income(income) ? body.Expense : new ExpenseData(body.Expense.Account, body.Expense.Category, body.Expense.Amount, source),
         Income = kinds.Income(income) ? new IncomeData(body.Income.Account, body.Income.Category, body.Income.Amount, source) : body.Income,
         Summary = body.Summary,
@@ -148,11 +154,13 @@ internal sealed class WorkspaceBody
         Custom = codes.Custom(false)
     });
 
-    internal WorkspaceData Recent(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Recent = recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? new ChoicesData(), Status = status ?? new StatusData(), Custom = codes.Custom(false) });
+    internal WorkspaceData Recent(WorkspaceData body, RecentData recent, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Recent = recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? new ChoicesData(), Status = status ?? new StatusData(), Custom = codes.Custom(false) });
 
-    internal WorkspaceData Summary(WorkspaceData body, SummaryData summary, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Summary = summary, Breakdown = body.Breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
+    internal WorkspaceData Summary(WorkspaceData body, SummaryData summary, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Summary = summary, Breakdown = body.Breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
 
-    internal WorkspaceData Breakdown(WorkspaceData body, BreakdownData breakdown, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Summary = body.Summary, Breakdown = breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
+    internal WorkspaceData Breakdown(WorkspaceData body, BreakdownData breakdown, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Summary = body.Summary, Breakdown = breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
+
+    internal WorkspaceData Profile(WorkspaceData body, ProfileData profile, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = profile, Summary = body.Summary, Breakdown = body.Breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
 
     internal PickData Pick(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Account : body.Expense.Account;
 
@@ -193,6 +201,8 @@ internal sealed class WorkspaceBody
     internal bool SummaryScreen(string state) => states.Summary(state);
 
     internal bool BreakdownScreen(string state) => states.Breakdown(state);
+
+    internal bool TimeZoneScreen(string state) => string.Equals(state, TimeZoneState, codes.Comparison);
 
     internal bool TransactionCategoryState(string state) => states.Category(state);
 

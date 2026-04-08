@@ -124,6 +124,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         move = await Store(link, lane, userId, move, when, token);
         move = await Fill(link, lane, userId, move, token);
         move = await Track(link, lane, userId, move, when, token);
+        move = await Update(link, lane, userId, move, when, token);
         move = await Correct(link, lane, userId, move, when, token);
         return await Finish(link, lane, userId, move, token);
     }
@@ -191,6 +192,16 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         await sql.Transaction(link, lane, userId, move.RecordValue, when, token);
         return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(await sql.Accounts(link, lane, userId, token), move.RecordValue.TransactionKind == WorkspaceBody.IncomeKind ? "Income was recorded" : "Expense was recorded"), null, string.Empty, null);
+    }
+
+    private async ValueTask<WorkspaceMove> Update(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
+    {
+        if (move.TimeZoneValue is null)
+        {
+            return move;
+        }
+        await sql.TimeZone(link, lane, userId, move.TimeZoneValue, when, token);
+        return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(await sql.Accounts(link, lane, userId, token), "Time zone was updated"), null, string.Empty, null);
     }
 
     private async ValueTask<WorkspaceMove> Correct(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)

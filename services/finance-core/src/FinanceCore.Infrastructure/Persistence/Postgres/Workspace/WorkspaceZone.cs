@@ -4,6 +4,21 @@ internal static class WorkspaceZone
 {
     internal const string Default = "Etc/UTC";
     internal static string Id(string value) => Resolve(value).Id;
+    internal static bool Try(string value, out string zoneId)
+    {
+        zoneId = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+        TimeZoneInfo? item = Find(value.Trim());
+        if (item is null)
+        {
+            return false;
+        }
+        zoneId = item.Id;
+        return true;
+    }
     internal static MonthNote Month(DateTimeOffset when, string value)
     {
         TimeZoneInfo item = Resolve(value);

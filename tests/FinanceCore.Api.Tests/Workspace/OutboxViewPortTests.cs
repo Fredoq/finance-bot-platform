@@ -21,7 +21,7 @@ public sealed class OutboxViewPortTests
     {
         var port = new OutboxStub();
         var item = new OutboxViewPort(port);
-        var view = new WorkspaceView(new WorkspaceIdentity("actor-9", "room-9"), new WorkspaceProfile("Alex", "en"), new WorkspaceState("home", "{\"accounts\":[]}", 1), ["account.add"], false, true, DateTimeOffset.UtcNow);
+        var view = new WorkspaceView(new WorkspaceIdentity("actor-9", "room-9"), new WorkspaceProfile("Alex", "en"), new WorkspaceState("home", "{\"accounts\":[]}", 1), ["account.add", "profile.timezone.show"], false, true, DateTimeOffset.UtcNow);
         var mark = new MessageContext("trace", "cause", "view-key");
         await item.Save(view, mark, default);
         MessageEnvelope<WorkspaceViewRequestedCommand> note = port.Note();

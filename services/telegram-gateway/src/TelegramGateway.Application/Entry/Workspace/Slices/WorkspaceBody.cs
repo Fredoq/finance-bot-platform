@@ -53,6 +53,7 @@ internal sealed class WorkspaceBody
             "transaction.recent.recategorize.confirm" => Selected(item, "transaction.recent.recategorize.confirm"),
             "summary.month" => Summary(item),
             "category.month" => Breakdown(item),
+            "profile.timezone.edit" => Profile(item),
             _ => throw new InvalidOperationException($"Workspace screen '{state}' is not recognized")
         };
     }
@@ -211,6 +212,8 @@ internal sealed class WorkspaceBody
         }
         return item;
     }
+
+    private static WorkspaceData Profile(WorkspaceData item) => !string.IsNullOrWhiteSpace(item.Profile.TimeZone) ? item : throw new InvalidOperationException("Workspace screen 'profile.timezone.edit' requires time zone");
 
     internal static OptionData Option(IReadOnlyList<OptionData> list, string code, string prefix)
     {

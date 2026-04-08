@@ -13,6 +13,7 @@ internal sealed class WorkspaceKeys
     private const string Primary = "primary";
     private const string Success = "success";
     private const string Danger = "danger";
+    private const string Cancel = "✖ Cancel";
     private readonly WorkspaceHtml html;
 
     public WorkspaceKeys(WorkspaceHtml html) => this.html = html ?? throw new ArgumentNullException(nameof(html));
@@ -36,22 +37,24 @@ internal sealed class WorkspaceKeys
             "account.currency.eur" => new TelegramButton("EUR €", code),
             "account.currency.other" => new TelegramButton("Other", code),
             "account.create" => new TelegramButton("✅ Create account", code, Success),
-            "account.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "account.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.expense.add" => new TelegramButton("➖ Add expense", code, Primary),
             "transaction.income.add" => new TelegramButton("➕ Add income", code, Primary),
             "transaction.expense.create" => new TelegramButton("✅ Save expense", code, Success),
-            "transaction.expense.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "transaction.expense.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.income.create" => new TelegramButton("✅ Save income", code, Success),
-            "transaction.income.cancel" => new TelegramButton("✖ Cancel", code, Danger),
+            "transaction.income.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.recent.show" => new TelegramButton("🧾 Recent transactions", code, Primary),
             "summary.month.show" => new TelegramButton("📊 Monthly summary", code, Primary),
             "category.month.show" => new TelegramButton("🗂 Category breakdown", code, Primary),
+            "profile.timezone.show" => new TelegramButton("🕒 Time zone", code, Primary),
             "summary.month.prev" => new TelegramButton("◀ Previous month", code),
             "summary.month.next" => new TelegramButton("Next month ▶", code),
             "summary.month.back" => new TelegramButton("↩ Back", code),
             "category.month.prev" => new TelegramButton("◀ Previous month", code),
             "category.month.next" => new TelegramButton("Next month ▶", code),
             "category.month.back" => new TelegramButton("↩ Back", code),
+            "profile.timezone.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.recent.page.prev" => new TelegramButton("◀ Previous", code),
             "transaction.recent.page.next" => new TelegramButton("Next ▶", code),
             "transaction.recent.back" => new TelegramButton("↩ Back", code),

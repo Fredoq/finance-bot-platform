@@ -17,6 +17,8 @@ public sealed class WorkspaceActions : IWorkspaceActions
     private const string SummaryNext = "summary.month.next";
     private const string SummaryBack = "summary.month.back";
     private const string ShowBreakdown = "category.month.show";
+    private const string ShowTimeZone = "profile.timezone.show";
+    private const string TimeZoneCancel = "profile.timezone.cancel";
     private const string BreakdownPrevious = "category.month.prev";
     private const string BreakdownNext = "category.month.next";
     private const string BreakdownBack = "category.month.back";
@@ -32,13 +34,14 @@ public sealed class WorkspaceActions : IWorkspaceActions
         ArgumentNullException.ThrowIfNull(context);
         return state switch
         {
-            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"],
-            "home" => ["account.add"],
+            "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", ShowTimeZone, "account.add"],
+            "home" => ["account.add", ShowTimeZone],
             "account.name" => [Cancel],
             "account.currency" when context.Custom => [Cancel],
             "account.currency" => ["account.currency.rub", "account.currency.usd", "account.currency.eur", "account.currency.other", Cancel],
             "account.balance" => [Cancel],
             "account.confirm" => ["account.create", Cancel],
+            "profile.timezone.edit" => [TimeZoneCancel],
             "transaction.expense.account" => [.. Enumerable.Range(1, context.AccountChoiceCount).Select(item => $"transaction.expense.account.{item}"), ExpenseCancel],
             "transaction.expense.amount" => [ExpenseCancel],
             "transaction.expense.source" => [ExpenseCancel],

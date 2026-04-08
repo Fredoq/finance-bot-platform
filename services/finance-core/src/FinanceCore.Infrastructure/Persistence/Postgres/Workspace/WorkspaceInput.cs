@@ -33,55 +33,67 @@ internal sealed class WorkspaceInput
     private WorkspaceMove Action(string state, WorkspaceData data, string value, DateTimeOffset when, string timeZone)
     {
         string code = value.Trim();
-        if (code == WorkspaceBody.AccountCancel && body.AccountState(state))
+        WorkspaceMove? guard = Guard(state, data, code, when);
+        if (guard is not null)
         {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null);
+            return guard;
         }
-        if (code == WorkspaceBody.ExpenseCancel && body.ExpenseState(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Expense creation was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.IncomeCancel && body.IncomeState(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.RecentBack && body.RecentState(state))
-        {
-            return recent.Return(data, state);
-        }
-        if (code == WorkspaceBody.ShowBreakdown && body.SummaryScreen(state))
-        {
-            return breakdown.Open(data);
-        }
-        if (code == WorkspaceBody.SummaryBack && body.SummaryScreen(state))
-        {
-            return summary.Action(data, code, when);
-        }
-        if (code == WorkspaceBody.BreakdownBack && body.BreakdownScreen(state))
-        {
-            return breakdown.Action(data, code, when);
-        }
-        return state switch
-        {
-            WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
-            WorkspaceBody.CurrencyState => draft.Currency(data, code),
-            WorkspaceBody.ConfirmState => draft.Confirm(data, code),
-            WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
-            WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
-            WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
-            WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
-            WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
-            WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
-            WorkspaceBody.RecentListState => recent.List(data, code),
-            WorkspaceBody.RecentDetailState => recent.Detail(data, code),
-            WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
-            WorkspaceBody.RecentCategoryState => recent.Category(data, code),
-            WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
-            WorkspaceBody.SummaryState => summary.Action(data, code, when),
-            WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
-            _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
-        };
+        return Draft(state, data, code, when, timeZone)
+            ?? Recent(state, data, code)
+            ?? Report(state, data, code, when)
+            ?? new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null);
     }
+
+    private WorkspaceMove? Guard(string state, WorkspaceData data, string code, DateTimeOffset when) => Cancel(state, data, code) ?? Screen(state, data, code, when);
+
+    private WorkspaceMove? Cancel(string state, WorkspaceData data, string code) => code switch
+    {
+        WorkspaceBody.AccountCancel when body.AccountState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.ExpenseCancel when body.ExpenseState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Expense creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.IncomeCancel when body.IncomeState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.TimeZoneCancel when body.TimeZoneScreen(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Time zone update was cancelled"), null, string.Empty, null),
+        _ => null
+    };
+
+    private WorkspaceMove? Screen(string state, WorkspaceData data, string code, DateTimeOffset when) => code switch
+    {
+        WorkspaceBody.RecentBack when body.RecentState(state) => recent.Return(data, state),
+        WorkspaceBody.ShowBreakdown when body.SummaryScreen(state) => breakdown.Open(data),
+        WorkspaceBody.SummaryBack when body.SummaryScreen(state) => summary.Action(data, code, when),
+        WorkspaceBody.BreakdownBack when body.BreakdownScreen(state) => breakdown.Action(data, code, when),
+        _ => null
+    };
+
+    private WorkspaceMove? Draft(string state, WorkspaceData data, string code, DateTimeOffset when, string timeZone) => state switch
+    {
+        WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
+        WorkspaceBody.CurrencyState => draft.Currency(data, code),
+        WorkspaceBody.ConfirmState => draft.Confirm(data, code),
+        WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
+        WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
+        WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
+        WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
+        WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
+        WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
+        _ => null
+    };
+
+    private WorkspaceMove? Recent(string state, WorkspaceData data, string code) => state switch
+    {
+        WorkspaceBody.RecentListState => recent.List(data, code),
+        WorkspaceBody.RecentDetailState => recent.Detail(data, code),
+        WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
+        WorkspaceBody.RecentCategoryState => recent.Category(data, code),
+        WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
+        _ => null
+    };
+
+    private WorkspaceMove? Report(string state, WorkspaceData data, string code, DateTimeOffset when) => state switch
+    {
+        WorkspaceBody.SummaryState => summary.Action(data, code, when),
+        WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
+        _ => null
+    };
 
     private WorkspaceMove Text(string state, WorkspaceData data, string value) => state switch
     {
@@ -108,6 +120,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.RecentRecategorizeState => new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.SummaryState => summary.Text(data),
         WorkspaceBody.BreakdownState => breakdown.Text(data),
+        WorkspaceBody.TimeZoneState => draft.TimeZone(data, value),
         _ => new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null)
     };
 

@@ -91,6 +91,17 @@ public sealed class WorkspaceBodyTests
     }
 
     /// <summary>
+    /// Verifies that the time zone edit state requires the current time zone.
+    /// </summary>
+    [Fact(DisplayName = "Rejects time zone edit state when the current time zone is missing")]
+    public void Rejects_time_zone_without_value()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => body.Data("profile.timezone.edit", "{\"accounts\":[],\"profile\":{\"timeZone\":\"\"},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.Contains("requires time zone", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Verifies that unknown states fail fast.
     /// </summary>
     [Fact(DisplayName = "Rejects unknown workspace screen states")]

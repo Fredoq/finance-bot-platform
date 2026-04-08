@@ -21,6 +21,7 @@ The initial MVP is a Telegram bot for personal finance tracking with these core 
 - show category breakdown
 - show recent transactions
 - delete or recategorize transactions
+- configure the user time zone for local-month reporting
 
 The architecture must support this MVP without painting the system into a corner.
 

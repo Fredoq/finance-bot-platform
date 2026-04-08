@@ -4,7 +4,7 @@ Monorepo for the Telegram personal finance platform: `telegram-gateway`, `financ
 
 ## Purpose
 
-This repository contains the application code for a Telegram-based personal finance system. The current runtime model uses `telegram-gateway` for Telegram ingress and delivery, `finance-core` for business processing and persistence, and shared contracts for asynchronous integration.
+This repository contains the application code for a Telegram-based personal finance system. The current runtime model uses `telegram-gateway` for Telegram ingress and delivery, `finance-core` for business processing and persistence, and shared contracts for asynchronous integration. The workspace flow covers account onboarding, income and expense tracking, recent transaction corrections, monthly reports, and user-configurable time zone settings for local-month reporting.
 
 ## Dev runtime
 

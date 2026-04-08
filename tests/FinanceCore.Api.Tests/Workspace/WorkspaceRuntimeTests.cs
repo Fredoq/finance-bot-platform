@@ -33,7 +33,7 @@ public sealed class WorkspaceRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("home", view.Payload.Frame.State);
         Assert.Equal("promo-42", await Scalar("select last_payload from finance.workspace where conversation_key = 'room-1'"));
         Assert.Equal(0, Count(view.Payload.Frame.StateData, "accounts"));
-        Assert.Equal(["account.add"], view.Payload.Frame.Actions);
+        Assert.Equal(["account.add", "profile.timezone.show"], view.Payload.Frame.Actions);
         Assert.Equal(1, await Number("select count(*) from finance.user_account"));
         Assert.Equal(1, await Number("select count(*) from finance.workspace"));
         Assert.Equal(0, await Number("select count(*) from finance.account"));
