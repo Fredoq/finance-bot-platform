@@ -6,6 +6,7 @@ create table if not exists finance.user_account
     actor_key text not null unique,
     name text not null,
     locale text not null,
+    time_zone text not null,
     created_utc timestamptz not null,
     updated_utc timestamptz not null
 );

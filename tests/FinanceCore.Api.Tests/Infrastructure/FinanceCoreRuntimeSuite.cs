@@ -88,6 +88,16 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
         _ = await note.ExecuteNonQueryAsync();
     }
     /// <summary>
+    /// Updates the user time zone in the database.
+    /// </summary>
+    /// <param name="actor">The actor key.</param>
+    /// <param name="value">The IANA time zone id.</param>
+    /// <returns>A task that completes when the update finishes.</returns>
+    protected Task Zone(string actor, string value) => Execute(
+        "update finance.user_account set time_zone = @time_zone where actor_key = @actor_key",
+        ("time_zone", value),
+        ("actor_key", actor));
+    /// <summary>
     /// Executes a scalar query and parses the result as a number.
     /// </summary>
     /// <param name="text">The SQL text.</param>
@@ -213,6 +223,17 @@ public abstract class FinanceCoreRuntimeSuite : IAsyncLifetime
             }
         }
         return null;
+    }
+    /// <summary>
+    /// Reads the report time zone from workspace state data.
+    /// </summary>
+    /// <param name="data">The workspace state data.</param>
+    /// <param name="section">The report section name.</param>
+    /// <returns>The configured time zone id.</returns>
+    protected static string TimeZone(string data, string section)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty(section).GetProperty("timeZone").GetString() ?? string.Empty;
     }
     /// <summary>
     /// Reads one message from the dead queue.

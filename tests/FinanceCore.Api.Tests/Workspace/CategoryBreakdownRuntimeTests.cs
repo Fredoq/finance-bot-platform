@@ -30,6 +30,7 @@ public sealed class CategoryBreakdownRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("category.month", view.Payload.Frame.State);
         Assert.Equal(2026, Year(view.Payload.Frame.StateData));
         Assert.Equal(4, Month(view.Payload.Frame.StateData));
+        Assert.Equal("Etc/UTC", TimeZone(view.Payload.Frame.StateData, "breakdown"));
         Assert.Equal(0, CurrencyCount(view.Payload.Frame.StateData));
         Assert.Equal(["category.month.prev", "category.month.back"], view.Payload.Frame.Actions);
     }
@@ -143,6 +144,46 @@ public sealed class CategoryBreakdownRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(InputAt("actor-breakdown-boundary", "room-breakdown-boundary", "action", "category.month.prev", "breakdown-boundary-prev", new DateTimeOffset(2026, 4, 20, 12, 1, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> march = await Take(queue, "breakdown-boundary-prev");
         Assert.Equal(5m, Amount(march.Payload.Frame.StateData, "USD", "Food"));
+    }
+
+    /// <summary>
+    /// Verifies that the category breakdown uses the user's local expense month.
+    /// </summary>
+    [Fact(DisplayName = "Counts category breakdown totals by the user local month")]
+    public async Task Uses_local_month()
+    {
+        const string zone = "Europe/Moscow";
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        const string actor = "actor-breakdown-zone";
+        const string room = "room-breakdown-zone";
+        await using var host = new CoreApiFactory(Settings("finance-core-breakdown-zone"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Prepare(queue, actor, room, zone, new EntryNote("expense", "Cash", "5", "Food", "breakdown-zone-march", new DateTimeOffset(2026, 3, 31, 21, 30, 0, TimeSpan.Zero)), new EntryNote("expense", "Cash", "9", "Travel", "breakdown-zone-april", new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)));
+        MessageEnvelope<WorkspaceViewRequestedCommand> april = await Open(queue, actor, room, "breakdown-zone-open", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero));
+        Assert.Equal(2026, Year(april.Payload.Frame.StateData));
+        Assert.Equal(4, Month(april.Payload.Frame.StateData));
+        Assert.Equal(zone, TimeZone(april.Payload.Frame.StateData, "breakdown"));
+        Assert.Equal(5m, Amount(april.Payload.Frame.StateData, "USD", "Food"));
+        Assert.Equal(9m, Amount(april.Payload.Frame.StateData, "USD", "Travel"));
+        await Publish(InputAt(actor, room, "action", "category.month.prev", "breakdown-zone-prev", new DateTimeOffset(2026, 4, 20, 12, 1, 0, TimeSpan.Zero)));
+        MessageEnvelope<WorkspaceViewRequestedCommand> march = await Take(queue, "breakdown-zone-prev");
+        Assert.Equal(2026, Year(march.Payload.Frame.StateData));
+        Assert.Equal(3, Month(march.Payload.Frame.StateData));
+        Assert.Equal(zone, TimeZone(march.Payload.Frame.StateData, "breakdown"));
+        Assert.Equal(0, CurrencyCount(march.Payload.Frame.StateData));
+    }
+
+    private async Task Prepare(string queue, string actor, string room, string zone, params EntryNote[] notes)
+    {
+        await Create(queue, actor, room, "Cash", "USD", "100", "breakdown-zone-account");
+        await Zone(actor, zone);
+        foreach (EntryNote note in notes)
+        {
+            await Record(queue, actor, room, note);
+        }
     }
 
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Open(string queue, string actor, string room, string id, DateTimeOffset when)

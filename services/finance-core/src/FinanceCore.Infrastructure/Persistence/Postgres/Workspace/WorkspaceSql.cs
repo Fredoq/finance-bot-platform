@@ -210,10 +210,9 @@ internal sealed class WorkspaceSql
         return item;
     }
 
-    internal async ValueTask<SummaryData> Summary(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, CancellationToken token)
+    internal async ValueTask<SummaryData> Summary(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, string timeZone, CancellationToken token)
     {
-        DateTimeOffset start = new(year, month, 1, 0, 0, 0, TimeSpan.Zero);
-        DateTimeOffset end = start.AddMonths(1);
+        WorkspaceZone.MonthRange range = WorkspaceZone.Range(year, month, timeZone);
         await using NpgsqlCommand note = new("""
                                              select account.currency_code,
                                                     account.id::text,
@@ -227,8 +226,8 @@ internal sealed class WorkspaceSql
                                              order by account.currency_code, account.name
                                              """, link, lane);
         note.Parameters.AddWithValue(map.UserId, userId);
-        note.Parameters.AddWithValue("start_utc", start);
-        note.Parameters.AddWithValue("end_utc", end);
+        note.Parameters.AddWithValue("start_utc", range.StartUtc);
+        note.Parameters.AddWithValue("end_utc", range.EndUtc);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         List<SummaryCurrencyData> currencies = [];
         List<SummaryAccountData> accounts = [];
@@ -256,13 +255,12 @@ internal sealed class WorkspaceSql
         {
             currencies.Add(new SummaryCurrencyData(current, income, expense, income - expense, accounts));
         }
-        return new SummaryData(year, month, currencies);
+        return new SummaryData(year, month, range.ZoneId, currencies);
     }
 
-    internal async ValueTask<BreakdownData> Breakdown(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, CancellationToken token)
+    internal async ValueTask<BreakdownData> Breakdown(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, int year, int month, string timeZone, CancellationToken token)
     {
-        DateTimeOffset start = new(year, month, 1, 0, 0, 0, TimeSpan.Zero);
-        DateTimeOffset end = start.AddMonths(1);
+        WorkspaceZone.MonthRange range = WorkspaceZone.Range(year, month, timeZone);
         await using NpgsqlCommand note = new("""
                                              with category_total as
                                              (
@@ -285,8 +283,8 @@ internal sealed class WorkspaceSql
                                              order by currency_code, amount desc, name
                                              """, link, lane);
         note.Parameters.AddWithValue(map.UserId, userId);
-        note.Parameters.AddWithValue("start_utc", start);
-        note.Parameters.AddWithValue("end_utc", end);
+        note.Parameters.AddWithValue("start_utc", range.StartUtc);
+        note.Parameters.AddWithValue("end_utc", range.EndUtc);
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
         List<BreakdownCurrencyData> currencies = [];
         List<BreakdownCategoryData> categories = [];
@@ -310,7 +308,7 @@ internal sealed class WorkspaceSql
         {
             currencies.Add(new BreakdownCurrencyData(current, total, categories));
         }
-        return new BreakdownData(year, month, currencies);
+        return new BreakdownData(year, month, range.ZoneId, currencies);
     }
 
     internal async ValueTask<PickData> Category(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, string value, string kind, DateTimeOffset when, CancellationToken token)

@@ -66,6 +66,7 @@ curl -X POST "https://api.telegram.org/bot${BOT}/deleteWebhook" \
 - [Service boundaries](docs/architecture/services.md)
 - [Delivery ADR](docs/adr/0005-telegram-gateway-outbound-delivery-and-reversible-opaque-keys.md)
 - [Recent transactions ADR](docs/adr/0007-recent-transactions-corrective-flow-and-editable-delivery.md)
+- [Local month reporting ADR](docs/adr/0010-local-month-reporting-by-user-time-zone.md)
 - [Shared transport context cache ADR](docs/adr/0009-telegram-gateway-shared-transport-context-cache.md)
 - [Repository strategy](docs/architecture/repository-strategy.md)
 - [ADR-0001: Monorepo and service boundaries](docs/adr/0001-monorepo-and-service-boundaries.md)

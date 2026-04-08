@@ -249,13 +249,21 @@ internal sealed record RecentEntryData
 
 internal sealed record SummaryData
 {
-    public SummaryData() => Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
-    internal SummaryData(int year, int month, IReadOnlyList<SummaryCurrencyData> currencies)
+    public SummaryData()
+    {
+        TimeZone = WorkspaceZone.Default;
+        Currencies = Array.AsReadOnly<SummaryCurrencyData>([]);
+    }
+    internal SummaryData(int year, int month, string timeZone, IReadOnlyList<SummaryCurrencyData> currencies)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(year);
         if (month is < 1 or > 12)
         {
             throw new ArgumentOutOfRangeException(nameof(month));
+        }
+        if (string.IsNullOrWhiteSpace(timeZone))
+        {
+            throw new ArgumentException("Workspace summary time zone is required", nameof(timeZone));
         }
         ArgumentNullException.ThrowIfNull(currencies);
         if (currencies.Any(item => item is null))
@@ -264,10 +272,12 @@ internal sealed record SummaryData
         }
         Year = year;
         Month = month;
+        TimeZone = timeZone;
         Currencies = Array.AsReadOnly(currencies.ToArray());
     }
     public int Year { get; init; }
     public int Month { get; init; }
+    public string TimeZone { get; init; }
     public IReadOnlyList<SummaryCurrencyData> Currencies { get; init; }
 }
 
@@ -322,13 +332,21 @@ internal sealed record SummaryAccountData
 
 internal sealed record BreakdownData
 {
-    public BreakdownData() => Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
-    internal BreakdownData(int year, int month, IReadOnlyList<BreakdownCurrencyData> currencies)
+    public BreakdownData()
+    {
+        TimeZone = WorkspaceZone.Default;
+        Currencies = Array.AsReadOnly<BreakdownCurrencyData>([]);
+    }
+    internal BreakdownData(int year, int month, string timeZone, IReadOnlyList<BreakdownCurrencyData> currencies)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(year);
         if (month is < 1 or > 12)
         {
             throw new ArgumentOutOfRangeException(nameof(month));
+        }
+        if (string.IsNullOrWhiteSpace(timeZone))
+        {
+            throw new ArgumentException("Workspace breakdown time zone is required", nameof(timeZone));
         }
         ArgumentNullException.ThrowIfNull(currencies);
         if (currencies.Any(item => item is null))
@@ -337,10 +355,12 @@ internal sealed record BreakdownData
         }
         Year = year;
         Month = month;
+        TimeZone = timeZone;
         Currencies = Array.AsReadOnly(currencies.ToArray());
     }
     public int Year { get; init; }
     public int Month { get; init; }
+    public string TimeZone { get; init; }
     public IReadOnlyList<BreakdownCurrencyData> Currencies { get; init; }
 }
 

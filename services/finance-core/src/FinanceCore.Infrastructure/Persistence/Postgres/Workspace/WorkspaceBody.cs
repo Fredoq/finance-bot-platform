@@ -255,33 +255,38 @@ internal sealed class WorkspaceBody
 
     internal string CategorySlot(bool income) => codes.CategorySlot(income);
 
-    internal static SummaryData Month(DateTimeOffset when) => new(when.Year, when.Month, []);
+    internal static SummaryData Month(DateTimeOffset when, string timeZone)
+    {
+        WorkspaceZone.MonthNote item = WorkspaceZone.Month(when, timeZone);
+        return new SummaryData(item.Year, item.PeriodMonth, item.ZoneId, []);
+    }
 
     internal static SummaryData Month(SummaryData data, int shift)
     {
         DateTimeOffset item = Start(data.Year, data.Month).AddMonths(shift);
-        return new SummaryData(item.Year, item.Month, []);
+        return new SummaryData(item.Year, item.Month, WorkspaceZone.Id(data.TimeZone), []);
     }
 
     internal static BreakdownData Month(BreakdownData data, int shift)
     {
         DateTimeOffset item = Start(data.Year, data.Month).AddMonths(shift);
-        return new BreakdownData(item.Year, item.Month, []);
+        return new BreakdownData(item.Year, item.Month, WorkspaceZone.Id(data.TimeZone), []);
     }
 
     internal static bool SummaryHasNext(SummaryData data, DateTimeOffset when)
-        => HasNext(data.Year, data.Month, when);
+        => HasNext(data.Year, data.Month, when, data.TimeZone);
 
     internal static bool BreakdownHasNext(BreakdownData data, DateTimeOffset when)
-        => HasNext(data.Year, data.Month, when);
+        => HasNext(data.Year, data.Month, when, data.TimeZone);
 
-    private static bool HasNext(int year, int month, DateTimeOffset when)
+    private static bool HasNext(int year, int month, DateTimeOffset when, string timeZone)
     {
         if (year <= 0 || month <= 0)
         {
             return false;
         }
-        DateTimeOffset current = Start(when.Year, when.Month);
+        WorkspaceZone.MonthNote note = WorkspaceZone.Month(when, timeZone);
+        DateTimeOffset current = Start(note.Year, note.PeriodMonth);
         DateTimeOffset selected = Start(year, month);
         return selected < current;
     }

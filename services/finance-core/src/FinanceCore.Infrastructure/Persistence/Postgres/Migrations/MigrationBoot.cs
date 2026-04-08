@@ -15,6 +15,24 @@ internal sealed class MigrationBoot : IHostedService
     private const string IncomeKind = "income";
     private const string SchemaSql = "create schema if not exists finance";
     private const string RepairSql = """
+                                      do $$
+                                      begin
+                                          if exists
+                                          (
+                                              select 1
+                                              from information_schema.tables
+                                              where table_schema = 'finance'
+                                                and table_name = 'user_account'
+                                          ) then
+                                              alter table finance.user_account add column if not exists time_zone text;
+                                              update finance.user_account
+                                              set time_zone = 'Etc/UTC'
+                                              where time_zone is null or btrim(time_zone) = '';
+                                              alter table finance.user_account alter column time_zone set not null;
+                                          end if;
+                                      end;
+                                      $$;
+                                      
                                       create table if not exists finance.category
                                       (
                                           id uuid primary key,
@@ -213,6 +231,10 @@ internal sealed class MigrationBoot : IHostedService
     private static bool Name(string text) => text.Contains(".Persistence.Postgres.Migrations.Scripts.", StringComparison.Ordinal) && text.EndsWith(".sql", StringComparison.Ordinal);
     private static async ValueTask<bool> NeedsRepair(NpgsqlConnection link, CancellationToken token)
     {
+        if (!await TimeZone(link, token))
+        {
+            return true;
+        }
         if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token))
         {
             return true;
@@ -229,6 +251,28 @@ internal sealed class MigrationBoot : IHostedService
         note.Parameters.AddWithValue("table_name", name);
         object? data = await note.ExecuteScalarAsync(token);
         return data is true;
+    }
+    private static async ValueTask<bool> TimeZone(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("""
+                                            select exists
+                                            (
+                                                select 1
+                                                from information_schema.columns
+                                                where table_schema = 'finance'
+                                                  and table_name = 'user_account'
+                                                  and column_name = 'time_zone'
+                                                  and is_nullable = 'NO'
+                                            )
+                                            """, link);
+        object? data = await note.ExecuteScalarAsync(token);
+        if (data is not true)
+        {
+            return false;
+        }
+        await using NpgsqlCommand item = new("select not exists (select 1 from finance.user_account where time_zone is null or btrim(time_zone) = '')", link);
+        object? current = await item.ExecuteScalarAsync(token);
+        return current is true;
     }
     private static async ValueTask<bool> Cascade(NpgsqlConnection link, CancellationToken token)
     {

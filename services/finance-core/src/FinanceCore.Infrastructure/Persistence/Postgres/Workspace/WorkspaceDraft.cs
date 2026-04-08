@@ -11,7 +11,7 @@ internal sealed class WorkspaceDraft
         this.amount = amount ?? throw new ArgumentNullException(nameof(amount));
     }
 
-    internal WorkspaceMove Home(WorkspaceData data, string code, DateTimeOffset when)
+    internal WorkspaceMove Home(WorkspaceData data, string code, DateTimeOffset when, string timeZone)
     {
         if (code == WorkspaceBody.AddAccount)
         {
@@ -31,7 +31,7 @@ internal sealed class WorkspaceDraft
         }
         if (code == WorkspaceBody.ShowSummary)
         {
-            return Move(WorkspaceBody.SummaryState, body.Summary(data, WorkspaceBody.Month(when)));
+            return Move(WorkspaceBody.SummaryState, body.Summary(data, WorkspaceBody.Month(when, timeZone)));
         }
         return Move(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt));
     }

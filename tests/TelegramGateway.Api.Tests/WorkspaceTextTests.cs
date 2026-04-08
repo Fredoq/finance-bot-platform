@@ -37,8 +37,9 @@ public sealed class WorkspaceTextTests
     public void Builds_summary()
     {
         var text = new WorkspaceText(new WorkspaceHtml());
-        string data = text.Text("summary.month", false, WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a1", "Cash", 100m, 40m))]));
+        string data = text.Text("summary.month", false, WorkspaceStateNote.Summary(2026, 4, [WorkspaceStateNote.Currency("USD", 100m, 40m, WorkspaceStateNote.Account("a1", "Cash", 100m, 40m))], timeZone: "Europe/Moscow"));
         Assert.Contains("April 2026", data, StringComparison.Ordinal);
+        Assert.Contains("Time zone: <code>Europe/Moscow</code>", data, StringComparison.Ordinal);
         Assert.Contains("Income: <b>100 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
     }
 
@@ -49,8 +50,9 @@ public sealed class WorkspaceTextTests
     public void Builds_breakdown()
     {
         var text = new WorkspaceText(new WorkspaceHtml());
-        string data = text.Text("category.month", false, WorkspaceStateNote.Breakdown(2026, 4, [WorkspaceStateNote.BreakdownCurrency("USD", 40m, WorkspaceStateNote.BreakdownCategory("Food", "food", 30m, 0.75m), WorkspaceStateNote.BreakdownCategory("Travel", "travel", 10m, 0.25m))]));
+        string data = text.Text("category.month", false, WorkspaceStateNote.Breakdown(2026, 4, [WorkspaceStateNote.BreakdownCurrency("USD", 40m, WorkspaceStateNote.BreakdownCategory("Food", "food", 30m, 0.75m), WorkspaceStateNote.BreakdownCategory("Travel", "travel", 10m, 0.25m))], timeZone: "Europe/Moscow"));
         Assert.Contains("April 2026", data, StringComparison.Ordinal);
+        Assert.Contains("Time zone: <code>Europe/Moscow</code>", data, StringComparison.Ordinal);
         Assert.Contains("Expense total: <b>40 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
         Assert.Contains("75%", data, StringComparison.Ordinal);
     }

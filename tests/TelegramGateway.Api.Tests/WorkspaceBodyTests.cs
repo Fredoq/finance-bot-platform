@@ -58,8 +58,8 @@ public sealed class WorkspaceBodyTests
     public void Rejects_summary_without_period()
     {
         WorkspaceBody body = new();
-        InvalidOperationException year = Assert.Throws<InvalidOperationException>(() => body.Data("summary.month", "{\"accounts\":[],\"summary\":{\"year\":0,\"month\":4,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
-        InvalidOperationException month = Assert.Throws<InvalidOperationException>(() => body.Data("summary.month", "{\"accounts\":[],\"summary\":{\"year\":2026,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException year = Assert.Throws<InvalidOperationException>(() => body.Data("summary.month", "{\"accounts\":[],\"summary\":{\"year\":0,\"month\":4,\"timeZone\":\"Etc/UTC\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException month = Assert.Throws<InvalidOperationException>(() => body.Data("summary.month", "{\"accounts\":[],\"summary\":{\"year\":2026,\"month\":0,\"timeZone\":\"Etc/UTC\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
         Assert.Contains("requires year", year.Message, StringComparison.Ordinal);
         Assert.Contains("requires month", month.Message, StringComparison.Ordinal);
     }
@@ -71,10 +71,23 @@ public sealed class WorkspaceBodyTests
     public void Rejects_breakdown_without_period()
     {
         WorkspaceBody body = new();
-        InvalidOperationException year = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":0,\"month\":4,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
-        InvalidOperationException month = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":2026,\"month\":0,\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException year = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":0,\"month\":4,\"timeZone\":\"Etc/UTC\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException month = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":2026,\"month\":0,\"timeZone\":\"Etc/UTC\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
         Assert.Contains("requires year", year.Message, StringComparison.Ordinal);
         Assert.Contains("requires month", month.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Verifies that report screens require a time zone label.
+    /// </summary>
+    [Fact(DisplayName = "Rejects report states when the time zone label is missing")]
+    public void Rejects_reports_without_time_zone()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException summary = Assert.Throws<InvalidOperationException>(() => body.Data("summary.month", "{\"accounts\":[],\"summary\":{\"year\":2026,\"month\":4,\"timeZone\":\"\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException breakdown = Assert.Throws<InvalidOperationException>(() => body.Data("category.month", "{\"accounts\":[],\"breakdown\":{\"year\":2026,\"month\":4,\"timeZone\":\"\",\"currencies\":[]},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.Contains("requires time zone", summary.Message, StringComparison.Ordinal);
+        Assert.Contains("requires time zone", breakdown.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

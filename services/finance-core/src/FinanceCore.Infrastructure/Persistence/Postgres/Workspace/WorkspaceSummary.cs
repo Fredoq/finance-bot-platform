@@ -6,7 +6,7 @@ internal sealed class WorkspaceSummary
 
     internal WorkspaceSummary(WorkspaceBody body) => this.body = body ?? throw new ArgumentNullException(nameof(body));
 
-    internal WorkspaceMove Open(WorkspaceData data, DateTimeOffset when) => Move(WorkspaceBody.SummaryState, body.Summary(data, WorkspaceBody.Month(when)));
+    internal WorkspaceMove Open(WorkspaceData data, DateTimeOffset when, string timeZone) => Move(WorkspaceBody.SummaryState, body.Summary(data, WorkspaceBody.Month(when, timeZone)));
 
     internal WorkspaceMove Action(WorkspaceData data, string code, DateTimeOffset when) => code switch
     {
