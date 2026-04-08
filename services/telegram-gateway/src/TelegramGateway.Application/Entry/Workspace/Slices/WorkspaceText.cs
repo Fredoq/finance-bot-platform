@@ -33,6 +33,7 @@ internal sealed class WorkspaceText
         "transaction.recent.recategorize.confirm" => RecentRecategorize(data),
         "summary.month" => Summary(data),
         "category.month" => Breakdown(data),
+        "profile.timezone.edit" => TimeZone(data),
         _ => Home(fresh, data)
     };
 
@@ -347,6 +348,19 @@ internal sealed class WorkspaceText
             text.AppendLine();
             text.Append(WorkspaceHtml.Escape(data.Status.Notice));
         }
+        return text.ToString().TrimEnd();
+    }
+
+    private static string TimeZone(WorkspaceData data)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
+        }
+        text.AppendLine("<b>Time zone</b>");
+        text.AppendLine($"Current: {WorkspaceHtml.Code(data.Profile.TimeZone)}");
+        text.Append("Send an IANA time zone id such as <code>Europe/Moscow</code>");
         return text.ToString().TrimEnd();
     }
 }

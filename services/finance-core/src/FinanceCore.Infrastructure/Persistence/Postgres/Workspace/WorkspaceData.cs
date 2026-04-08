@@ -27,6 +27,7 @@ internal sealed record WorkspaceData
     public WorkspaceData()
     {
         Accounts = Array.AsReadOnly<AccountData>([]);
+        Profile = new ProfileData();
         Financial = new FinancialData();
         Expense = new ExpenseData();
         Income = new IncomeData();
@@ -45,6 +46,7 @@ internal sealed record WorkspaceData
             throw new ArgumentException("Workspace accounts cannot contain null items", nameof(accounts));
         }
         Accounts = Array.AsReadOnly(accounts.ToArray());
+        Profile = state.Profile;
         Financial = state.Financial;
         Expense = state.Expense;
         Income = state.Income;
@@ -56,6 +58,7 @@ internal sealed record WorkspaceData
         Custom = state.Custom;
     }
     public IReadOnlyList<AccountData> Accounts { get; init; }
+    public ProfileData Profile { get; init; }
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
@@ -71,6 +74,7 @@ internal sealed record WorkspaceStateData
 {
     public WorkspaceStateData()
     {
+        Profile = new ProfileData();
         Financial = new FinancialData();
         Expense = new ExpenseData();
         Income = new IncomeData();
@@ -80,6 +84,7 @@ internal sealed record WorkspaceStateData
         Choices = new ChoicesData();
         Status = new StatusData();
     }
+    public ProfileData Profile { get; init; }
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
@@ -89,6 +94,20 @@ internal sealed record WorkspaceStateData
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
+}
+
+internal sealed record ProfileData
+{
+    public ProfileData() => TimeZone = WorkspaceZone.Default;
+    internal ProfileData(string timeZone)
+    {
+        if (string.IsNullOrWhiteSpace(timeZone))
+        {
+            throw new ArgumentException("Workspace profile time zone is required", nameof(timeZone));
+        }
+        TimeZone = timeZone;
+    }
+    public string TimeZone { get; init; }
 }
 
 internal sealed record FinancialData

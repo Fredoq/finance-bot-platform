@@ -45,6 +45,10 @@ internal sealed class WorkspaceInput
         {
             return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null);
         }
+        if (code == WorkspaceBody.TimeZoneCancel && body.TimeZoneScreen(state))
+        {
+            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Time zone update was cancelled"), null, string.Empty, null);
+        }
         if (code == WorkspaceBody.RecentBack && body.RecentState(state))
         {
             return recent.Return(data, state);
@@ -108,6 +112,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.RecentRecategorizeState => new WorkspaceMove(WorkspaceBody.RecentRecategorizeState, body.Model(data, status: new StatusData(WorkspaceBody.ConfirmGoBackPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.SummaryState => summary.Text(data),
         WorkspaceBody.BreakdownState => breakdown.Text(data),
+        WorkspaceBody.TimeZoneState => draft.TimeZone(data, value),
         _ => new WorkspaceMove(WorkspaceBody.HomeState, body.Home(data.Accounts, data.Accounts.Count == 0 ? WorkspaceBody.AddAccountPrompt : WorkspaceBody.ChooseActionPrompt), null, string.Empty, null)
     };
 

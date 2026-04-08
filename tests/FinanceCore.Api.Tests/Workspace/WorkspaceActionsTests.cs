@@ -17,7 +17,7 @@ public sealed class WorkspaceActionsTests
     {
         var item = new WorkspaceActions();
         IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(0, 0, 0, 0, page, new MonthPaging(false, false), false));
-        Assert.Equal(["account.add"], code);
+        Assert.Equal(["account.add", "profile.timezone.show"], code);
     }
     /// <summary>
     /// Verifies that account currency state returns codes for both custom modes.
@@ -39,7 +39,18 @@ public sealed class WorkspaceActionsTests
     {
         var item = new WorkspaceActions();
         IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(1, 0, 0, 0, page, new MonthPaging(false, false), false));
-        Assert.Equal(["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "account.add"], code);
+        Assert.Equal(["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "profile.timezone.show", "account.add"], code);
+    }
+
+    /// <summary>
+    /// Verifies that the time zone edit state exposes only the cancel action.
+    /// </summary>
+    [Fact(DisplayName = "Returns codes for time zone edit state")]
+    public void Returns_codes_for_time_zone()
+    {
+        var item = new WorkspaceActions();
+        IReadOnlyList<string> code = item.Codes("profile.timezone.edit", new WorkspaceActionContext(1, 0, 0, 0, page, new MonthPaging(false, false), false));
+        Assert.Equal(["profile.timezone.cancel"], code);
     }
     /// <summary>
     /// Verifies that expense selection states return dynamic slot actions.

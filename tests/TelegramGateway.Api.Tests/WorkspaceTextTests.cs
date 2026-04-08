@@ -56,4 +56,17 @@ public sealed class WorkspaceTextTests
         Assert.Contains("Expense total: <b>40 $ (<code>USD</code>)</b>", data, StringComparison.Ordinal);
         Assert.Contains("75%", data, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Verifies that the time zone edit text renders the current zone and input hint.
+    /// </summary>
+    [Fact(DisplayName = "Builds time zone edit text with the current zone")]
+    public void Builds_time_zone()
+    {
+        var text = new WorkspaceText(new WorkspaceHtml());
+        string data = text.Text("profile.timezone.edit", false, WorkspaceStateNote.TimeZone("Europe/Moscow"));
+        Assert.Contains("<b>Time zone</b>", data, StringComparison.Ordinal);
+        Assert.Contains("Current: <code>Europe/Moscow</code>", data, StringComparison.Ordinal);
+        Assert.Contains("Europe/Moscow", data, StringComparison.Ordinal);
+    }
 }

@@ -20,6 +20,7 @@ internal sealed record WorkspaceData
     public WorkspaceData()
     {
         Accounts = Array.AsReadOnly<AccountData>([]);
+        Profile = new ProfileData();
         Financial = new FinancialData();
         Expense = new TransactionData();
         Income = new TransactionData();
@@ -30,6 +31,7 @@ internal sealed record WorkspaceData
         Status = new StatusData();
     }
     public IReadOnlyList<AccountData> Accounts { get; init; }
+    public ProfileData Profile { get; init; }
     public FinancialData Financial { get; init; }
     public TransactionData Expense { get; init; }
     public TransactionData Income { get; init; }
@@ -39,6 +41,12 @@ internal sealed record WorkspaceData
     public ChoicesData Choices { get; init; }
     public StatusData Status { get; init; }
     public bool Custom { get; init; }
+}
+
+internal sealed record ProfileData
+{
+    public ProfileData() => TimeZone = "Etc/UTC";
+    public string TimeZone { get; init; }
 }
 
 internal sealed record FinancialData
