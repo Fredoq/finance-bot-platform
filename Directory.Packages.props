@@ -10,7 +10,7 @@
     <PackageVersion Include="MinVer" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.10.1" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.12.14" />
     <PackageVersion Include="dbup-core" Version="6.1.1" />
     <PackageVersion Include="dbup-postgresql" Version="7.0.1" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.4.0" />
