@@ -15,7 +15,10 @@ public sealed class WorkspaceZoneTests
     {
         string id = WorkspaceZone.Id("Mars/Olympus");
         var zone = TimeZoneInfo.FindSystemTimeZoneById(id);
+        Assert.True(string.Equals(id, "Etc/UTC", StringComparison.Ordinal) || string.Equals(id, "UTC", StringComparison.Ordinal));
         Assert.Equal(zone.Id, id);
+        Assert.Equal(TimeSpan.Zero, zone.BaseUtcOffset);
+        Assert.False(zone.SupportsDaylightSavingTime);
     }
 
     /// <summary>
@@ -24,8 +27,12 @@ public sealed class WorkspaceZoneTests
     [Fact(DisplayName = "Uses the earliest UTC instant for an ambiguous month start")]
     public void Uses_ambiguous_boundary()
     {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("America/Havana");
+        DateTime local = new(2026, 11, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        TimeSpan offset = zone.GetAmbiguousTimeOffsets(local).Max();
+        DateTimeOffset expected = new(local, offset);
         WorkspaceZone.MonthRange range = WorkspaceZone.Range(2026, 11, "America/Havana");
-        Assert.Equal(new DateTimeOffset(2026, 11, 1, 4, 0, 0, TimeSpan.Zero), range.StartUtc);
+        Assert.Equal(expected.ToUniversalTime(), range.StartUtc);
         Assert.Equal("America/Havana", range.ZoneId);
     }
 }
