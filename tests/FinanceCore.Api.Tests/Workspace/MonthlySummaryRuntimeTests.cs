@@ -29,7 +29,7 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("summary.month", view.Payload.Frame.State);
         Assert.Equal(2026, Year(view.Payload.Frame.StateData));
         Assert.Equal(4, Month(view.Payload.Frame.StateData));
-        Assert.Equal("Etc/UTC", TimeZone(view.Payload.Frame.StateData));
+        Assert.Equal("Etc/UTC", TimeZone(view.Payload.Frame.StateData, "summary"));
         Assert.Equal(0, CurrencyCount(view.Payload.Frame.StateData));
         Assert.Equal(["category.month.show", "summary.month.prev", "summary.month.back"], view.Payload.Frame.Actions);
     }
@@ -197,14 +197,14 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> april = await Open(queue, actor, "room-summary-zone", "summary-zone-open", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero));
         Assert.Equal(2026, Year(april.Payload.Frame.StateData));
         Assert.Equal(4, Month(april.Payload.Frame.StateData));
-        Assert.Equal(zone, TimeZone(april.Payload.Frame.StateData));
+        Assert.Equal(zone, TimeZone(april.Payload.Frame.StateData, "summary"));
         Assert.Equal(9m, Total(april.Payload.Frame.StateData, "USD", "income"));
         Assert.Equal(5m, Total(april.Payload.Frame.StateData, "USD", "expense"));
         await Publish(InputAt(actor, "room-summary-zone", "action", "summary.month.prev", "summary-zone-prev", new DateTimeOffset(2026, 4, 20, 12, 1, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> march = await Take(queue, "summary-zone-prev");
         Assert.Equal(2026, Year(march.Payload.Frame.StateData));
         Assert.Equal(3, Month(march.Payload.Frame.StateData));
-        Assert.Equal(zone, TimeZone(march.Payload.Frame.StateData));
+        Assert.Equal(zone, TimeZone(march.Payload.Frame.StateData, "summary"));
         Assert.Equal(0, CurrencyCount(march.Payload.Frame.StateData));
     }
 
@@ -362,12 +362,6 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         return item.RootElement.GetProperty("summary").GetProperty("currencies").GetArrayLength();
     }
 
-    private static string TimeZone(string data)
-    {
-        using var item = JsonDocument.Parse(data);
-        return item.RootElement.GetProperty("summary").GetProperty("timeZone").GetString() ?? string.Empty;
-    }
-
     private static string Currency(string data, int index)
     {
         using var item = JsonDocument.Parse(data);
@@ -419,8 +413,6 @@ public sealed class MonthlySummaryRuntimeTests : FinanceCoreRuntimeSuite
         }
         throw new InvalidOperationException($"Workspace state is missing account choice '{name}'");
     }
-
-    private Task Zone(string actor, string value) => Execute($"update finance.user_account set time_zone = '{value}' where actor_key = '{actor}'");
 
     private sealed record EntryNote
     {
