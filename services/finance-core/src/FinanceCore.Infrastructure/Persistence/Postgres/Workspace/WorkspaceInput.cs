@@ -33,6 +33,35 @@ internal sealed class WorkspaceInput
     private WorkspaceMove Action(string state, WorkspaceData data, string value, DateTimeOffset when, string timeZone)
     {
         string code = value.Trim();
+        WorkspaceMove? guard = Guard(state, data, code, when);
+        if (guard is not null)
+        {
+            return guard;
+        }
+        return state switch
+        {
+            WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
+            WorkspaceBody.CurrencyState => draft.Currency(data, code),
+            WorkspaceBody.ConfirmState => draft.Confirm(data, code),
+            WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
+            WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
+            WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
+            WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
+            WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
+            WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
+            WorkspaceBody.RecentListState => recent.List(data, code),
+            WorkspaceBody.RecentDetailState => recent.Detail(data, code),
+            WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
+            WorkspaceBody.RecentCategoryState => recent.Category(data, code),
+            WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
+            WorkspaceBody.SummaryState => summary.Action(data, code, when),
+            WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
+            _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
+        };
+    }
+
+    private WorkspaceMove? Guard(string state, WorkspaceData data, string code, DateTimeOffset when)
+    {
         if (code == WorkspaceBody.AccountCancel && body.AccountState(state))
         {
             return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null);
@@ -61,30 +90,9 @@ internal sealed class WorkspaceInput
         {
             return summary.Action(data, code, when);
         }
-        if (code == WorkspaceBody.BreakdownBack && body.BreakdownScreen(state))
-        {
-            return breakdown.Action(data, code, when);
-        }
-        return state switch
-        {
-            WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
-            WorkspaceBody.CurrencyState => draft.Currency(data, code),
-            WorkspaceBody.ConfirmState => draft.Confirm(data, code),
-            WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
-            WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
-            WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
-            WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
-            WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
-            WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
-            WorkspaceBody.RecentListState => recent.List(data, code),
-            WorkspaceBody.RecentDetailState => recent.Detail(data, code),
-            WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
-            WorkspaceBody.RecentCategoryState => recent.Category(data, code),
-            WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
-            WorkspaceBody.SummaryState => summary.Action(data, code, when),
-            WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
-            _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
-        };
+        return code == WorkspaceBody.BreakdownBack && body.BreakdownScreen(state)
+            ? breakdown.Action(data, code, when)
+            : null;
     }
 
     private WorkspaceMove Text(string state, WorkspaceData data, string value) => state switch

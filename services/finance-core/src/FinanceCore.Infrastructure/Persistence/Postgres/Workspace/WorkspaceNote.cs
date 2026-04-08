@@ -103,7 +103,15 @@ internal sealed record CorrectionNote
 
 internal sealed record TimeZoneNote
 {
-    internal TimeZoneNote(string zoneId) => ZoneId = zoneId ?? throw new ArgumentNullException(nameof(zoneId));
+    internal TimeZoneNote(string zoneId)
+    {
+        ArgumentNullException.ThrowIfNull(zoneId);
+        if (!WorkspaceZone.Try(zoneId, out string value))
+        {
+            throw new ArgumentException("Workspace time zone is not supported", nameof(zoneId));
+        }
+        ZoneId = value;
+    }
     internal string ZoneId { get; }
 }
 

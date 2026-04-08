@@ -67,12 +67,15 @@ public sealed class TimeZoneRuntimeTests : FinanceCoreRuntimeSuite
     [Fact(DisplayName = "Rejects an invalid time zone id")]
     public async Task Rejects_time_zone()
     {
+        const string zone = "Europe/Moscow";
         string queue = $"view-{Guid.CreateVersion7():N}";
         await using var host = new CoreApiFactory(Settings("finance-core-time-zone-invalid"));
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Reset();
         await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-zone-invalid", "room-zone-invalid", "Cash", "USD", "100", "zone-invalid-account");
+        await Zone("actor-zone-invalid", zone);
         await Publish(Envelope("actor-zone-invalid", "room-zone-invalid", string.Empty, "zone-invalid-home"));
         _ = await Take(queue, "zone-invalid-home");
         await Publish(Input("actor-zone-invalid", "room-zone-invalid", "action", "profile.timezone.show", "zone-invalid-show"));
@@ -81,7 +84,11 @@ public sealed class TimeZoneRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> view = await Take(queue, "zone-invalid-save");
         Assert.Equal("profile.timezone.edit", view.Payload.Frame.State);
         Assert.Equal("Send a valid IANA time zone id", Error(view.Payload.Frame.StateData));
-        Assert.Equal("Etc/UTC", TimeZone(view.Payload.Frame.StateData));
+        Assert.Equal(zone, TimeZone(view.Payload.Frame.StateData));
+        Assert.Equal(zone, await Scalar("select time_zone from finance.user_account where actor_key = 'actor-zone-invalid'"));
+        await Publish(InputAt("actor-zone-invalid", "room-zone-invalid", "action", "summary.month.show", "zone-invalid-summary", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero)));
+        MessageEnvelope<WorkspaceViewRequestedCommand> summary = await Take(queue, "zone-invalid-summary");
+        Assert.Equal(zone, SummaryTimeZone(summary.Payload.Frame.StateData));
     }
 
     /// <summary>
@@ -90,12 +97,15 @@ public sealed class TimeZoneRuntimeTests : FinanceCoreRuntimeSuite
     [Fact(DisplayName = "Cancels the time zone edit flow")]
     public async Task Cancels_time_zone()
     {
+        const string zone = "Europe/Moscow";
         string queue = $"view-{Guid.CreateVersion7():N}";
         await using var host = new CoreApiFactory(Settings("finance-core-time-zone-cancel"));
         using HttpClient client = host.CreateClient();
         await Ready(client);
         await Reset();
         await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-zone-cancel", "room-zone-cancel", "Cash", "USD", "100", "zone-cancel-account");
+        await Zone("actor-zone-cancel", zone);
         await Publish(Envelope("actor-zone-cancel", "room-zone-cancel", string.Empty, "zone-cancel-home"));
         _ = await Take(queue, "zone-cancel-home");
         await Publish(Input("actor-zone-cancel", "room-zone-cancel", "action", "profile.timezone.show", "zone-cancel-show"));
@@ -104,6 +114,10 @@ public sealed class TimeZoneRuntimeTests : FinanceCoreRuntimeSuite
         MessageEnvelope<WorkspaceViewRequestedCommand> home = await Take(queue, "zone-cancel-apply");
         Assert.Equal("home", home.Payload.Frame.State);
         Assert.Equal("Time zone update was cancelled", Notice(home.Payload.Frame.StateData));
+        Assert.Equal(zone, await Scalar("select time_zone from finance.user_account where actor_key = 'actor-zone-cancel'"));
+        await Publish(InputAt("actor-zone-cancel", "room-zone-cancel", "action", "summary.month.show", "zone-cancel-summary", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero)));
+        MessageEnvelope<WorkspaceViewRequestedCommand> summary = await Take(queue, "zone-cancel-summary");
+        Assert.Equal(zone, SummaryTimeZone(summary.Payload.Frame.StateData));
     }
 
     private async Task<MessageEnvelope<WorkspaceViewRequestedCommand>> Create(string queue, string actor, string room, string name, string currency, string balance, string id)

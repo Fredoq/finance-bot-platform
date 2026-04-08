@@ -73,7 +73,10 @@ internal sealed class WorkspaceSql
         item.Parameters.AddWithValue("time_zone", note.ZoneId);
         item.Parameters.AddWithValue(map.UpdatedUtc, when);
         item.Parameters.AddWithValue(map.UserId, userId);
-        _ = await item.ExecuteNonQueryAsync(token);
+        if (await item.ExecuteNonQueryAsync(token) != 1)
+        {
+            throw new InvalidOperationException("User account time zone update failed");
+        }
     }
 
     internal async ValueTask<IReadOnlyList<AccountData>> Accounts(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
