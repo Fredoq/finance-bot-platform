@@ -3,36 +3,19 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 internal static class WorkspaceZone
 {
     internal const string Default = "Etc/UTC";
-    internal static string Id(string value)
-    {
-        string item = string.IsNullOrWhiteSpace(value) ? Default : value.Trim();
-        try
-        {
-            _ = TimeZoneInfo.FindSystemTimeZoneById(item);
-            return item;
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            return Default;
-        }
-        catch (InvalidTimeZoneException)
-        {
-            return Default;
-        }
-    }
+    internal static string Id(string value) => Resolve(value).Id;
     internal static MonthNote Month(DateTimeOffset when, string value)
     {
-        TimeZoneInfo item = Find(value);
+        TimeZoneInfo item = Resolve(value);
         DateTimeOffset data = TimeZoneInfo.ConvertTime(when, item);
         return new MonthNote(data.Year, data.Month, item.Id);
     }
     internal static MonthRange Range(int year, int month, string value)
     {
-        string id = Id(value);
-        TimeZoneInfo item = Find(id);
+        TimeZoneInfo item = Resolve(value);
         DateTime start = new(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
         DateTime end = start.AddMonths(1);
-        return new MonthRange(new DateTimeOffset(start, item.GetUtcOffset(start)).ToUniversalTime(), new DateTimeOffset(end, item.GetUtcOffset(end)).ToUniversalTime(), id);
+        return new MonthRange(Boundary(start, item), Boundary(end, item), item.Id);
     }
     internal sealed record MonthNote
     {
@@ -58,5 +41,38 @@ internal static class WorkspaceZone
         internal DateTimeOffset EndUtc { get; }
         internal string ZoneId { get; }
     }
-    private static TimeZoneInfo Find(string value) => TimeZoneInfo.FindSystemTimeZoneById(Id(value));
+    private static DateTimeOffset Boundary(DateTime value, TimeZoneInfo zone)
+    {
+        DateTime item = value;
+        while (zone.IsInvalidTime(item))
+        {
+            item = item.AddMinutes(1);
+        }
+        if (zone.IsAmbiguousTime(item))
+        {
+            TimeSpan offset = zone.GetAmbiguousTimeOffsets(item).Max();
+            return new DateTimeOffset(item, offset).ToUniversalTime();
+        }
+        return TimeZoneInfo.ConvertTimeToUtc(item, zone);
+    }
+    private static TimeZoneInfo Resolve(string value)
+    {
+        string item = string.IsNullOrWhiteSpace(value) ? Default : value.Trim();
+        return Find(item) ?? Find(Default) ?? Find("UTC") ?? TimeZoneInfo.Utc;
+    }
+    private static TimeZoneInfo? Find(string value)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(value);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return null;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return null;
+        }
+    }
 }

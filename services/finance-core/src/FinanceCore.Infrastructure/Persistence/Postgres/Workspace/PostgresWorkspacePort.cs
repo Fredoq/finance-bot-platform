@@ -358,6 +358,11 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
     private static async ValueTask<(Guid? UserId, string? TimeZone)> UserRow(NpgsqlCommand note, CancellationToken token)
     {
         await using NpgsqlDataReader row = await note.ExecuteReaderAsync(token);
-        return await row.ReadAsync(token) ? (row.GetGuid(0), row.GetString(1)) : (null, null);
+        if (!await row.ReadAsync(token))
+        {
+            return (null, null);
+        }
+        string? item = await row.IsDBNullAsync(1, token) ? null : WorkspaceZone.Id(row.GetString(1));
+        return (row.GetGuid(0), item);
     }
 }

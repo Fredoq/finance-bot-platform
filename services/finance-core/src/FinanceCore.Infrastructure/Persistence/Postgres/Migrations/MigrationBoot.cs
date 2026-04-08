@@ -15,9 +15,23 @@ internal sealed class MigrationBoot : IHostedService
     private const string IncomeKind = "income";
     private const string SchemaSql = "create schema if not exists finance";
     private const string RepairSql = """
-                                      alter table if exists finance.user_account add column if not exists time_zone text;
-                                      update finance.user_account set time_zone = 'Etc/UTC' where time_zone is null or btrim(time_zone) = '';
-                                      alter table if exists finance.user_account alter column time_zone set not null;
+                                      do $$
+                                      begin
+                                          if exists
+                                          (
+                                              select 1
+                                              from information_schema.tables
+                                              where table_schema = 'finance'
+                                                and table_name = 'user_account'
+                                          ) then
+                                              alter table finance.user_account add column if not exists time_zone text;
+                                              update finance.user_account
+                                              set time_zone = 'Etc/UTC'
+                                              where time_zone is null or btrim(time_zone) = '';
+                                              alter table finance.user_account alter column time_zone set not null;
+                                          end if;
+                                      end;
+                                      $$;
                                       
                                       create table if not exists finance.category
                                       (
