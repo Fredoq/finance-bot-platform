@@ -44,40 +44,25 @@ internal sealed class WorkspaceInput
             ?? new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null);
     }
 
-    private WorkspaceMove? Guard(string state, WorkspaceData data, string code, DateTimeOffset when)
+    private WorkspaceMove? Guard(string state, WorkspaceData data, string code, DateTimeOffset when) => Cancel(state, data, code) ?? Screen(state, data, code, when);
+
+    private WorkspaceMove? Cancel(string state, WorkspaceData data, string code) => code switch
     {
-        if (code == WorkspaceBody.AccountCancel && body.AccountState(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.ExpenseCancel && body.ExpenseState(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Expense creation was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.IncomeCancel && body.IncomeState(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.TimeZoneCancel && body.TimeZoneScreen(state))
-        {
-            return new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Time zone update was cancelled"), null, string.Empty, null);
-        }
-        if (code == WorkspaceBody.RecentBack && body.RecentState(state))
-        {
-            return recent.Return(data, state);
-        }
-        if (code == WorkspaceBody.ShowBreakdown && body.SummaryScreen(state))
-        {
-            return breakdown.Open(data);
-        }
-        if (code == WorkspaceBody.SummaryBack && body.SummaryScreen(state))
-        {
-            return summary.Action(data, code, when);
-        }
-        return code == WorkspaceBody.BreakdownBack && body.BreakdownScreen(state)
-            ? breakdown.Action(data, code, when)
-            : null;
-    }
+        WorkspaceBody.AccountCancel when body.AccountState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.ExpenseCancel when body.ExpenseState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Expense creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.IncomeCancel when body.IncomeState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.TimeZoneCancel when body.TimeZoneScreen(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Time zone update was cancelled"), null, string.Empty, null),
+        _ => null
+    };
+
+    private WorkspaceMove? Screen(string state, WorkspaceData data, string code, DateTimeOffset when) => code switch
+    {
+        WorkspaceBody.RecentBack when body.RecentState(state) => recent.Return(data, state),
+        WorkspaceBody.ShowBreakdown when body.SummaryScreen(state) => breakdown.Open(data),
+        WorkspaceBody.SummaryBack when body.SummaryScreen(state) => summary.Action(data, code, when),
+        WorkspaceBody.BreakdownBack when body.BreakdownScreen(state) => breakdown.Action(data, code, when),
+        _ => null
+    };
 
     private WorkspaceMove? Draft(string state, WorkspaceData data, string code, DateTimeOffset when, string timeZone) => state switch
     {
