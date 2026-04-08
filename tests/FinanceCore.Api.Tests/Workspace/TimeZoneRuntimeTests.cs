@@ -86,8 +86,11 @@ public sealed class TimeZoneRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal("Send a valid IANA time zone id", Error(view.Payload.Frame.StateData));
         Assert.Equal(zone, TimeZone(view.Payload.Frame.StateData));
         Assert.Equal(zone, await Scalar("select time_zone from finance.user_account where actor_key = 'actor-zone-invalid'"));
+        await Publish(Input("actor-zone-invalid", "room-zone-invalid", "action", "profile.timezone.cancel", "zone-invalid-cancel"));
+        _ = await Take(queue, "zone-invalid-cancel");
         await Publish(InputAt("actor-zone-invalid", "room-zone-invalid", "action", "summary.month.show", "zone-invalid-summary", new DateTimeOffset(2026, 4, 20, 12, 0, 0, TimeSpan.Zero)));
         MessageEnvelope<WorkspaceViewRequestedCommand> summary = await Take(queue, "zone-invalid-summary");
+        Assert.Equal("summary.month", summary.Payload.Frame.State);
         Assert.Equal(zone, SummaryTimeZone(summary.Payload.Frame.StateData));
     }
 

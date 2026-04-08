@@ -38,26 +38,10 @@ internal sealed class WorkspaceInput
         {
             return guard;
         }
-        return state switch
-        {
-            WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
-            WorkspaceBody.CurrencyState => draft.Currency(data, code),
-            WorkspaceBody.ConfirmState => draft.Confirm(data, code),
-            WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
-            WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
-            WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
-            WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
-            WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
-            WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
-            WorkspaceBody.RecentListState => recent.List(data, code),
-            WorkspaceBody.RecentDetailState => recent.Detail(data, code),
-            WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
-            WorkspaceBody.RecentCategoryState => recent.Category(data, code),
-            WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
-            WorkspaceBody.SummaryState => summary.Action(data, code, when),
-            WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
-            _ => new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null)
-        };
+        return Draft(state, data, code, when, timeZone)
+            ?? Recent(state, data, code)
+            ?? Report(state, data, code, when)
+            ?? new WorkspaceMove(state, body.Model(data, status: new StatusData("This action is not available", string.Empty)), null, string.Empty, null);
     }
 
     private WorkspaceMove? Guard(string state, WorkspaceData data, string code, DateTimeOffset when)
@@ -94,6 +78,37 @@ internal sealed class WorkspaceInput
             ? breakdown.Action(data, code, when)
             : null;
     }
+
+    private WorkspaceMove? Draft(string state, WorkspaceData data, string code, DateTimeOffset when, string timeZone) => state switch
+    {
+        WorkspaceBody.HomeState => draft.Home(data, code, when, timeZone),
+        WorkspaceBody.CurrencyState => draft.Currency(data, code),
+        WorkspaceBody.ConfirmState => draft.Confirm(data, code),
+        WorkspaceBody.ExpenseAccountState => draft.Account(data, code, false),
+        WorkspaceBody.ExpenseCategoryState => draft.Category(data, code, false),
+        WorkspaceBody.ExpenseConfirmState => draft.Finish(data, code, false),
+        WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
+        WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
+        WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
+        _ => null
+    };
+
+    private WorkspaceMove? Recent(string state, WorkspaceData data, string code) => state switch
+    {
+        WorkspaceBody.RecentListState => recent.List(data, code),
+        WorkspaceBody.RecentDetailState => recent.Detail(data, code),
+        WorkspaceBody.RecentDeleteState => recent.Delete(data, code),
+        WorkspaceBody.RecentCategoryState => recent.Category(data, code),
+        WorkspaceBody.RecentRecategorizeState => recent.Confirm(data, code),
+        _ => null
+    };
+
+    private WorkspaceMove? Report(string state, WorkspaceData data, string code, DateTimeOffset when) => state switch
+    {
+        WorkspaceBody.SummaryState => summary.Action(data, code, when),
+        WorkspaceBody.BreakdownState => breakdown.Action(data, code, when),
+        _ => null
+    };
 
     private WorkspaceMove Text(string state, WorkspaceData data, string value) => state switch
     {
