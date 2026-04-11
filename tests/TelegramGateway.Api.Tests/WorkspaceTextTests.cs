@@ -70,6 +70,21 @@ public sealed class WorkspaceTextTests
         Assert.Contains("Europe/Moscow", data, StringComparison.Ordinal);
     }
     /// <summary>
+    /// Verifies that transfer selection text renders source and target prompts.
+    /// </summary>
+    [Fact(DisplayName = "Builds transfer selection text")]
+    public void Builds_transfer_selection()
+    {
+        var text = new WorkspaceText(new WorkspaceHtml());
+        string source = text.Text("transfer.source.account", false, WorkspaceStateNote.Transfer("transfer.source.account"));
+        string target = text.Text("transfer.target.account", false, WorkspaceStateNote.Transfer("transfer.target.account"));
+        Assert.Contains("Choose the source account", source, StringComparison.Ordinal);
+        Assert.Contains("From: <b>Cash</b>", target, StringComparison.Ordinal);
+        Assert.Contains("Currency:", target, StringComparison.Ordinal);
+        Assert.Contains("USD", target, StringComparison.Ordinal);
+        Assert.Contains("Choose the target account", target, StringComparison.Ordinal);
+    }
+    /// <summary>
     /// Verifies that transfer confirm text renders source, target, and amount.
     /// </summary>
     [Fact(DisplayName = "Builds transfer confirm text")]
