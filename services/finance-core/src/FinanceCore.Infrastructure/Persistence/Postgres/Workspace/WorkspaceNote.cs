@@ -24,6 +24,18 @@ internal sealed record WorkspaceMove
     {
     }
 
+    internal WorkspaceMove(string code, WorkspaceData body, TransferNote transfer)
+    {
+        Code = code ?? throw new ArgumentNullException(nameof(code));
+        Body = body ?? throw new ArgumentNullException(nameof(body));
+        AccountValue = null;
+        TextEntry = string.Empty;
+        RecordValue = null;
+        CorrectValue = null;
+        TimeZoneValue = null;
+        TransferValue = transfer ?? throw new ArgumentNullException(nameof(transfer));
+    }
+
     internal WorkspaceMove(string code, WorkspaceData body, CorrectionNote correction) : this(code, body, null, string.Empty, null, correction)
     {
     }
@@ -41,6 +53,7 @@ internal sealed record WorkspaceMove
         RecordValue = transaction;
         CorrectValue = correction;
         TimeZoneValue = zone;
+        TransferValue = null;
     }
     internal string Code { get; }
     internal WorkspaceData Body { get; }
@@ -49,6 +62,7 @@ internal sealed record WorkspaceMove
     internal TransactionNote? RecordValue { get; }
     internal CorrectionNote? CorrectValue { get; }
     internal TimeZoneNote? TimeZoneValue { get; }
+    internal TransferNote? TransferValue { get; }
 }
 
 internal sealed record AccountDraft
@@ -79,6 +93,21 @@ internal sealed record TransactionNote
     internal decimal Total { get; }
     internal string TransactionKind { get; }
     internal string SourceText { get; }
+}
+
+internal sealed record TransferNote
+{
+    internal TransferNote(string sourceId, string targetId, string currency, decimal total)
+    {
+        SourceId = sourceId ?? throw new ArgumentNullException(nameof(sourceId));
+        TargetId = targetId ?? throw new ArgumentNullException(nameof(targetId));
+        Currency = currency ?? throw new ArgumentNullException(nameof(currency));
+        Total = total;
+    }
+    internal string SourceId { get; }
+    internal string TargetId { get; }
+    internal string Currency { get; }
+    internal decimal Total { get; }
 }
 
 internal sealed record CorrectionNote

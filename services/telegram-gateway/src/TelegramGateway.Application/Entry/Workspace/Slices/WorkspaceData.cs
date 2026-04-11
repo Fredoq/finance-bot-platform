@@ -24,6 +24,7 @@ internal sealed record WorkspaceData
         Financial = new FinancialData();
         Expense = new TransactionData();
         Income = new TransactionData();
+        Transfer = new TransferData();
         Recent = new RecentData();
         Summary = new SummaryData();
         Breakdown = new BreakdownData();
@@ -35,6 +36,7 @@ internal sealed record WorkspaceData
     public FinancialData Financial { get; init; }
     public TransactionData Expense { get; init; }
     public TransactionData Income { get; init; }
+    public TransferData Transfer { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
     public BreakdownData Breakdown { get; init; }
@@ -86,6 +88,18 @@ internal sealed record PickData
     public string Id { get; init; }
     public string Name { get; init; }
     public string Note { get; init; }
+}
+
+internal sealed record TransferData
+{
+    public TransferData()
+    {
+        Source = new PickData();
+        Target = new PickData();
+    }
+    public PickData Source { get; init; }
+    public PickData Target { get; init; }
+    public decimal? Amount { get; init; }
 }
 
 internal sealed record RecentData

@@ -51,6 +51,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.AccountCancel when body.AccountState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Account creation was cancelled"), null, string.Empty, null),
         WorkspaceBody.ExpenseCancel when body.ExpenseState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Expense creation was cancelled"), null, string.Empty, null),
         WorkspaceBody.IncomeCancel when body.IncomeState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Income creation was cancelled"), null, string.Empty, null),
+        WorkspaceBody.TransferCancel when body.TransferState(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Transfer creation was cancelled"), null, string.Empty, null),
         WorkspaceBody.TimeZoneCancel when body.TimeZoneScreen(state) => new WorkspaceMove(WorkspaceBody.HomeState, body.Reset(data, "Time zone update was cancelled"), null, string.Empty, null),
         _ => null
     };
@@ -75,6 +76,9 @@ internal sealed class WorkspaceInput
         WorkspaceBody.IncomeAccountState => draft.Account(data, code, true),
         WorkspaceBody.IncomeCategoryState => draft.Category(data, code, true),
         WorkspaceBody.IncomeConfirmState => draft.Finish(data, code, true),
+        WorkspaceBody.TransferSourceState => draft.Origin(data, code),
+        WorkspaceBody.TransferTargetState => draft.Target(data, code),
+        WorkspaceBody.TransferConfirmState => draft.Complete(data, code),
         _ => null
     };
 
@@ -102,7 +106,7 @@ internal sealed class WorkspaceInput
         WorkspaceBody.NameState => draft.Name(data, value),
         WorkspaceBody.CurrencyState => draft.Code(data, value),
         WorkspaceBody.BalanceState => draft.Balance(data, value),
-        WorkspaceBody.ConfirmState => new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, data.Financial, new StatusData("Use the buttons to confirm or cancel", string.Empty)), null, string.Empty, null),
+        WorkspaceBody.ConfirmState => new WorkspaceMove(WorkspaceBody.ConfirmState, body.Account(data, data.Financial, new StatusData(WorkspaceBody.ConfirmCancelPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.ExpenseAccountState => new WorkspaceMove(WorkspaceBody.ExpenseAccountState, body.Model(data, new FinancialData(), data.Choices, new StatusData("Use the buttons to choose one account or cancel", string.Empty)), null, string.Empty, null),
         WorkspaceBody.ExpenseAmountState => draft.Total(data, value, false),
         WorkspaceBody.ExpenseSourceState => draft.Source(data, value, false),
@@ -113,6 +117,10 @@ internal sealed class WorkspaceInput
         WorkspaceBody.IncomeSourceState => draft.Source(data, value, true),
         WorkspaceBody.IncomeCategoryState => draft.Text(data, value, true),
         WorkspaceBody.IncomeConfirmState => IncomeConfirm(data),
+        WorkspaceBody.TransferSourceState => new WorkspaceMove(WorkspaceBody.TransferSourceState, body.Model(data, new FinancialData(), data.Choices, new StatusData("Use the buttons to choose the source account or cancel", string.Empty)), null, string.Empty, null),
+        WorkspaceBody.TransferTargetState => new WorkspaceMove(WorkspaceBody.TransferTargetState, body.Model(data, new FinancialData(), data.Choices, new StatusData("Use the buttons to choose the target account or cancel", string.Empty)), null, string.Empty, null),
+        WorkspaceBody.TransferAmountState => draft.Transfer(data, value),
+        WorkspaceBody.TransferConfirmState => new WorkspaceMove(WorkspaceBody.TransferConfirmState, body.Transfer(data, data.Transfer.Source, data.Transfer.Target, data.Transfer.Amount, status: new StatusData(WorkspaceBody.ConfirmCancelPrompt, string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentCategoryState => recent.Text(data, value),
         WorkspaceBody.RecentListState => new WorkspaceMove(WorkspaceBody.RecentListState, body.Model(data, status: new StatusData("Use the buttons to choose one transaction or go back", string.Empty)), null, string.Empty, null),
         WorkspaceBody.RecentDetailState => new WorkspaceMove(WorkspaceBody.RecentDetailState, body.Model(data, status: new StatusData("Use the buttons to continue", string.Empty)), null, string.Empty, null),
@@ -132,7 +140,7 @@ internal sealed class WorkspaceInput
         }
         WorkspaceData transaction = body.Transaction(data, body.Pick(data, false), body.Category(data, false), body.Total(data, false), false);
         WorkspaceData sourced = body.Source(transaction, body.Value(data, false), false);
-        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
+        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData(WorkspaceBody.ConfirmCancelPrompt, string.Empty));
         return new WorkspaceMove(WorkspaceBody.ExpenseConfirmState, model, null, string.Empty, null);
     }
 
@@ -144,7 +152,7 @@ internal sealed class WorkspaceInput
         }
         WorkspaceData transaction = body.Transaction(data, body.Pick(data, true), body.Category(data, true), body.Total(data, true), true);
         WorkspaceData sourced = body.Source(transaction, body.Value(data, true), true);
-        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData("Use the buttons to confirm or cancel", string.Empty));
+        WorkspaceData model = body.Model(sourced, choices: new ChoicesData(), status: new StatusData(WorkspaceBody.ConfirmCancelPrompt, string.Empty));
         return new WorkspaceMove(WorkspaceBody.IncomeConfirmState, model, null, string.Empty, null);
     }
 

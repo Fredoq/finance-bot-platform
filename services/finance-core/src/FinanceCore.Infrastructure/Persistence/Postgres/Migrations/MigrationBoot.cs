@@ -58,12 +58,29 @@ internal sealed class MigrationBoot : IHostedService
                                           updated_utc timestamptz not null
                                       );
                                       
+                                      create table if not exists finance.account_transfer
+                                      (
+                                          id uuid primary key,
+                                          user_id uuid not null references finance.user_account(id) on delete cascade,
+                                          source_account_id uuid not null references finance.account(id) on delete cascade,
+                                          target_account_id uuid not null references finance.account(id) on delete cascade,
+                                          currency_code text not null,
+                                          amount numeric(19, 4) not null,
+                                          occurred_utc timestamptz not null,
+                                          created_utc timestamptz not null,
+                                          updated_utc timestamptz not null,
+                                          check (source_account_id <> target_account_id),
+                                          check (amount > 0)
+                                      );
                                       drop index if exists finance.ux_category_system_code;
                                       drop index if exists finance.ux_category_user_name;
                                       create index if not exists idx_category_user on finance.category(user_id) where user_id is not null;
                                       create unique index if not exists ux_category_system_code on finance.category(kind, code) where user_id is null;
                                       create unique index if not exists ux_category_user_name on finance.category(user_id, kind, lower(name)) where user_id is not null;
                                       create index if not exists idx_transaction_entry_user_occurred on finance.transaction_entry(user_id, occurred_utc desc);
+                                      create index if not exists idx_account_transfer_user_occurred on finance.account_transfer(user_id, occurred_utc desc);
+                                      create index if not exists idx_account_transfer_source on finance.account_transfer(source_account_id);
+                                      create index if not exists idx_account_transfer_target on finance.account_transfer(target_account_id);
                                       
                                       do $$
                                       begin
@@ -235,7 +252,7 @@ internal sealed class MigrationBoot : IHostedService
         {
             return true;
         }
-        if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token))
+        if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token) || !await Exists(link, "account_transfer", token))
         {
             return true;
         }

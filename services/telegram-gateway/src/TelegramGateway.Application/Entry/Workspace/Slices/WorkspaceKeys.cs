@@ -8,6 +8,8 @@ internal sealed class WorkspaceKeys
     private const string ExpenseCategorySlot = "transaction.expense.category.";
     private const string IncomeAccountSlot = "transaction.income.account.";
     private const string IncomeCategorySlot = "transaction.income.category.";
+    private const string TransferSourceSlot = "transfer.source.account.";
+    private const string TransferTargetSlot = "transfer.target.account.";
     private const string RecentItemSlot = "transaction.recent.item.";
     private const string RecentCategorySlot = "transaction.recent.category.";
     private const string Primary = "primary";
@@ -40,10 +42,13 @@ internal sealed class WorkspaceKeys
             "account.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.expense.add" => new TelegramButton("➖ Add expense", code, Primary),
             "transaction.income.add" => new TelegramButton("➕ Add income", code, Primary),
+            "transfer.add" => new TelegramButton("↔ Transfer", code, Primary),
             "transaction.expense.create" => new TelegramButton("✅ Save expense", code, Success),
             "transaction.expense.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.income.create" => new TelegramButton("✅ Save income", code, Success),
             "transaction.income.cancel" => new TelegramButton(Cancel, code, Danger),
+            "transfer.create" => new TelegramButton("✅ Save transfer", code, Success),
+            "transfer.cancel" => new TelegramButton(Cancel, code, Danger),
             "transaction.recent.show" => new TelegramButton("🧾 Recent transactions", code, Primary),
             "summary.month.show" => new TelegramButton("📊 Monthly summary", code, Primary),
             "category.month.show" => new TelegramButton("🗂 Category breakdown", code, Primary),
@@ -64,6 +69,8 @@ internal sealed class WorkspaceKeys
             "transaction.recent.recategorize.apply" => new TelegramButton("✅ Save category", code, Success),
             _ when code.StartsWith(ExpenseAccountSlot, StringComparison.Ordinal) => Account(code, data, ExpenseAccountSlot),
             _ when code.StartsWith(IncomeAccountSlot, StringComparison.Ordinal) => Account(code, data, IncomeAccountSlot),
+            _ when code.StartsWith(TransferSourceSlot, StringComparison.Ordinal) => Account(code, data, TransferSourceSlot),
+            _ when code.StartsWith(TransferTargetSlot, StringComparison.Ordinal) => Account(code, data, TransferTargetSlot),
             _ when code.StartsWith(ExpenseCategorySlot, StringComparison.Ordinal) => Category(code, data, ExpenseCategorySlot),
             _ when code.StartsWith(IncomeCategorySlot, StringComparison.Ordinal) => Category(code, data, IncomeCategorySlot),
             _ when code.StartsWith(RecentItemSlot, StringComparison.Ordinal) => Recent(code, data),

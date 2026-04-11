@@ -21,6 +21,10 @@ internal sealed class WorkspaceBody
     internal const string IncomeSourceState = "transaction.income.source";
     internal const string IncomeCategoryState = "transaction.income.category";
     internal const string IncomeConfirmState = "transaction.income.confirm";
+    internal const string TransferSourceState = "transfer.source.account";
+    internal const string TransferTargetState = "transfer.target.account";
+    internal const string TransferAmountState = "transfer.amount";
+    internal const string TransferConfirmState = "transfer.confirm";
     internal const string RecentListState = "transaction.recent.list";
     internal const string RecentDetailState = "transaction.recent.detail";
     internal const string RecentDeleteState = "transaction.recent.delete.confirm";
@@ -32,6 +36,7 @@ internal sealed class WorkspaceBody
     internal const string AddAccount = "account.add";
     internal const string AddExpense = "transaction.expense.add";
     internal const string AddIncome = "transaction.income.add";
+    internal const string AddTransfer = "transfer.add";
     internal const string ShowRecent = "transaction.recent.show";
     internal const string ShowSummary = "summary.month.show";
     internal const string ShowBreakdown = "category.month.show";
@@ -39,10 +44,12 @@ internal sealed class WorkspaceBody
     internal const string AccountCancel = "account.cancel";
     internal const string ExpenseCancel = "transaction.expense.cancel";
     internal const string IncomeCancel = "transaction.income.cancel";
+    internal const string TransferCancel = "transfer.cancel";
     internal const string TimeZoneCancel = "profile.timezone.cancel";
     internal const string CreateAccountCode = "account.create";
     internal const string CreateExpenseCode = "transaction.expense.create";
     internal const string CreateIncomeCode = "transaction.income.create";
+    internal const string CreateTransferCode = "transfer.create";
     internal const string RecentBack = "transaction.recent.back";
     internal const string RecentDelete = "transaction.recent.delete";
     internal const string RecentDeleteApply = "transaction.recent.delete.apply";
@@ -64,6 +71,8 @@ internal sealed class WorkspaceBody
     internal const string ExpenseCategorySlot = "transaction.expense.category.";
     internal const string IncomeAccountSlot = "transaction.income.account.";
     internal const string IncomeCategorySlot = "transaction.income.category.";
+    internal const string TransferSourceSlot = "transfer.source.account.";
+    internal const string TransferTargetSlot = "transfer.target.account.";
     internal const string RecentItemSlot = "transaction.recent.item.";
     internal const string RecentCategorySlot = "transaction.recent.category.";
     internal const int RecentPageSize = 5;
@@ -73,6 +82,8 @@ internal sealed class WorkspaceBody
     internal const string RecategorizeMode = "recategorize";
     internal const string AddAccountPrompt = "Tap Add account to start";
     internal const string ChooseActionPrompt = "Choose the next action";
+    internal const string AmountPositiveError = "Amount must be greater than zero";
+    internal const string ConfirmCancelPrompt = "Use the buttons to confirm or cancel";
     internal const string ConfirmGoBackPrompt = "Use the buttons to confirm or go back";
     internal const string TransactionMissingNotice = "Transaction was not found";
     private readonly JsonSerializerOptions json;
@@ -92,7 +103,7 @@ internal sealed class WorkspaceBody
 
     internal WorkspaceData Home(IReadOnlyList<AccountData> list, string notice, string error = "") => new(list, new WorkspaceStateData { Status = new StatusData(error, notice), Custom = codes.Custom(false) });
 
-    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData { Profile = body.Profile, Financial = body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = body.Choices, Status = body.Status, Custom = codes.Custom(body.Custom) });
+    internal WorkspaceData Sync(WorkspaceData body, IReadOnlyList<AccountData> list) => new(list, new WorkspaceStateData { Profile = body.Profile, Financial = body.Financial, Expense = body.Expense, Income = body.Income, Transfer = body.Transfer, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = body.Choices, Status = body.Status, Custom = codes.Custom(body.Custom) });
 
     internal WorkspaceData Data(string value)
     {
@@ -107,6 +118,7 @@ internal sealed class WorkspaceBody
             Financial = item?.Financial ?? new FinancialData(),
             Expense = item?.Expense ?? new ExpenseData(),
             Income = item?.Income ?? new IncomeData(),
+            Transfer = item?.Transfer ?? new TransferData(),
             Recent = item?.Recent ?? new RecentData(),
             Summary = item?.Summary ?? new SummaryData(),
             Breakdown = item?.Breakdown ?? new BreakdownData(),
@@ -126,7 +138,7 @@ internal sealed class WorkspaceBody
         return value.Offset == codes.Utc ? value : throw new ArgumentException("Workspace occurrence time must be UTC", name);
     }
 
-    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Financial = financial ?? body.Financial, Expense = body.Expense, Income = body.Income, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? body.Choices, Status = status ?? body.Status, Custom = codes.Custom(body.Custom) });
+    internal WorkspaceData Model(WorkspaceData body, FinancialData? financial = null, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Financial = financial ?? body.Financial, Expense = body.Expense, Income = body.Income, Transfer = body.Transfer, Recent = body.Recent, Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? body.Choices, Status = status ?? body.Status, Custom = codes.Custom(body.Custom) });
 
     internal WorkspaceData Account(WorkspaceData body, FinancialData financial, StatusData? status = null, bool custom = false) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Financial = financial, Status = status ?? new StatusData(), Custom = codes.Custom(custom) });
 
@@ -135,6 +147,7 @@ internal sealed class WorkspaceBody
         Profile = body.Profile,
         Expense = kinds.Income(income) ? new ExpenseData() : new ExpenseData(account, category, amount, string.Empty),
         Income = kinds.Income(income) ? new IncomeData(account, category, amount, string.Empty) : new IncomeData(),
+        Transfer = body.Transfer,
         Summary = body.Summary,
         Breakdown = body.Breakdown,
         Choices = choices ?? new ChoicesData(),
@@ -147,6 +160,7 @@ internal sealed class WorkspaceBody
         Profile = body.Profile,
         Expense = kinds.Income(income) ? body.Expense : new ExpenseData(body.Expense.Account, body.Expense.Category, body.Expense.Amount, source),
         Income = kinds.Income(income) ? new IncomeData(body.Income.Account, body.Income.Category, body.Income.Amount, source) : body.Income,
+        Transfer = body.Transfer,
         Summary = body.Summary,
         Breakdown = body.Breakdown,
         Choices = body.Choices,
@@ -161,6 +175,8 @@ internal sealed class WorkspaceBody
     internal WorkspaceData Breakdown(WorkspaceData body, BreakdownData breakdown, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Summary = body.Summary, Breakdown = breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
 
     internal WorkspaceData Profile(WorkspaceData body, ProfileData profile, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = profile, Summary = body.Summary, Breakdown = body.Breakdown, Status = status ?? new StatusData(), Custom = codes.Custom(false) });
+
+    internal WorkspaceData Transfer(WorkspaceData body, PickData source, PickData target, decimal? amount, ChoicesData? choices = null, StatusData? status = null) => new(body.Accounts, new WorkspaceStateData { Profile = body.Profile, Transfer = new TransferData(source, target, amount), Summary = body.Summary, Breakdown = body.Breakdown, Choices = choices ?? new ChoicesData(), Status = status ?? new StatusData(), Custom = codes.Custom(false) });
 
     internal PickData Pick(WorkspaceData body, bool income) => kinds.Income(income) ? body.Income.Account : body.Expense.Account;
 
@@ -196,6 +212,8 @@ internal sealed class WorkspaceBody
 
     internal bool IncomeState(string state) => states.Income(state);
 
+    internal bool TransferState(string state) => states.Transfer(state);
+
     internal bool RecentState(string state) => states.Recent(state);
 
     internal bool SummaryScreen(string state) => states.Summary(state);
@@ -227,6 +245,8 @@ internal sealed class WorkspaceBody
     }
 
     internal IReadOnlyList<OptionData> Accounts(IReadOnlyList<AccountData> list) => [.. list.Select((item, index) => new OptionData(index + 1 + codes.Zero, item.Id, item.Name, item.Currency))];
+
+    internal IReadOnlyList<OptionData> Targets(IReadOnlyList<AccountData> list, PickData source) => [.. list.Where(item => item.Id != source.Id && item.Currency == source.Note).Select((item, index) => new OptionData(index + 1 + codes.Zero, item.Id, item.Name, item.Currency))];
 
     internal string Kind(string state)
     {
@@ -308,6 +328,7 @@ internal sealed class WorkspaceBody
         private readonly HashSet<string> accounts;
         private readonly HashSet<string> expenses;
         private readonly HashSet<string> incomes;
+        private readonly HashSet<string> transfers;
         private readonly HashSet<string> recents;
         private readonly HashSet<string> summaries;
         private readonly HashSet<string> breakdowns;
@@ -317,6 +338,7 @@ internal sealed class WorkspaceBody
             accounts = new HashSet<string>(StringComparer.Ordinal) { NameState, CurrencyState, BalanceState, ConfirmState };
             expenses = new HashSet<string>(StringComparer.Ordinal) { ExpenseAccountState, ExpenseAmountState, ExpenseSourceState, ExpenseCategoryState, ExpenseConfirmState };
             incomes = new HashSet<string>(StringComparer.Ordinal) { IncomeAccountState, IncomeAmountState, IncomeSourceState, IncomeCategoryState, IncomeConfirmState };
+            transfers = new HashSet<string>(StringComparer.Ordinal) { TransferSourceState, TransferTargetState, TransferAmountState, TransferConfirmState };
             recents = new HashSet<string>(StringComparer.Ordinal) { RecentListState, RecentDetailState, RecentDeleteState, RecentCategoryState, RecentRecategorizeState };
             summaries = new HashSet<string>(StringComparer.Ordinal) { SummaryState };
             breakdowns = new HashSet<string>(StringComparer.Ordinal) { BreakdownState };
@@ -331,6 +353,8 @@ internal sealed class WorkspaceBody
         internal bool Expense(string state) => expenses.Contains(state);
 
         internal bool Income(string state) => incomes.Contains(state);
+
+        internal bool Transfer(string state) => transfers.Contains(state);
 
         internal bool Recent(string state) => recents.Contains(state);
 

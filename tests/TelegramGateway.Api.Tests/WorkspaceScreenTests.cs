@@ -146,6 +146,31 @@ public sealed class WorkspaceScreenTests
         Assert.Equal(["✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
     /// <summary>
+    /// Verifies that the transfer amount screen renders the selected accounts.
+    /// </summary>
+    [Fact(DisplayName = "Builds the transfer amount screen for Telegram delivery")]
+    public void Builds_transfer_amount_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transfer.amount", WorkspaceStateNote.Transfer("transfer.amount"), "transfer.cancel");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("<b>New transfer</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("From: <b>Cash</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("To: <b>Card</b>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
+    /// Verifies that the transfer confirm screen renders the amount and actions.
+    /// </summary>
+    [Fact(DisplayName = "Builds the transfer confirm screen for Telegram delivery")]
+    public void Builds_transfer_confirm_screen()
+    {
+        WorkspaceViewRequestedCommand note = WorkspaceStateNote.View("transfer.confirm", WorkspaceStateNote.Transfer("transfer.confirm", 25m), "transfer.create", "transfer.cancel");
+        TelegramText data = screen.Message(100, note);
+        Assert.Contains("<b>Confirm transfer</b>", data.Text, StringComparison.Ordinal);
+        Assert.Contains("Amount: <b>25 $ (<code>USD</code>)</b>", data.Text, StringComparison.Ordinal);
+        Assert.Equal(["✅ Save transfer", "✖ Cancel"], data.Keys.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
+    /// <summary>
     /// Verifies that the recent list screen renders item and paging buttons.
     /// </summary>
     [Fact(DisplayName = "Builds the recent transaction list screen for Telegram delivery")]

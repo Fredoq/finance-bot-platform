@@ -26,6 +26,10 @@ internal sealed class WorkspaceText
         "transaction.income.source" => IncomeSource(data),
         "transaction.income.category" => IncomeCategory(data),
         "transaction.income.confirm" => IncomeConfirm(data),
+        "transfer.source.account" => TransferSource(data),
+        "transfer.target.account" => TransferTarget(data),
+        "transfer.amount" => TransferAmount(data),
+        "transfer.confirm" => TransferConfirm(data),
         "transaction.recent.list" => RecentList(data),
         "transaction.recent.detail" => RecentDetail(data),
         "transaction.recent.delete.confirm" => RecentDelete(data),
@@ -54,6 +58,10 @@ internal sealed class WorkspaceText
         foreach (AccountData item in data.Accounts)
         {
             text.AppendLine($"- <b>{WorkspaceHtml.Escape(item.Name)}</b>: {html.Amount(item.Amount, item.Currency)}");
+        }
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
         }
         if (!string.IsNullOrWhiteSpace(data.Status.Notice))
         {
@@ -179,6 +187,42 @@ internal sealed class WorkspaceText
         text.AppendLine($"Category: <b>{WorkspaceHtml.Escape(html.Category(item.Category.Name, item.Category.Note))}</b>");
         text.Append($"Amount: <b>{html.Amount(item.Amount, item.Account.Note)}</b>");
     });
+
+    private static string TransferSource(WorkspaceData data) => Transfer("New transfer", data, static (text, _) => text.Append("Choose the source account"));
+
+    private static string TransferTarget(WorkspaceData data) => Transfer("New transfer", data, static (text, item) =>
+    {
+        text.AppendLine($"From: <b>{WorkspaceHtml.Escape(item.Source.Name)}</b>");
+        text.AppendLine($"Currency: {WorkspaceHtml.Code(item.Source.Note)}");
+        text.Append("Choose the target account");
+    });
+
+    private static string TransferAmount(WorkspaceData data) => Transfer("New transfer", data, static (text, item) =>
+    {
+        text.AppendLine($"From: <b>{WorkspaceHtml.Escape(item.Source.Name)}</b>");
+        text.AppendLine($"To: <b>{WorkspaceHtml.Escape(item.Target.Name)}</b>");
+        text.AppendLine($"Currency: {WorkspaceHtml.Code(item.Source.Note)}");
+        text.Append("Send the amount");
+    });
+
+    private string TransferConfirm(WorkspaceData data) => Transfer("Confirm transfer", data, (text, item) =>
+    {
+        text.AppendLine($"From: <b>{WorkspaceHtml.Escape(item.Source.Name)}</b>");
+        text.AppendLine($"To: <b>{WorkspaceHtml.Escape(item.Target.Name)}</b>");
+        text.Append($"Amount: <b>{html.Amount(item.Amount, item.Source.Note)}</b>");
+    });
+
+    private static string Transfer(string title, WorkspaceData data, Action<StringBuilder, TransferData> note)
+    {
+        var text = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(data.Status.Error))
+        {
+            text.AppendLine(WorkspaceHtml.Escape(data.Status.Error));
+        }
+        text.AppendLine($"<b>{title}</b>");
+        note(text, data.Transfer);
+        return text.ToString().TrimEnd();
+    }
 
     private static string Transaction(string title, WorkspaceData data, TransactionData item, Action<StringBuilder, TransactionData> note)
     {

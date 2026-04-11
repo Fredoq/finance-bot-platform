@@ -31,6 +31,7 @@ internal sealed record WorkspaceData
         Financial = new FinancialData();
         Expense = new ExpenseData();
         Income = new IncomeData();
+        Transfer = new TransferData();
         Recent = new RecentData();
         Summary = new SummaryData();
         Breakdown = new BreakdownData();
@@ -50,6 +51,7 @@ internal sealed record WorkspaceData
         Financial = state.Financial;
         Expense = state.Expense;
         Income = state.Income;
+        Transfer = state.Transfer;
         Recent = state.Recent;
         Summary = state.Summary;
         Breakdown = state.Breakdown ?? throw new ArgumentNullException("state.Breakdown");
@@ -62,6 +64,7 @@ internal sealed record WorkspaceData
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
+    public TransferData Transfer { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
     public BreakdownData Breakdown { get; init; }
@@ -78,6 +81,7 @@ internal sealed record WorkspaceStateData
         Financial = new FinancialData();
         Expense = new ExpenseData();
         Income = new IncomeData();
+        Transfer = new TransferData();
         Recent = new RecentData();
         Summary = new SummaryData();
         Breakdown = new BreakdownData();
@@ -88,6 +92,7 @@ internal sealed record WorkspaceStateData
     public FinancialData Financial { get; init; }
     public ExpenseData Expense { get; init; }
     public IncomeData Income { get; init; }
+    public TransferData Transfer { get; init; }
     public RecentData Recent { get; init; }
     public SummaryData Summary { get; init; }
     public BreakdownData Breakdown { get; init; }
@@ -168,6 +173,24 @@ internal sealed record IncomeData
     public PickData Category { get; init; }
     public decimal? Amount { get; init; }
     public string Source { get; init; }
+}
+
+internal sealed record TransferData
+{
+    public TransferData()
+    {
+        Source = new PickData();
+        Target = new PickData();
+    }
+    internal TransferData(PickData source, PickData target, decimal? amount)
+    {
+        Source = source ?? throw new ArgumentNullException(nameof(source));
+        Target = target ?? throw new ArgumentNullException(nameof(target));
+        Amount = amount;
+    }
+    public PickData Source { get; init; }
+    public PickData Target { get; init; }
+    public decimal? Amount { get; init; }
 }
 
 internal sealed record RecentData
