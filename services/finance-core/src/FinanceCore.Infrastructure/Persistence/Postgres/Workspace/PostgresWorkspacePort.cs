@@ -124,6 +124,7 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         move = await Store(link, lane, userId, move, when, token);
         move = await Fill(link, lane, userId, move, token);
         move = await Track(link, lane, userId, move, when, token);
+        move = await Transfer(link, lane, userId, move, when, token);
         move = await Update(link, lane, userId, move, when, token);
         move = await Correct(link, lane, userId, move, when, token);
         return await Finish(link, lane, userId, move, token);
@@ -192,6 +193,18 @@ internal sealed class PostgresWorkspacePort : IWorkspacePort, IWorkspaceInputPor
         }
         await sql.Transaction(link, lane, userId, move.RecordValue, when, token);
         return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(await sql.Accounts(link, lane, userId, token), move.RecordValue.TransactionKind == WorkspaceBody.IncomeKind ? "Income was recorded" : "Expense was recorded"), null, string.Empty, null);
+    }
+
+    private async ValueTask<WorkspaceMove> Transfer(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)
+    {
+        if (move.TransferValue is null)
+        {
+            return move;
+        }
+        bool ok = await sql.Transfer(link, lane, userId, move.TransferValue, when, token);
+        string error = ok ? string.Empty : "Transfer account selection is invalid";
+        string notice = ok ? "Transfer was recorded" : string.Empty;
+        return new WorkspaceMove(WorkspaceBody.HomeState, body.Home(await sql.Accounts(link, lane, userId, token), notice, error), null, string.Empty, null);
     }
 
     private async ValueTask<WorkspaceMove> Update(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, WorkspaceMove move, DateTimeOffset when, CancellationToken token)

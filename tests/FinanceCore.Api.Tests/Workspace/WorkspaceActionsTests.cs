@@ -41,6 +41,16 @@ public sealed class WorkspaceActionsTests
         IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(1, 0, 0, 0, page, new MonthPaging(false, false), false));
         Assert.Equal(["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", "profile.timezone.show", "account.add"], code);
     }
+    /// <summary>
+    /// Verifies that home state includes the transfer action when multiple accounts exist.
+    /// </summary>
+    [Fact(DisplayName = "Returns codes for home state with transfer")]
+    public void Returns_codes_for_transfer_home()
+    {
+        var item = new WorkspaceActions();
+        IReadOnlyList<string> code = item.Codes("home", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
+        Assert.Equal(["transaction.expense.add", "transaction.income.add", "transfer.add", "transaction.recent.show", "summary.month.show", "profile.timezone.show", "account.add"], code);
+    }
 
     /// <summary>
     /// Verifies that the time zone edit state exposes only the cancel action.
@@ -71,6 +81,22 @@ public sealed class WorkspaceActionsTests
         Assert.Equal(["transaction.income.account.1", "transaction.income.account.2", "transaction.income.cancel"], incomeAccount);
         Assert.Equal(["transaction.income.cancel"], incomeSource);
         Assert.Equal(["transaction.income.category.1", "transaction.income.category.2", "transaction.income.category.3", "transaction.income.cancel"], incomeCategory);
+    }
+    /// <summary>
+    /// Verifies that transfer states return dynamic slot actions.
+    /// </summary>
+    [Fact(DisplayName = "Returns dynamic codes for transfer states")]
+    public void Returns_codes_for_transfer_states()
+    {
+        var item = new WorkspaceActions();
+        IReadOnlyList<string> source = item.Codes("transfer.source.account", new WorkspaceActionContext(2, 2, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> target = item.Codes("transfer.target.account", new WorkspaceActionContext(2, 1, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> amount = item.Codes("transfer.amount", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> confirm = item.Codes("transfer.confirm", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
+        Assert.Equal(["transfer.source.account.1", "transfer.source.account.2", "transfer.cancel"], source);
+        Assert.Equal(["transfer.target.account.1", "transfer.cancel"], target);
+        Assert.Equal(["transfer.cancel"], amount);
+        Assert.Equal(["transfer.create", "transfer.cancel"], confirm);
     }
 
     /// <summary>

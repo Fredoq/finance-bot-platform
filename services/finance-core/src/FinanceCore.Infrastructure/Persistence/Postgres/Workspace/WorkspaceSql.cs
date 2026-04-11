@@ -5,6 +5,7 @@ namespace FinanceCore.Infrastructure.Persistence.Postgres.Workspace;
 
 internal sealed class WorkspaceSql
 {
+    private const string Amount = "amount";
     private readonly WorkspaceBody body;
     private readonly WorkspaceSqlMap map;
 
@@ -78,6 +79,69 @@ internal sealed class WorkspaceSql
             throw new InvalidOperationException("User account time zone update failed");
         }
     }
+
+    internal async ValueTask<bool> Transfer(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TransferNote note, DateTimeOffset when, CancellationToken token)
+    {
+        Validate(note.Total);
+        Guid sourceId = Parse(note.SourceId, nameof(note.SourceId));
+        Guid targetId = Parse(note.TargetId, nameof(note.TargetId));
+        if (sourceId == targetId)
+        {
+            return false;
+        }
+        var keys = new Dictionary<Guid, string>();
+        await using (NpgsqlCommand data = new("select id, currency_code from finance.account where user_id = @user_id and id = any(@ids) order by id for update", link, lane))
+        {
+            data.Parameters.AddWithValue(map.UserId, userId);
+            data.Parameters.AddWithValue("ids", new[] { sourceId, targetId });
+            await using NpgsqlDataReader row = await data.ExecuteReaderAsync(token);
+            while (await row.ReadAsync(token))
+            {
+                keys[row.GetGuid(0)] = row.GetString(1);
+            }
+        }
+        if (keys.Count != 2 || !keys.TryGetValue(sourceId, out string? source) || !keys.TryGetValue(targetId, out string? target) || !string.Equals(source, target, StringComparison.Ordinal) || !string.Equals(source, note.Currency, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        await using (NpgsqlCommand item = new("insert into finance.account_transfer(id, user_id, source_account_id, target_account_id, currency_code, amount, occurred_utc, created_utc, updated_utc) values (@id, @user_id, @source_account_id, @target_account_id, @currency_code, @amount, @occurred_utc, @created_utc, @updated_utc)", link, lane))
+        {
+            item.Parameters.AddWithValue("id", Guid.CreateVersion7());
+            item.Parameters.AddWithValue(map.UserId, userId);
+            item.Parameters.AddWithValue("source_account_id", sourceId);
+            item.Parameters.AddWithValue("target_account_id", targetId);
+            item.Parameters.AddWithValue("currency_code", note.Currency);
+            item.Parameters.AddWithValue(Amount, note.Total);
+            item.Parameters.AddWithValue("occurred_utc", when);
+            item.Parameters.AddWithValue(map.CreatedUtc, when);
+            item.Parameters.AddWithValue(map.UpdatedUtc, when);
+            if (await item.ExecuteNonQueryAsync(token) != 1)
+            {
+                throw new InvalidOperationException("Transfer insert failed");
+            }
+        }
+        await using NpgsqlCommand update = new("update finance.account set current_amount = case when id = @source_account_id then current_amount - @amount when id = @target_account_id then current_amount + @amount else current_amount end, updated_utc = @updated_utc where user_id = @user_id and id in (@source_account_id, @target_account_id)", link, lane);
+        update.Parameters.AddWithValue("source_account_id", sourceId);
+        update.Parameters.AddWithValue("target_account_id", targetId);
+        update.Parameters.AddWithValue(Amount, note.Total);
+        update.Parameters.AddWithValue(map.UpdatedUtc, when);
+        update.Parameters.AddWithValue(map.UserId, userId);
+        if (await update.ExecuteNonQueryAsync(token) != 2)
+        {
+            throw new InvalidOperationException("Transfer balance update failed");
+        }
+        return true;
+    }
+
+    private static void Validate(decimal total)
+    {
+        if (total <= 0m || Scale(total) > 4)
+        {
+            throw new ArgumentOutOfRangeException(nameof(total), "Transfer amount is invalid");
+        }
+    }
+
+    private static int Scale(decimal value) => (decimal.GetBits(value)[3] >> 16) & 0xFF;
 
     internal async ValueTask<IReadOnlyList<AccountData>> Accounts(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {
@@ -411,7 +475,7 @@ internal sealed class WorkspaceSql
             return false;
         }
         await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {body.Reverse(kind)} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
-        data.Parameters.AddWithValue("amount", amount);
+        data.Parameters.AddWithValue(Amount, amount);
         data.Parameters.AddWithValue(map.UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
         data.Parameters.AddWithValue(map.UserId, userId);
@@ -472,7 +536,7 @@ internal sealed class WorkspaceSql
             item.Parameters.AddWithValue("kind", kind);
             item.Parameters.Add("source_text", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(text) ? DBNull.Value : text;
             item.Parameters.Add("source_key", NpgsqlDbType.Text).Value = string.IsNullOrWhiteSpace(key) ? DBNull.Value : key;
-            item.Parameters.AddWithValue("amount", note.Total);
+            item.Parameters.AddWithValue(Amount, note.Total);
             item.Parameters.AddWithValue("occurred_utc", when);
             item.Parameters.AddWithValue(map.CreatedUtc, when);
             item.Parameters.AddWithValue(map.UpdatedUtc, when);
@@ -482,7 +546,7 @@ internal sealed class WorkspaceSql
             }
         }
         await using NpgsqlCommand data = new($"update finance.account set current_amount = current_amount {sign} @amount, updated_utc = @updated_utc where id = @account_id and user_id = @user_id", link, lane);
-        data.Parameters.AddWithValue("amount", note.Total);
+        data.Parameters.AddWithValue(Amount, note.Total);
         data.Parameters.AddWithValue(map.UpdatedUtc, when);
         data.Parameters.AddWithValue("account_id", accountId);
         data.Parameters.AddWithValue(map.UserId, userId);

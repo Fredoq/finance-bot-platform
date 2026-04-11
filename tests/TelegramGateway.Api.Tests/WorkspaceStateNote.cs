@@ -48,6 +48,14 @@ internal static class WorkspaceStateNote
             Choices = new ChoicesData(),
             Status = new StatusData { Error = error, Notice = string.Empty }
         };
+    public static WorkspaceData Transfer(string state, decimal? amount = null, string error = "")
+        => new()
+        {
+            Accounts = [Account(), new AccountData { Id = "a2", Name = "Card", Currency = "USD", Amount = 500m }],
+            Transfer = new TransferData { Source = state == "transfer.source.account" ? new PickData() : new PickData { Id = "a1", Name = "Cash", Note = "USD" }, Target = state is "transfer.amount" or "transfer.confirm" ? new PickData { Id = "a2", Name = "Card", Note = "USD" } : new PickData(), Amount = amount },
+            Choices = new ChoicesData { Accounts = state == "transfer.target.account" ? [new OptionData { Slot = 1, Id = "a2", Name = "Card", Note = "USD" }] : [new OptionData { Slot = 1, Id = "a1", Name = "Cash", Note = "USD" }, new OptionData { Slot = 2, Id = "a2", Name = "Card", Note = "USD" }] },
+            Status = new StatusData { Error = error, Notice = string.Empty }
+        };
     public static SummaryCurrencyData Currency(string currency, decimal income, decimal expense, params SummaryAccountData[] accounts)
         => new()
         {

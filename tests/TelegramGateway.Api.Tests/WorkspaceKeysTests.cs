@@ -58,6 +58,18 @@ public sealed class WorkspaceKeysTests
         IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["profile.timezone.show", "profile.timezone.cancel"], data);
         Assert.Equal(["🕒 Time zone", "✖ Cancel"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
     }
+    /// <summary>
+    /// Verifies that transfer action codes map to the expected button labels.
+    /// </summary>
+    [Fact(DisplayName = "Builds transfer action buttons")]
+    public void Builds_transfer_buttons()
+    {
+        WorkspaceHtml html = new();
+        WorkspaceKeys keys = new(html);
+        WorkspaceData data = WorkspaceStateNote.Transfer("transfer.source.account");
+        IReadOnlyList<TelegramGateway.Application.Telegram.Delivery.TelegramRow> rows = keys.Rows(["transfer.add", "transfer.source.account.1", "transfer.source.account.2", "transfer.create", "transfer.cancel"], data);
+        Assert.Equal(["↔ Transfer", "Cash · USD", "Card · USD", "✅ Save transfer", "✖ Cancel"], rows.SelectMany(item => item.Cells).Select(item => item.Text).ToArray());
+    }
 
     /// <summary>
     /// Verifies that unknown actions fail fast.

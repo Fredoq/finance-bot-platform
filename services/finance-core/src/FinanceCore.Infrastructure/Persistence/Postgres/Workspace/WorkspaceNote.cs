@@ -24,6 +24,18 @@ internal sealed record WorkspaceMove
     {
     }
 
+    internal WorkspaceMove(string code, WorkspaceData body, TransferNote transfer)
+    {
+        Code = code ?? throw new ArgumentNullException(nameof(code));
+        Body = body ?? throw new ArgumentNullException(nameof(body));
+        AccountValue = null;
+        TextEntry = string.Empty;
+        RecordValue = null;
+        CorrectValue = null;
+        TimeZoneValue = null;
+        TransferValue = transfer ?? throw new ArgumentNullException(nameof(transfer));
+    }
+
     internal WorkspaceMove(string code, WorkspaceData body, CorrectionNote correction) : this(code, body, null, string.Empty, null, correction)
     {
     }
@@ -41,6 +53,7 @@ internal sealed record WorkspaceMove
         RecordValue = transaction;
         CorrectValue = correction;
         TimeZoneValue = zone;
+        TransferValue = null;
     }
     internal string Code { get; }
     internal WorkspaceData Body { get; }
@@ -49,6 +62,7 @@ internal sealed record WorkspaceMove
     internal TransactionNote? RecordValue { get; }
     internal CorrectionNote? CorrectValue { get; }
     internal TimeZoneNote? TimeZoneValue { get; }
+    internal TransferNote? TransferValue { get; }
 }
 
 internal sealed record AccountDraft
@@ -79,6 +93,41 @@ internal sealed record TransactionNote
     internal decimal Total { get; }
     internal string TransactionKind { get; }
     internal string SourceText { get; }
+}
+
+internal sealed record TransferNote
+{
+    internal TransferNote(string sourceId, string targetId, string currency, decimal total)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId))
+        {
+            throw new ArgumentException("Transfer source account is required", nameof(sourceId));
+        }
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            throw new ArgumentException("Transfer target account is required", nameof(targetId));
+        }
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            throw new ArgumentException("Transfer currency is required", nameof(currency));
+        }
+        if (string.Equals(sourceId, targetId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Transfer accounts must be different", nameof(targetId));
+        }
+        if (total <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(total), "Transfer amount must be greater than zero");
+        }
+        SourceId = sourceId;
+        TargetId = targetId;
+        Currency = currency;
+        Total = total;
+    }
+    internal string SourceId { get; }
+    internal string TargetId { get; }
+    internal string Currency { get; }
+    internal decimal Total { get; }
 }
 
 internal sealed record CorrectionNote

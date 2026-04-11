@@ -102,6 +102,21 @@ public sealed class WorkspaceBodyTests
     }
 
     /// <summary>
+    /// Verifies that transfer screens require source, target, and amount data.
+    /// </summary>
+    [Fact(DisplayName = "Rejects transfer state when required data is missing")]
+    public void Rejects_transfer_without_data()
+    {
+        WorkspaceBody body = new();
+        InvalidOperationException source = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.source.account", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"target\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException target = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.target.account", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"target\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        InvalidOperationException amount = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.confirm", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"target\":{\"id\":\"a2\",\"name\":\"Card\",\"note\":\"USD\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
+        Assert.IsType<InvalidOperationException>(source);
+        Assert.IsType<InvalidOperationException>(target);
+        Assert.IsType<InvalidOperationException>(amount);
+    }
+
+    /// <summary>
     /// Verifies that unknown states fail fast.
     /// </summary>
     [Fact(DisplayName = "Rejects unknown workspace screen states")]

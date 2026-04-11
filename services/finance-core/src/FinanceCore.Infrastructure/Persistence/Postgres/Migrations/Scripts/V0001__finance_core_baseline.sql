@@ -65,6 +65,58 @@ create table if not exists finance.transaction_entry
     updated_utc timestamptz not null
 );
 
+create table if not exists finance.account_transfer
+(
+    id uuid primary key,
+    user_id uuid not null references finance.user_account(id) on delete cascade,
+    source_account_id uuid not null references finance.account(id) on delete cascade,
+    target_account_id uuid not null references finance.account(id) on delete cascade,
+    currency_code text not null,
+    amount numeric(19, 4) not null,
+    occurred_utc timestamptz not null,
+    created_utc timestamptz not null,
+    updated_utc timestamptz not null,
+    constraint ck_account_transfer_distinct_accounts check (source_account_id <> target_account_id),
+    constraint ck_account_transfer_positive_amount check (amount > 0)
+);
+
+create or replace function finance.fn_account_transfer_integrity()
+returns trigger
+language plpgsql
+as $$
+declare
+    source_currency text;
+    target_currency text;
+begin
+    select item.currency_code
+    into source_currency
+    from finance.account item
+    where item.id = new.source_account_id and item.user_id = new.user_id;
+    if source_currency is null then
+        raise exception 'Transfer source account is invalid for user';
+    end if;
+    select item.currency_code
+    into target_currency
+    from finance.account item
+    where item.id = new.target_account_id and item.user_id = new.user_id;
+    if target_currency is null then
+        raise exception 'Transfer target account is invalid for user';
+    end if;
+    if source_currency <> target_currency then
+        raise exception 'Transfer accounts must have same currency';
+    end if;
+    if new.currency_code <> source_currency then
+        raise exception 'Transfer currency must match account currency';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_account_transfer_integrity on finance.account_transfer;
+create trigger trg_account_transfer_integrity
+before insert or update on finance.account_transfer
+for each row execute function finance.fn_account_transfer_integrity();
+
 create table if not exists finance.category_rule
 (
     id uuid primary key,
@@ -118,6 +170,9 @@ create index if not exists idx_category_user on finance.category(user_id) where 
 create unique index if not exists ux_category_system_code on finance.category(kind, code) where user_id is null;
 create unique index if not exists ux_category_user_name on finance.category(user_id, kind, lower(name)) where user_id is not null;
 create index if not exists idx_transaction_entry_user_occurred on finance.transaction_entry(user_id, occurred_utc desc);
+create index if not exists idx_account_transfer_user_occurred on finance.account_transfer(user_id, occurred_utc desc);
+create index if not exists idx_account_transfer_source on finance.account_transfer(source_account_id);
+create index if not exists idx_account_transfer_target on finance.account_transfer(target_account_id);
 create unique index if not exists ux_category_rule_user_kind_source on finance.category_rule(user_id, kind, source_key);
 create index if not exists idx_category_rule_user_kind on finance.category_rule(user_id, kind);
 drop index if exists finance.idx_inbox_pending;

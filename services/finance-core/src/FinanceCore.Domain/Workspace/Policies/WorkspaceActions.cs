@@ -10,6 +10,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
     private const string Cancel = "account.cancel";
     private const string ExpenseCancel = "transaction.expense.cancel";
     private const string IncomeCancel = "transaction.income.cancel";
+    private const string TransferCancel = "transfer.cancel";
     private const string RecentBack = "transaction.recent.back";
     private const string RecentPrevious = "transaction.recent.page.prev";
     private const string RecentNext = "transaction.recent.page.next";
@@ -34,6 +35,7 @@ public sealed class WorkspaceActions : IWorkspaceActions
         ArgumentNullException.ThrowIfNull(context);
         return state switch
         {
+            "home" when context.HomeAccountCount > 1 => ["transaction.expense.add", "transaction.income.add", "transfer.add", "transaction.recent.show", "summary.month.show", ShowTimeZone, "account.add"],
             "home" when context.HomeAccountCount > 0 => ["transaction.expense.add", "transaction.income.add", "transaction.recent.show", "summary.month.show", ShowTimeZone, "account.add"],
             "home" => ["account.add", ShowTimeZone],
             "account.name" => [Cancel],
@@ -52,6 +54,10 @@ public sealed class WorkspaceActions : IWorkspaceActions
             "transaction.income.source" => [IncomeCancel],
             "transaction.income.category" => [.. Enumerable.Range(1, context.CategoryChoiceCount).Select(item => $"transaction.income.category.{item}"), IncomeCancel],
             "transaction.income.confirm" => ["transaction.income.create", IncomeCancel],
+            "transfer.source.account" => [.. Enumerable.Range(1, context.AccountChoiceCount).Select(item => $"transfer.source.account.{item}"), TransferCancel],
+            "transfer.target.account" => [.. Enumerable.Range(1, context.AccountChoiceCount).Select(item => $"transfer.target.account.{item}"), TransferCancel],
+            "transfer.amount" => [TransferCancel],
+            "transfer.confirm" => ["transfer.create", TransferCancel],
             "transaction.recent.list" => RecentList(context),
             "transaction.recent.detail" => ["transaction.recent.delete", "transaction.recent.recategorize", RecentBack],
             "transaction.recent.delete.confirm" => ["transaction.recent.delete.apply", RecentBack],

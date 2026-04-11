@@ -46,6 +46,10 @@ internal sealed class WorkspaceBody
             "transaction.income.source" => IncomeSource(item),
             "transaction.income.category" => IncomeCategory(item),
             "transaction.income.confirm" => IncomeConfirm(item),
+            "transfer.source.account" => TransferSource(item),
+            "transfer.target.account" => TransferTarget(item),
+            "transfer.amount" => TransferAmount(item),
+            "transfer.confirm" => TransferConfirm(item),
             "transaction.recent.list" => item,
             "transaction.recent.detail" => Selected(item, "transaction.recent.detail"),
             "transaction.recent.delete.confirm" => Selected(item, "transaction.recent.delete.confirm"),
@@ -152,6 +156,57 @@ internal sealed class WorkspaceBody
     {
         IncomeCategory(item);
         return !string.IsNullOrWhiteSpace(item.Income.Category.Name) ? item : throw new InvalidOperationException("Workspace screen 'transaction.income.confirm' requires category");
+    }
+
+    private static WorkspaceData TransferSource(WorkspaceData item) => item.Choices.Accounts.Count > 0 ? item : throw new InvalidOperationException("Workspace screen 'transfer.source.account' requires account choices");
+
+    private static WorkspaceData TransferTarget(WorkspaceData item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Transfer.Source.Name))
+        {
+            throw new InvalidOperationException("Workspace screen 'transfer.target.account' requires source account");
+        }
+        if (string.IsNullOrWhiteSpace(item.Transfer.Source.Note))
+        {
+            throw new InvalidOperationException("Workspace screen 'transfer.target.account' requires currency");
+        }
+        return item.Choices.Accounts.Count > 0 ? item : throw new InvalidOperationException("Workspace screen 'transfer.target.account' requires account choices");
+    }
+
+    private static WorkspaceData TransferAmount(WorkspaceData item)
+    {
+        TransferPair(item, "transfer.amount");
+        return item;
+    }
+
+    private static WorkspaceData TransferConfirm(WorkspaceData item)
+    {
+        TransferPair(item, "transfer.confirm");
+        return item.Transfer.Amount.HasValue ? item : throw new InvalidOperationException("Workspace screen 'transfer.confirm' requires amount");
+    }
+
+    private static void TransferPair(WorkspaceData item, string state)
+    {
+        if (string.IsNullOrWhiteSpace(item.Transfer.Source.Name))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires source account");
+        }
+        if (string.IsNullOrWhiteSpace(item.Transfer.Target.Name))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires target account");
+        }
+        if (string.IsNullOrWhiteSpace(item.Transfer.Source.Note) || string.IsNullOrWhiteSpace(item.Transfer.Target.Note))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires currency");
+        }
+        if (string.Equals(item.Transfer.Source.Id, item.Transfer.Target.Id, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires different accounts");
+        }
+        if (!string.Equals(item.Transfer.Source.Note, item.Transfer.Target.Note, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires same currency");
+        }
     }
 
     private static WorkspaceData RecentCategory(WorkspaceData item)

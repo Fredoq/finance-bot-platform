@@ -32,7 +32,7 @@ internal sealed class MigrationBoot : IHostedService
                                           end if;
                                       end;
                                       $$;
-                                      
+
                                       create table if not exists finance.category
                                       (
                                           id uuid primary key,
@@ -44,7 +44,7 @@ internal sealed class MigrationBoot : IHostedService
                                           created_utc timestamptz not null,
                                           updated_utc timestamptz not null
                                       );
-                                      
+
                                       create table if not exists finance.transaction_entry
                                       (
                                           id uuid primary key,
@@ -57,14 +57,104 @@ internal sealed class MigrationBoot : IHostedService
                                           created_utc timestamptz not null,
                                           updated_utc timestamptz not null
                                       );
-                                      
+
+                                      create table if not exists finance.account_transfer
+                                      (
+                                          id uuid primary key,
+                                          user_id uuid not null references finance.user_account(id) on delete cascade,
+                                          source_account_id uuid not null references finance.account(id) on delete cascade,
+                                          target_account_id uuid not null references finance.account(id) on delete cascade,
+                                          currency_code text not null,
+                                          amount numeric(19, 4) not null,
+                                          occurred_utc timestamptz not null,
+                                          created_utc timestamptz not null,
+                                          updated_utc timestamptz not null,
+                                          constraint ck_account_transfer_distinct_accounts check (source_account_id <> target_account_id),
+                                          constraint ck_account_transfer_positive_amount check (amount > 0)
+                                      );
+
+                                      do $$
+                                      begin
+                                          if exists (select 1 from information_schema.tables where table_schema = 'finance' and table_name = 'account_transfer') then
+                                              if not exists
+                                              (
+                                                  select 1
+                                                  from pg_constraint item
+                                                  join pg_class rel on rel.oid = item.conrelid
+                                                  join pg_namespace space on space.oid = rel.relnamespace
+                                                  where space.nspname = 'finance'
+                                                    and rel.relname = 'account_transfer'
+                                                    and item.conname = 'ck_account_transfer_distinct_accounts'
+                                                    and pg_get_constraintdef(item.oid) = 'CHECK ((source_account_id <> target_account_id))'
+                                              ) then
+                                                  alter table finance.account_transfer drop constraint if exists ck_account_transfer_distinct_accounts;
+                                                  alter table finance.account_transfer add constraint ck_account_transfer_distinct_accounts check (source_account_id <> target_account_id);
+                                              end if;
+                                              if not exists
+                                              (
+                                                  select 1
+                                                  from pg_constraint item
+                                                  join pg_class rel on rel.oid = item.conrelid
+                                                  join pg_namespace space on space.oid = rel.relnamespace
+                                                  where space.nspname = 'finance'
+                                                    and rel.relname = 'account_transfer'
+                                                    and item.conname = 'ck_account_transfer_positive_amount'
+                                                    and pg_get_constraintdef(item.oid) = 'CHECK ((amount > (0)::numeric))'
+                                              ) then
+                                                  alter table finance.account_transfer drop constraint if exists ck_account_transfer_positive_amount;
+                                                  alter table finance.account_transfer add constraint ck_account_transfer_positive_amount check (amount > 0);
+                                              end if;
+                                          end if;
+                                      end;
+                                      $$;
+
+                                      create or replace function finance.fn_account_transfer_integrity()
+                                      returns trigger
+                                      language plpgsql
+                                      as $$
+                                      declare
+                                          source_currency text;
+                                          target_currency text;
+                                      begin
+                                          select item.currency_code
+                                          into source_currency
+                                          from finance.account item
+                                          where item.id = new.source_account_id and item.user_id = new.user_id;
+                                          if source_currency is null then
+                                              raise exception 'Transfer source account is invalid for user';
+                                          end if;
+                                          select item.currency_code
+                                          into target_currency
+                                          from finance.account item
+                                          where item.id = new.target_account_id and item.user_id = new.user_id;
+                                          if target_currency is null then
+                                              raise exception 'Transfer target account is invalid for user';
+                                          end if;
+                                          if source_currency <> target_currency then
+                                              raise exception 'Transfer accounts must have same currency';
+                                          end if;
+                                          if new.currency_code <> source_currency then
+                                              raise exception 'Transfer currency must match account currency';
+                                          end if;
+                                          return new;
+                                      end;
+                                      $$;
+
+                                      drop trigger if exists trg_account_transfer_integrity on finance.account_transfer;
+                                      create trigger trg_account_transfer_integrity
+                                      before insert or update on finance.account_transfer
+                                      for each row execute function finance.fn_account_transfer_integrity();
+
                                       drop index if exists finance.ux_category_system_code;
                                       drop index if exists finance.ux_category_user_name;
                                       create index if not exists idx_category_user on finance.category(user_id) where user_id is not null;
                                       create unique index if not exists ux_category_system_code on finance.category(kind, code) where user_id is null;
                                       create unique index if not exists ux_category_user_name on finance.category(user_id, kind, lower(name)) where user_id is not null;
                                       create index if not exists idx_transaction_entry_user_occurred on finance.transaction_entry(user_id, occurred_utc desc);
-                                      
+                                      create index if not exists idx_account_transfer_user_occurred on finance.account_transfer(user_id, occurred_utc desc);
+                                      create index if not exists idx_account_transfer_source on finance.account_transfer(source_account_id);
+                                      create index if not exists idx_account_transfer_target on finance.account_transfer(target_account_id);
+
                                       do $$
                                       begin
                                           if exists (select 1 from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry') then
@@ -73,7 +163,7 @@ internal sealed class MigrationBoot : IHostedService
                                           end if;
                                       end;
                                       $$;
-                                      
+
                                       with seed(id, kind, code, name) as
                                       (
                                           values
@@ -101,7 +191,7 @@ internal sealed class MigrationBoot : IHostedService
                                       where current.scope = 'system'
                                         and current.id <> seed.id::uuid
                                         and item.category_id = current.id;
-                                      
+
                                       with seed(id, kind, code) as
                                       (
                                           values
@@ -128,7 +218,7 @@ internal sealed class MigrationBoot : IHostedService
                                         and current.kind = seed.kind
                                         and current.code = seed.code
                                         and current.id <> seed.id::uuid;
-                                      
+
                                       with seed(id, kind, code, name) as
                                       (
                                           values
@@ -235,11 +325,15 @@ internal sealed class MigrationBoot : IHostedService
         {
             return true;
         }
-        if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token))
+        if (!await Exists(link, "category", token) || !await Exists(link, "transaction_entry", token) || !await Exists(link, "account_transfer", token))
         {
             return true;
         }
         if (!await Cascade(link, token))
+        {
+            return true;
+        }
+        if (!await Transfer(link, token))
         {
             return true;
         }
@@ -285,6 +379,62 @@ internal sealed class MigrationBoot : IHostedService
                                                   and constraint_name = 'transaction_entry_category_id_fkey'
                                                   and delete_rule = 'CASCADE'
                                             )
+                                            """, link);
+        object? data = await note.ExecuteScalarAsync(token);
+        return data is true;
+    }
+    private static async ValueTask<bool> Transfer(NpgsqlConnection link, CancellationToken token)
+    {
+        await using NpgsqlCommand note = new("""
+                                            select
+                                                exists
+                                                (
+                                                    select 1
+                                                    from pg_constraint item
+                                                    join pg_class rel on rel.oid = item.conrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.conname = 'ck_account_transfer_distinct_accounts'
+                                                      and pg_get_constraintdef(item.oid) = 'CHECK ((source_account_id <> target_account_id))'
+                                                )
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_constraint item
+                                                    join pg_class rel on rel.oid = item.conrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.conname = 'ck_account_transfer_positive_amount'
+                                                      and pg_get_constraintdef(item.oid) = 'CHECK ((amount > (0)::numeric))'
+                                                )
+                                                and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_user_occurred')
+                                                and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_source')
+                                                and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_target')
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_proc item
+                                                    join pg_namespace space on space.oid = item.pronamespace
+                                                    where space.nspname = 'finance'
+                                                      and item.proname = 'fn_account_transfer_integrity'
+                                                      and position('where item.id = new.source_account_id and item.user_id = new.user_id' in pg_get_functiondef(item.oid)) > 0
+                                                      and position('where item.id = new.target_account_id and item.user_id = new.user_id' in pg_get_functiondef(item.oid)) > 0
+                                                      and position('new.currency_code <> source_currency' in pg_get_functiondef(item.oid)) > 0
+                                                )
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_trigger item
+                                                    join pg_class rel on rel.oid = item.tgrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.tgname = 'trg_account_transfer_integrity'
+                                                      and not item.tgisinternal
+                                                      and pg_get_triggerdef(item.oid, true) = 'CREATE TRIGGER trg_account_transfer_integrity BEFORE INSERT OR UPDATE ON finance.account_transfer FOR EACH ROW EXECUTE FUNCTION finance.fn_account_transfer_integrity()'
+                                                )
                                             """, link);
         object? data = await note.ExecuteScalarAsync(token);
         return data is true;
