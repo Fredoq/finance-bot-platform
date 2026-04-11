@@ -76,10 +76,32 @@ internal sealed class MigrationBoot : IHostedService
                                       do $$
                                       begin
                                           if exists (select 1 from information_schema.tables where table_schema = 'finance' and table_name = 'account_transfer') then
-                                              if not exists (select 1 from information_schema.table_constraints where table_schema = 'finance' and table_name = 'account_transfer' and constraint_name = 'ck_account_transfer_distinct_accounts') then
+                                              if not exists
+                                              (
+                                                  select 1
+                                                  from pg_constraint item
+                                                  join pg_class rel on rel.oid = item.conrelid
+                                                  join pg_namespace space on space.oid = rel.relnamespace
+                                                  where space.nspname = 'finance'
+                                                    and rel.relname = 'account_transfer'
+                                                    and item.conname = 'ck_account_transfer_distinct_accounts'
+                                                    and pg_get_constraintdef(item.oid) = 'CHECK ((source_account_id <> target_account_id))'
+                                              ) then
+                                                  alter table finance.account_transfer drop constraint if exists ck_account_transfer_distinct_accounts;
                                                   alter table finance.account_transfer add constraint ck_account_transfer_distinct_accounts check (source_account_id <> target_account_id);
                                               end if;
-                                              if not exists (select 1 from information_schema.table_constraints where table_schema = 'finance' and table_name = 'account_transfer' and constraint_name = 'ck_account_transfer_positive_amount') then
+                                              if not exists
+                                              (
+                                                  select 1
+                                                  from pg_constraint item
+                                                  join pg_class rel on rel.oid = item.conrelid
+                                                  join pg_namespace space on space.oid = rel.relnamespace
+                                                  where space.nspname = 'finance'
+                                                    and rel.relname = 'account_transfer'
+                                                    and item.conname = 'ck_account_transfer_positive_amount'
+                                                    and pg_get_constraintdef(item.oid) = 'CHECK ((amount > (0)::numeric))'
+                                              ) then
+                                                  alter table finance.account_transfer drop constraint if exists ck_account_transfer_positive_amount;
                                                   alter table finance.account_transfer add constraint ck_account_transfer_positive_amount check (amount > 0);
                                               end if;
                                           end if;
@@ -365,13 +387,54 @@ internal sealed class MigrationBoot : IHostedService
     {
         await using NpgsqlCommand note = new("""
                                             select
-                                                exists (select 1 from information_schema.table_constraints where table_schema = 'finance' and table_name = 'account_transfer' and constraint_name = 'ck_account_transfer_distinct_accounts')
-                                                and exists (select 1 from information_schema.table_constraints where table_schema = 'finance' and table_name = 'account_transfer' and constraint_name = 'ck_account_transfer_positive_amount')
+                                                exists
+                                                (
+                                                    select 1
+                                                    from pg_constraint item
+                                                    join pg_class rel on rel.oid = item.conrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.conname = 'ck_account_transfer_distinct_accounts'
+                                                      and pg_get_constraintdef(item.oid) = 'CHECK ((source_account_id <> target_account_id))'
+                                                )
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_constraint item
+                                                    join pg_class rel on rel.oid = item.conrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.conname = 'ck_account_transfer_positive_amount'
+                                                      and pg_get_constraintdef(item.oid) = 'CHECK ((amount > (0)::numeric))'
+                                                )
                                                 and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_user_occurred')
                                                 and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_source')
                                                 and exists (select 1 from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_target')
-                                                and exists (select 1 from information_schema.routines where routine_schema = 'finance' and routine_name = 'fn_account_transfer_integrity')
-                                                and exists (select 1 from information_schema.triggers where trigger_schema = 'finance' and event_object_table = 'account_transfer' and trigger_name = 'trg_account_transfer_integrity')
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_proc item
+                                                    join pg_namespace space on space.oid = item.pronamespace
+                                                    where space.nspname = 'finance'
+                                                      and item.proname = 'fn_account_transfer_integrity'
+                                                      and position('where item.id = new.source_account_id and item.user_id = new.user_id' in pg_get_functiondef(item.oid)) > 0
+                                                      and position('where item.id = new.target_account_id and item.user_id = new.user_id' in pg_get_functiondef(item.oid)) > 0
+                                                      and position('new.currency_code <> source_currency' in pg_get_functiondef(item.oid)) > 0
+                                                )
+                                                and exists
+                                                (
+                                                    select 1
+                                                    from pg_trigger item
+                                                    join pg_class rel on rel.oid = item.tgrelid
+                                                    join pg_namespace space on space.oid = rel.relnamespace
+                                                    where space.nspname = 'finance'
+                                                      and rel.relname = 'account_transfer'
+                                                      and item.tgname = 'trg_account_transfer_integrity'
+                                                      and not item.tgisinternal
+                                                      and pg_get_triggerdef(item.oid, true) = 'CREATE TRIGGER trg_account_transfer_integrity BEFORE INSERT OR UPDATE ON finance.account_transfer FOR EACH ROW EXECUTE FUNCTION finance.fn_account_transfer_integrity()'
+                                                )
                                             """, link);
         object? data = await note.ExecuteScalarAsync(token);
         return data is true;

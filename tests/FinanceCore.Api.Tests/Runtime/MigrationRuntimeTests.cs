@@ -70,6 +70,33 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
     }
     /// <summary>
+    /// Verifies that startup repairs drifted account transfer schema artifacts.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Repairs the account transfer schema after a journaled baseline startup")]
+    public async Task Repairs_transfer()
+    {
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-transfer-a")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        await Execute("""
+                      drop trigger if exists trg_account_transfer_integrity on finance.account_transfer;
+                      drop index if exists finance.idx_account_transfer_target;
+                      alter table finance.account_transfer drop constraint if exists ck_account_transfer_positive_amount;
+                      alter table finance.account_transfer add constraint ck_account_transfer_positive_amount check (amount > -1);
+                      """);
+        await using (var host = new CoreApiFactory(Settings("finance-core-migration-transfer-b")))
+        {
+            using HttpClient client = host.CreateClient();
+            await Ready(client);
+        }
+        Assert.Equal(1, await Number("select count(distinct trigger_name) from information_schema.triggers where trigger_schema = 'finance' and event_object_table = 'account_transfer' and trigger_name = 'trg_account_transfer_integrity'"));
+        Assert.Equal(1, await Number("select count(*) from pg_indexes where schemaname = 'finance' and tablename = 'account_transfer' and indexname = 'idx_account_transfer_target'"));
+        Assert.Equal(1, await Number("select count(*) from pg_constraint item join pg_class rel on rel.oid = item.conrelid join pg_namespace space on space.oid = rel.relnamespace where space.nspname = 'finance' and rel.relname = 'account_transfer' and item.conname = 'ck_account_transfer_positive_amount' and pg_get_constraintdef(item.oid) = 'CHECK ((amount > (0)::numeric))'"));
+    }
+    /// <summary>
     /// Verifies that startup repairs the user time zone column after the baseline was already journaled.
     /// </summary>
     /// <returns>A task that completes when the assertions finish.</returns>
