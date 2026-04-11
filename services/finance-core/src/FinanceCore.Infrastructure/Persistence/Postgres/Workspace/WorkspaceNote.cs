@@ -99,9 +99,29 @@ internal sealed record TransferNote
 {
     internal TransferNote(string sourceId, string targetId, string currency, decimal total)
     {
-        SourceId = sourceId ?? throw new ArgumentNullException(nameof(sourceId));
-        TargetId = targetId ?? throw new ArgumentNullException(nameof(targetId));
-        Currency = currency ?? throw new ArgumentNullException(nameof(currency));
+        if (string.IsNullOrWhiteSpace(sourceId))
+        {
+            throw new ArgumentException("Transfer source account is required", nameof(sourceId));
+        }
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            throw new ArgumentException("Transfer target account is required", nameof(targetId));
+        }
+        if (string.IsNullOrWhiteSpace(currency))
+        {
+            throw new ArgumentException("Transfer currency is required", nameof(currency));
+        }
+        if (string.Equals(sourceId, targetId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Transfer accounts must be different", nameof(targetId));
+        }
+        if (total <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(total), "Transfer amount must be greater than zero");
+        }
+        SourceId = sourceId;
+        TargetId = targetId;
+        Currency = currency;
         Total = total;
     }
     internal string SourceId { get; }

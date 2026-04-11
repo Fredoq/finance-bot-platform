@@ -76,9 +76,46 @@ create table if not exists finance.account_transfer
     occurred_utc timestamptz not null,
     created_utc timestamptz not null,
     updated_utc timestamptz not null,
-    check (source_account_id <> target_account_id),
-    check (amount > 0)
+    constraint ck_account_transfer_distinct_accounts check (source_account_id <> target_account_id),
+    constraint ck_account_transfer_positive_amount check (amount > 0)
 );
+
+create or replace function finance.fn_account_transfer_integrity()
+returns trigger
+language plpgsql
+as $$
+declare
+    source_currency text;
+    target_currency text;
+begin
+    select item.currency_code
+    into source_currency
+    from finance.account item
+    where item.id = new.source_account_id and item.user_id = new.user_id;
+    if source_currency is null then
+        raise exception 'Transfer source account is invalid for user';
+    end if;
+    select item.currency_code
+    into target_currency
+    from finance.account item
+    where item.id = new.target_account_id and item.user_id = new.user_id;
+    if target_currency is null then
+        raise exception 'Transfer target account is invalid for user';
+    end if;
+    if source_currency <> target_currency then
+        raise exception 'Transfer accounts must have same currency';
+    end if;
+    if new.currency_code <> source_currency then
+        raise exception 'Transfer currency must match account currency';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_account_transfer_integrity on finance.account_transfer;
+create trigger trg_account_transfer_integrity
+before insert or update on finance.account_transfer
+for each row execute function finance.fn_account_transfer_integrity();
 
 create table if not exists finance.category_rule
 (

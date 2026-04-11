@@ -199,6 +199,14 @@ internal sealed class WorkspaceBody
         {
             throw new InvalidOperationException($"Workspace screen '{state}' requires currency");
         }
+        if (string.Equals(item.Transfer.Source.Id, item.Transfer.Target.Id, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires different accounts");
+        }
+        if (!string.Equals(item.Transfer.Source.Note, item.Transfer.Target.Note, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Workspace screen '{state}' requires same currency");
+        }
     }
 
     private static WorkspaceData RecentCategory(WorkspaceData item)

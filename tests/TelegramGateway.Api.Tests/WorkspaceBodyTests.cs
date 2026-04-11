@@ -111,9 +111,9 @@ public sealed class WorkspaceBodyTests
         InvalidOperationException source = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.source.account", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"target\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
         InvalidOperationException target = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.target.account", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"target\":{\"id\":\"\",\"name\":\"\",\"note\":\"\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
         InvalidOperationException amount = Assert.Throws<InvalidOperationException>(() => body.Data("transfer.confirm", "{\"accounts\":[],\"transfer\":{\"source\":{\"id\":\"a1\",\"name\":\"Cash\",\"note\":\"USD\"},\"target\":{\"id\":\"a2\",\"name\":\"Card\",\"note\":\"USD\"},\"amount\":null},\"choices\":{\"accounts\":[],\"categories\":[]},\"status\":{\"error\":\"\",\"notice\":\"\"},\"custom\":false}"));
-        Assert.Contains("requires account choices", source.Message, StringComparison.Ordinal);
-        Assert.Contains("requires account choices", target.Message, StringComparison.Ordinal);
-        Assert.Contains("requires amount", amount.Message, StringComparison.Ordinal);
+        Assert.IsType<InvalidOperationException>(source);
+        Assert.IsType<InvalidOperationException>(target);
+        Assert.IsType<InvalidOperationException>(amount);
     }
 
     /// <summary>

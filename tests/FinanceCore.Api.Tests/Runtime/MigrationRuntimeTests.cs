@@ -22,6 +22,7 @@ public sealed class MigrationRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'user_account'"));
         Assert.Equal(1, await Number("select count(*) from information_schema.columns where table_schema = 'finance' and table_name = 'user_account' and column_name = 'time_zone' and is_nullable = 'NO'"));
         Assert.Equal(1, await Number("select count(*) from information_schema.tables where table_schema = 'finance' and table_name = 'transaction_entry'"));
+        Assert.Equal(1, await Number("select count(distinct trigger_name) from information_schema.triggers where trigger_schema = 'finance' and event_object_table = 'account_transfer' and trigger_name = 'trg_account_transfer_integrity'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'expense'"));
         Assert.Equal(8, await Number("select count(*) from finance.category where scope = 'system' and kind = 'income'"));
     }

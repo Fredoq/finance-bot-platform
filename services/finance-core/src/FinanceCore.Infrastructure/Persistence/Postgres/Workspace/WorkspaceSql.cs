@@ -82,6 +82,10 @@ internal sealed class WorkspaceSql
 
     internal async ValueTask<bool> Transfer(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, TransferNote note, DateTimeOffset when, CancellationToken token)
     {
+        if (note.Total <= 0m || Scale(note.Total) > 4)
+        {
+            throw new ArgumentOutOfRangeException(nameof(note), "Transfer amount is invalid");
+        }
         Guid sourceId = Parse(note.SourceId, nameof(note.SourceId));
         Guid targetId = Parse(note.TargetId, nameof(note.TargetId));
         if (sourceId == targetId)
@@ -131,6 +135,8 @@ internal sealed class WorkspaceSql
         }
         return true;
     }
+
+    private static int Scale(decimal value) => (decimal.GetBits(value)[3] >> 16) & 0xFF;
 
     internal async ValueTask<IReadOnlyList<AccountData>> Accounts(NpgsqlConnection link, NpgsqlTransaction lane, Guid userId, CancellationToken token)
     {

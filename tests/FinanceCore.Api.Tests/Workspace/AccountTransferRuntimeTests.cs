@@ -3,6 +3,7 @@ using System.Text.Json;
 using Finance.Application.Contracts.Entry;
 using Finance.Application.Contracts.Messaging;
 using FinanceCore.Api.Tests.Infrastructure;
+using Npgsql;
 
 namespace FinanceCore.Api.Tests.Workspace;
 
@@ -67,6 +68,28 @@ public sealed class AccountTransferRuntimeTests : FinanceCoreRuntimeSuite
         Assert.Equal(0, await Number("select count(*) from finance.transaction_entry"));
         Assert.Equal(75m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Cash'"), CultureInfo.InvariantCulture));
         Assert.Equal(75m, decimal.Parse(await Scalar("select current_amount::text from finance.account where name = 'Card'"), CultureInfo.InvariantCulture));
+    }
+    /// <summary>
+    /// Verifies that account transfer storage rejects cross-user account references.
+    /// </summary>
+    /// <returns>A task that completes when the assertions finish.</returns>
+    [Fact(DisplayName = "Rejects cross user account transfer inserts")]
+    public async Task Rejects_cross_user_transfer_insert()
+    {
+        string queue = $"view-{Guid.CreateVersion7():N}";
+        await using var host = new CoreApiFactory(Settings("finance-core-transfer-guard"));
+        using HttpClient client = host.CreateClient();
+        await Ready(client);
+        await Reset();
+        await Bind(queue, "workspace.view.requested");
+        await Create(queue, "actor-transfer-guard-a", "room-transfer-guard-a", "Cash", "USD", "100", "transfer-guard-one");
+        await Create(queue, "actor-transfer-guard-b", "room-transfer-guard-b", "Card", "USD", "50", "transfer-guard-two");
+        var user = Guid.Parse(await Scalar("select id::text from finance.user_account where actor_key = @actor", ("actor", "actor-transfer-guard-a")));
+        var source = Guid.Parse(await Scalar("select id::text from finance.account where user_id = @user and name = @name", ("user", user), ("name", "Cash")));
+        var target = Guid.Parse(await Scalar("select id::text from finance.account where name = @name", ("name", "Card")));
+        PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => Execute("insert into finance.account_transfer(id, user_id, source_account_id, target_account_id, currency_code, amount, occurred_utc, created_utc, updated_utc) values (@id, @user, @source, @target, @currency, @amount, @when, @when, @when)", ("id", Guid.CreateVersion7()), ("user", user), ("source", source), ("target", target), ("currency", "USD"), ("amount", 1m), ("when", DateTimeOffset.UtcNow)));
+        Assert.Equal("P0001", error.SqlState);
+        Assert.Equal(0, await Number("select count(*) from finance.account_transfer"));
     }
     /// <summary>
     /// Verifies that target account choices exclude other currencies and the source account.
@@ -195,6 +218,9 @@ public sealed class AccountTransferRuntimeTests : FinanceCoreRuntimeSuite
         await Publish(Input("actor-transfer-reports", "room-transfer-reports", "action", "category.month.show", "transfer-reports-7"));
         MessageEnvelope<WorkspaceViewRequestedCommand> breakdown = await Take(queue, "transfer-reports-7");
         Assert.Equal(0, Count(breakdown.Payload.Frame.StateData, "breakdown"));
+        await Publish(Input("actor-transfer-reports", "room-transfer-reports", "action", "transaction.recent.show", "transfer-reports-8"));
+        MessageEnvelope<WorkspaceViewRequestedCommand> recent = await Take(queue, "transfer-reports-8");
+        Assert.Equal(0, Recent(recent.Payload.Frame.StateData));
     }
     private async Task Open(string queue, string actor, string room, string id)
     {
@@ -268,5 +294,10 @@ public sealed class AccountTransferRuntimeTests : FinanceCoreRuntimeSuite
     {
         using var item = JsonDocument.Parse(data);
         return item.RootElement.GetProperty(name).GetProperty("currencies").GetArrayLength();
+    }
+    private static int Recent(string data)
+    {
+        using var item = JsonDocument.Parse(data);
+        return item.RootElement.GetProperty("recent").GetProperty("items").GetArrayLength();
     }
 }

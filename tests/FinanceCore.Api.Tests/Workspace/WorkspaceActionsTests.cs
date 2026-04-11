@@ -90,11 +90,11 @@ public sealed class WorkspaceActionsTests
     {
         var item = new WorkspaceActions();
         IReadOnlyList<string> source = item.Codes("transfer.source.account", new WorkspaceActionContext(2, 2, 0, 0, page, new MonthPaging(false, false), false));
-        IReadOnlyList<string> target = item.Codes("transfer.target.account", new WorkspaceActionContext(2, 2, 0, 0, page, new MonthPaging(false, false), false));
+        IReadOnlyList<string> target = item.Codes("transfer.target.account", new WorkspaceActionContext(2, 1, 0, 0, page, new MonthPaging(false, false), false));
         IReadOnlyList<string> amount = item.Codes("transfer.amount", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
         IReadOnlyList<string> confirm = item.Codes("transfer.confirm", new WorkspaceActionContext(2, 0, 0, 0, page, new MonthPaging(false, false), false));
         Assert.Equal(["transfer.source.account.1", "transfer.source.account.2", "transfer.cancel"], source);
-        Assert.Equal(["transfer.target.account.1", "transfer.target.account.2", "transfer.cancel"], target);
+        Assert.Equal(["transfer.target.account.1", "transfer.cancel"], target);
         Assert.Equal(["transfer.cancel"], amount);
         Assert.Equal(["transfer.create", "transfer.cancel"], confirm);
     }
